@@ -13,7 +13,7 @@ import sys
 PRIOR_LOW = 0.2
 PRIOR_UP = 3
 PRIOR_UP_H0 = 220
-PRIOR_LOW_H0 = 20
+PRIOR_LOW_H0 = 10
 
 clight= 2.99792458* 10**5
 
@@ -31,7 +31,7 @@ colnames_GLADE = ['PGC', 'GWGC name', 'HyperLEDA_name', '2MASS_name', 'SDSS-DR12
             'flag2', 'flag3']
 
 # sublist of columns to keep
-col_list_GLADE=  ['PGC', 'GWGC name','RA', 'dec', 'dist', 'z',  'B', 'K', 'flag2']
+col_list_GLADE=  ['PGC', 'GWGC name','HyperLEDA_name','RA', 'dec', 'dist', 'z',  'B', 'K', 'flag2']
 
 
 
@@ -56,7 +56,8 @@ def edit_catalogue(df,
                    add_B_lum=True, MBSun=5.498,
                    add_K_lum=True, MKSun=3.27,
                    which_z='z_cosmo_corr',
-                   err_vals='GLADE'
+                   err_vals='GLADE',
+                   drop_HyperLeda2=True,
                    ):
     
         '''
@@ -198,7 +199,11 @@ def edit_catalogue(df,
             print('Keeping only galaxies with known value of luminosity distance...')
             df=df[df.dist.notna()==True]
             print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-            
+        
+        if drop_HyperLeda2:
+            print("Dropping galaxies with HyperLeda name=null and flag2=2...")
+            df=df.drop(df[(df['HyperLEDA_name'].isna()) & (df['flag2']==2)].index)
+            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.00%}".format(df.shape[0]/or_dim)+' of total' )
         
         
         # ------ Add useful columns
@@ -206,6 +211,7 @@ def edit_catalogue(df,
         
         if get_cosmo_z:
             print('Computing cosmological redshifts from given luminosity distance with H0=%s, Om0=%s...' %(cosmo.H0, cosmo.Om0))
+
             
             z_max = df[df.dist.notna()]['z'].max() +0.01
             z_min = max(0, df[df.dist.notna()]['z'].min() - 1e-05)
@@ -213,13 +219,21 @@ def edit_catalogue(df,
             z_grid = np.linspace(z_min, z_max, 200000)
             dL_grid = cosmo.luminosity_distance(z_grid).value
             
-            dLvals = df[df.dist.notna()]['dist']
-            print('%s points have valid entry for dist' %dLvals.shape[0])
-            zvals = df[df.dist.isna()]['z']
-            print('%s points have null entry for dist, correcting original redshift' %zvals.shape[0])
-            z_cosmo_vals = np.where(df.dist.notna(), np.interp( df.dist , dL_grid, z_grid), df.z) 
-            #z_cosmo_vals = np.interp( df.dist , dL_grid, z_grid)
-            df.loc[:,'z_cosmo'] = z_cosmo_vals #np.interp( df.dist , dL_grid, z_grid)
+            if not drop_no_dist:
+                dLvals = df[df.dist.notna()]['dist']
+                print('%s points have valid entry for dist' %dLvals.shape[0])
+                zvals = df[df.dist.isna()]['z']
+                print('%s points have null entry for dist, correcting original redshift' %zvals.shape[0])
+                z_cosmo_vals = np.where(df.dist.notna(), np.interp( df.dist , dL_grid, z_grid), df.z) 
+                #z_cosmo_vals = np.interp( df.dist , dL_grid, z_grid)
+            
+            else:
+                z_cosmo_vals = np.interp( df.dist , dL_grid, z_grid)
+            
+            df.loc[:,'z_cosmo'] = z_cosmo_vals
+                
+            
+            
             
             if not CMB_correct and not group_correct and pos_z_cosmo:
                 print('Keeping only galaxies with positive cosmological redshift...')
@@ -316,8 +330,6 @@ def group_correction(df, df_groups, which_z_correct):
             print('Correcting %s for group velocities...' %which_z_correct)
    
             
-            #df_groups =  pd.read_csv(group_cat_path)#, sep=" ", header=None)
-            
             zs = df.loc[df['PGC'].isin(df_groups['PGC'])][['PGC', which_z_correct]] 
             z_corr_arr = []
             #z_group_arr = []
@@ -328,19 +340,11 @@ def group_correction(df, df_groups, which_z_correct):
                 
                 z_group = df_groups[df_groups['PGC1']== PGC1].HRV.mean()/clight
                 
-                #z_group = df_groups[df_groups['PGC']==PGC]['HRV'].values[0]/clight
-                #z_corr = z_or+z_group
-                #z_corr_arr.append(z_corr)
-                #z_group_arr.append(z_group)
                 
                 z_corr_arr.append(z_group)
             z_corr_arr=np.array(z_corr_arr)
-            #z_group_arr=np.array(z_group_arr)
-            #df.loc[:, 'z_group'] = np.zeros(df.shape[0])
             
-            df.loc[df['PGC'].isin(df_groups['PGC']), which_z_correct] = z_corr_arr
-            #df.loc[df['PGC'].isin(df_groups['PGC']), 'z_group'] = z_group_arr
-                        
+            df.loc[df['PGC'].isin(df_groups['PGC']), which_z_correct] = z_corr_arr                        
             correction_flag_array = np.where(df[which_z_correct+'_or'] != df[which_z_correct], 1, 0)
             df.loc[:, 'group_correction'] = correction_flag_array
             
@@ -369,26 +373,18 @@ def gal_to_eq(l, b):
 
 def compute_Blum(inside_gal_df, band, H0):
     l_name=band+'_Lum'
-    #B_Abs=inside_gal_df.B.values-5*np.log10(r)-25
-    #inside_gal_df['B_Abs']=B_Abs
-    #inside_gal_df[l_name]  = inside_gal_df.B_Abs.apply(lambda x: TotL(x, MSun=5.498))
     inside_gal_df.loc[:, l_name] = inside_gal_df[l_name]/(H0/70)**2
     return inside_gal_df
 
 
 def compute_Klum(inside_gal_df, band, H0):
     l_name=band+'_Lum'
-    #K_Abs=inside_gal_df.K.values-5*np.log10(r)-25
-    #inside_gal_df['K_Abs']=K_Abs
-    #inside_gal_df[l_name]  = inside_gal_df.K_Abs.apply(lambda x: TotL(x, MSun=3.27))
     inside_gal_df.loc[:, l_name] = inside_gal_df[l_name]/(H0/70)**2
     return inside_gal_df
 
 def TotL(x, MSun=5.498): 
     return 10**(-0.4* (x+25-MSun))
 
-#def p_vol(z, cosmo, clight=2.99792458* 10**5):
-#   return clight*(cosmo.comoving_distance(z).value)**2/cosmo.H(z).value
 
 def minmaxz(cosmo, z_min=None, z_max=None, dL_min=None, dL_max=None, Xi0=1, n=1.91):
         
@@ -442,12 +438,16 @@ def com_vol(cosmo,
 
     
 def dL_GW(cosmo, z, Xi0=1, n=1.91):
-
-   return (cosmo.luminosity_distance(z).value)*Xi(z, Xi0, n) 
+    '''
+    Modified GW luminosity distance
+    '''
+    return (cosmo.luminosity_distance(z).value)*Xi(z, Xi0, n) 
 
 
 def dL_GW_from_dL(cosmo, ref_cosmo, dL,  Xi0=1, n=1.91):  
-    
+    '''
+    Modified GW luminosity distance from luminosity distance given reference cosmology
+    '''
     z_val = z(dL, ref_cosmo, Xi0=1, n=1.91, H0=None)
     
     return dL_GW(cosmo, z_val, Xi0=Xi0, n=n)
@@ -479,14 +479,6 @@ def z(dL_GW_val, cosmo, Xi0=1, n=1.91, H0=None):
     return z[0]
  
     
-#def V_c(z_min, z_max, cosmo):
-    
-#    from scipy.integrate import quad        
-#    V_c = quad(lambda z: p_vol(z, cosmo), z_min, z_max )[0]
-#    return V_c
-
-
-    
 # ---------------------------------------------
 
 def hav(theta):
@@ -509,37 +501,7 @@ def get_thphicone(center, psi):
     #phi_max = (np.sign(phi0+psi)*np.abs(phi0+psi))%(2*np.pi)
 
     return theta_min, theta_max, phi_min, phi_max
-          
-
-def plot_beta_events(GWGal, H0min=10,H0max=200,num=200,scale="linear", **params): 
-  
-    H0_grid   = np.linspace(start=H0min, stop=H0max, num=num)
-    fig, ax = plt.subplots(1, figsize=(12,6))
-    
-    for event in GWGal.GWevents:
-        
-        beta_grid=[]
-        for H0i in H0_grid:
-            val = GWGal.GWevents[event].beta(cat=GWGal.galCat.cat, Xi0=1, H0=H0i, **params) 
-            beta_grid.append(val)
-        
-        beta_grid=np.array(beta_grid)
-        ax.plot(H0_grid,beta_grid, label = event+', $d_{{max}} = {}$ Mpc'.format(GWGal.GWevents[event].d_max())
-                +', $d_{{obs}} = {}$ Mpc'.format(GWGal.GWevents[event].metadata['luminosity_distance'].values[0])
-               + ', SNR = %s' %GWGal.GWevents[event].metadata['network_matched_filter_snr'].values[0]) 
-
-    ax.plot(H0_grid, H0_grid**3*beta_grid[-1]/H0_grid[-1]**3, label=r'$\propto H_0^3$')
-    ax.grid(linestyle='dotted', linewidth='0.6')
-    ax.set_xlim(H0min, H0max)
-#    ax.set_ylim(0, 160)
-    ax.set_xlabel(r'$H_0$', fontsize=20);
-    ax.set_ylabel(r'$\beta(H_0)$', fontsize=20);
-    plt.yscale(scale);
-
-    ax.legend(fontsize=14);
-    plt.show()
-    
-    return 
+ 
 
 
 def get_GW_metadata(event, host='https://www.gw-openscience.org', **params):

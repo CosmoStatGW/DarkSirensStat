@@ -67,11 +67,7 @@ class GWGalaxy(object):
         self.idxs={}
         
          
-        #self.GW_metadata = self._get_GW_metadata(meta_path)
-            
-    #def _get_GW_metadata(self, meta_path):
-    #    df = pd.read_csv(meta_path)
-    #    return df
+ 
     
     def loc_region(self, event_name='GW170817', 
                         levels=[0.9, 0.5], s=0, show_plot=True, 
@@ -84,8 +80,8 @@ class GWGalaxy(object):
         
         gal_coordinates: (df['RA'],df['dec'],df['z']) of points we want to add to the plot
     
-        Finds probability regions specified by levels and plots the contours if show_plot=True
-        If gal_coordinates are specified, adds scatter plot of objects 
+        Finds probability regions specified by levels (and plots the contours if show_plot=True)
+        If gal_coordinates are specified, adds scatter plot of them 
         with color palette specifying redshift
         
         Returns:
@@ -141,7 +137,7 @@ class GWGalaxy(object):
         
         
         """
-        2D plot in the RA, dec plane around an even specified by event_coords in RA, dec
+        2D plot in the RA, dec plane around an event specified by event_coords in RA, dec
         
         """
 
@@ -212,13 +208,17 @@ class GWGalaxy(object):
              band='B', L_star_frac=0.25,
              **params):
         '''
+        
+        If use_credible_regions==True:
             Finds all the galaxies in catalogue that are in the k% proability region with k=level
             of the GW event in skymap and between min and max z
     
-    
-            (Or: Finds all the galaxies in catalogue that are in specified region 
-             of the GW event in skymap and between min and max z. Region can be specified by radius, square, ... )
-    
+        Else:
+             Finds all the galaxies in catalogue that are in specified region 
+             of the GW event in skymap and between min and max z. 
+             The region can be a cone of radius r (if r is not None) or a square of side side (if side is not None)
+        
+        'At least one of use_credible_regions, radius, side must be specified'
 
         '''
 
@@ -316,6 +316,7 @@ class GWGalaxy(object):
                        plot=False, Verbose=False,
                        use_hp=False, nside=64, fsize=(8,8), Delta=5,  band='B', L_star_frac = 0.25, LKstar = 7.57, H0=None):
         """
+        Finds all the galaxies in catalogue that are in a cone
         r : radius of the search in radians (angular opening of the cone)
         Omega: solid angle of the search in degrees^2 
         
@@ -370,26 +371,22 @@ class GWGalaxy(object):
                      z_err=True, #err_vals='const',
                      Verbose=False, npoints_convolution=None, band=None, L_star_frac=0. ,                   
                       **params):
+        '''
+        GW likelihood from catalogue for a given event 
+        Returns: Likelihood, completeness fraction f, z_min, z_max
+        (If complete=False, f=1)
+        '''
         
         if H0==PRIOR_LOW_H0 or Xi0==PRIOR_LOW:
             Verbose=True
-        
-        #print('_GWgal_L_cat std_number: %s ' %std_number)
-        
+                
         if npoints_convolution is None:
             npoints_convolution=self.npoints_convolution
         cosmo = self._get_cosmo( H0=H0)
-        #print(cosmo.H0)
         
         if band is not None:
             l_name=band+'_Lum'
-        #band_name=str(band)
-            
-        
-        
-        #if Verbose:
-        #    print('Converting from z limits to lum distance limits with H0=%s' %self.galCat.cosmo.H0)
-             
+              
         
         if search_method=='credible_region':
             df_ind = event_name+search_method+position_val+str(level)+str(std_number)
@@ -436,10 +433,10 @@ class GWGalaxy(object):
             Verbose_selection=False
         inside_gal_df = self._select_by_lum(inside_gal_df, band, L_star_frac,  Verbose=Verbose_selection, event_name=event_name)
         
+        
         if not complete:
             if Verbose:
-                print('Using multiplicative completion')
-            #P_complete = lambda x: x
+                print('Not completing')
             f = 1
         elif completion=='uniform':
             if Verbose:
@@ -453,7 +450,7 @@ class GWGalaxy(object):
             if H0==PRIOR_LOW_H0 or Xi0==PRIOR_LOW:
                 print('f = %s for z_min, z_max = %s, %s' %(f, z_min, z_max))
         else:
-            raise NotImplementedError('For completion, only uniform method is available')
+            raise NotImplementedError('For completion, only uniform method is available, got %s ' %completion)
         
         if Verbose: 
             print('- Computing likelihood for catalogue part for %s and search method=%s....' %(event_name, search_method))
@@ -461,38 +458,13 @@ class GWGalaxy(object):
         
         # CONVOLUTION
         if z_err:
-           #if z_err_scheme=='saddle':
-           #    if Verbose:
-           #        print('Using saddle point approximation for the integral')
-                  
-            #z_grid=np.linspace(self.z_min_int, self.z_max_int, npoints_convolution)
-            #z_grid=np.linspace(z_min, z_max, 200)
             if Verbose:
-                #print('Computing convolution between %s and %s using a grid of %s points' %(min(z_grid), max(z_grid), z_grid.shape[0]))
-                #print('Errors: %s' %err_vals)
-                print('Computing convolution')
-            
-            #integrand_grid = np.array([self.GWevents[event_name].likelihood(dL_GW(cosmo, z, Xi0,n), inside_gal_df['RA'].values, inside_gal_df['dec'].values)*scipy.stats.norm.pdf(x=z,loc=inside_gal_df[self.which_z].values, scale=inside_gal_df['Delta_z'].values) for z in z_grid])
-            #Lr = np.trapz(integrand_grid, z_grid, axis=0)
-            
-            #from scipy.integrate import quad
-            #quad(lambda z: , 0, z_max+2)[0]
-            
-            
+                print('Convolving with redshift error')
             Lr = self.convolve_lik( event_name, inside_gal_df, H0=H0, Xi0=Xi0, n=n, which_z=self.which_z,
                                          a=(1-0.682689492137)*0.5, nsigma=3)
-            
-            
         else:
-            #raise NotImplementedError('Case with no z_err is still to fix')
-            #if not complete:
             Lr = self.GWevents[event_name].likelihood(inside_gal_df['r'].values, inside_gal_df['RA'].values, inside_gal_df['dec'].values)
-            #elif completion=='uniform':
-            #    z_grid=np.linspace(self.z_min_int, self.z_max_int, npoints_convolution)
-            #    if H0==PRIOR_LOW_H0 or Xi0==PRIOR_LOW:
-            #        print('Computing convolution between %s and %s using a grid of %s points' %(self.z_min_int, self.z_max_int, npoints_convolution))
-            #    integrand_grid = np.array([P_complete(z)*self.GWevents[event_name].likelihood(dL_GW(cosmo, z, Xi0,n), inside_gal_df['RA'].values, inside_gal_df['dec'].values) for z in z_grid])
-            #    Lr = np.trapz(integrand_grid, z_grid, axis=0) 
+
 
                 
         if lum_weighting:
@@ -503,16 +475,19 @@ class GWGalaxy(object):
             norm = inside_gal_df.shape[0]
         
         LL =  f*(np.dot(Lr,weights))/norm  #*self.GWevents[event_name].pixarea
-        #if Verbose:
-        #    print('Likelihood for complete part= %s \n' %(LL))
+       
         if H0==PRIOR_UP_H0 or Xi0==PRIOR_UP: 
             print('- Done for %s . \n' %event_name)
-        return LL
+        return LL, f, z_min, z_max
     
     
     
     def convolve_lik(self, event_name, gals, H0=None, Xi0=1, n=1.91, which_z='z_cosmo_corr',
                  a=(1-0.682689492137)*0.5, nsigma=3, nsampling=50, nkeeling=20) :
+            
+            '''
+            Convolves GW likelihood with redshift distribution
+            '''
             
             cosmo=self._get_cosmo(H0=H0)
             
@@ -564,7 +539,9 @@ class GWGalaxy(object):
    
     def _get_z_range(self, event_name, n=1.91, std_number=3, H0=None, Verbose=False, position_val='header'):
         
-        #print('_get_z_range std_number: %s ' %std_number)
+        '''
+        Computes range in redshift to search for a given event
+        '''
         strname = event_name+position_val+str(std_number)
         try:
             z_min, z_max = self.z_min[strname], self.z_max[strname]
@@ -586,6 +563,11 @@ class GWGalaxy(object):
       
     
     def GWgal_L_cat(self, events=None, **params):
+        ''' 
+        Input: events: list of GW events. If None, default will be self.GWevents (all the GW events in the object)
+        Wraps _GWgal_L_cat on all events
+        Output: np array of dimension (n_events x 4) where each row is given by the output of _GWgal_L_cat for one event
+        '''
         
         if events is None:
             events = self.GWevents
@@ -594,8 +576,13 @@ class GWGalaxy(object):
             LLtot.append( self._GWgal_L_cat(event, **params))
         
         return np.array(LLtot)
+    
       
     def _get_cosmo(self, H0=None):
+        '''
+        Given H0, returns astropy.cosmology FlatLambdaCDM object
+        If H0=None, 70 is used
+        '''
         if H0 is None:
             cosmo = self.galCat.cosmo
         else:
@@ -611,6 +598,9 @@ class GWGalaxy(object):
                       npoints=300,
                       z_min_int=None, z_max_int=None, Delta = 5e-03,
                       **params):
+        '''
+        GW LIKELIHOOD FROM THE MISSING PART
+        '''
         
         if H0==PRIOR_LOW_H0 or Xi0==PRIOR_LOW:
             Verbose=True
@@ -637,13 +627,7 @@ class GWGalaxy(object):
             idxs = self.GWevents[event_name].all_pixels[self.GWevents[event_name].p>p_th]
             self.idxs[idxs_str] = idxs
             print('Saved with key %s' %idxs_str)
-        
-        #zstrname = event_name+position_val+str(std_number)
-        #z1 = self.z_min[zstrname]
-        #z2 = self.z_max[zstrname]
-
-       
-         
+    
         
         P_complete = self.galCat.P_complete( 
                                                  band=band, L_star_frac=L_star_frac, 
@@ -657,11 +641,9 @@ class GWGalaxy(object):
                         Verbose=Verbose, position_val=position_val)
         else:
             (z_min, z_max) = (0, max_z)
-        #f = self.galCat.f(P_complete, z_min=z_min, z_max=z_max)
         P_miss = self.galCat.P_miss(P_complete, z_min=z_min, z_max=z_max)
         
-        #z_grid = np.linspace(self.z_min_int, self.z_max_int, npoints)
-        z_grid = np.log10(np.logspace(self.z_min_int, self.z_max_int, npoints))
+        z_grid = np.log10(np.logspace(z_min_int, z_max_int, npoints))
         
      
         if Verbose: 
@@ -674,26 +656,43 @@ class GWGalaxy(object):
         #from scipy.integrate import quad
         #integral = quad( ,z_min_int, z_max_int)[0]
         
-        
-        if Verbose: 
+        if H0<PRIOR_UP_H0:
+            Verbose=False
+        if Verbose : 
             print('- Done for %s.\n' %event_name)
         return integral #*(1-f)
     
     
-    def GWgal_L_miss(self, events=None, **params):
+    def GWgal_L_miss(self, events=None,z_mins=None, z_maxs=None, **params):
+        ''' 
+        Input:  - events: list of GW events. If None, default will be self.GWevents (all the GW events in the object)
+                - z_mins, z_maxs : lists of min and max redshifts for each of the events
+        
+        Wraps _GWgal_L_cat on all events
+        
+        Output: np array of dimension (n_events ) where each row is given by the output of _GWgal_L_miss for one event
+        '''
         
         if events is None:
             events = self.GWevents
         LLtot=[]
-        for event in events:        
-            LLtot.append( self._GWgal_L_miss(event, **params))
+        for i,event in enumerate(events):  
+            z_min, z_max = z_mins[i], z_maxs[i]
+            print('Check GWgal_L_miss: for %s, z_min=%s, z_max=%s' %(event, z_min, z_max))
+            LLtot.append( self._GWgal_L_miss(event,z_min_int=z_min, z_max_int=z_max, **params))
         
         return np.array(LLtot)
      
         
     def _select_by_lum(self, cat_tmp, band, L_star_frac, LKstar = 7.57, Verbose=True, event_name=''):
         
-
+        '''
+        Input:  - galaxy catalogue cat_tmp
+                - band B or K
+                - L_star_frac luminosity threshold in units of L_*
+        Output: galaxy catalogue with galaxies of luminosity in the given band larger than L_star_frac x L_*
+        
+        '''
         if band=='B':
             LBstar, _ = self.galCat._get_SchParams_B(H0=self.galCat.cosmo.H0.value)
             L_th = L_star_frac*LBstar
@@ -720,8 +719,14 @@ class GWGalaxy(object):
 
     
     
-    def _get_all_betas(self, cats=None, Xi0=1, H0=None, events=None,                       
-                       scheme='cat', band=None, lum_weighting=False, L_star_frac=0., LKstar = 7.57):
+    def _get_all_betas_cat(self, fs, cats=None, Xi0=1, H0=None, events=None,                       
+                       scheme='cat', band=None, lum_weighting=False, L_star_frac=0., LKstar = 7.57, z_err=True):
+        
+        '''
+        Computes betas from catalogue for all events given H0 or Xi0
+       
+        Output: np array of betas
+        '''
         
         if events is None:
             events = self.GWevents
@@ -732,22 +737,62 @@ class GWGalaxy(object):
        
         for i, event in enumerate(events):  
             
-            btot.append( self.GWevents[event].beta(cat=cat, Xi0=Xi0, H0=H0, 
+            btot.append( fs[i]*self.GWevents[event].beta(cat=cat, Xi0=Xi0, H0=H0, 
                                                         band=band, lum_weighting=lum_weighting,
-                                                        scheme=scheme, which_z=self.which_z))
+                                                        scheme=scheme, which_z=self.which_z, z_err=z_err))
         
         return np.array(btot)
+      
         
     
-    def _get_prior_flat(self, x, p_up, p_low):
         
-            return np.where((x>p_up)  & (x<p_low), 0, 1/(p_up-p_low))
+        
+    
+    def _get_all_betas_miss(self, events=None, Xi0=1, H0=None,
+                            P_complete=lambda x: 1, dL=None, 
+                            z_mins=None, z_maxs=None):
+        '''
+        Computes betas from missing part for all events given H0 or Xi0
+       
+        Output: np array of betas
+        '''
+        
+        if events is None:
+            events = self.GWevents
+        btot=[]
+        for i, event in enumerate(events):  
+            z_min, z_max = z_mins[i], z_maxs[i]
+            print('Check _get_all_betas_miss: for %s, z_min=%s, z_max=%s' %(event, z_min, z_max))
+            P_miss=self.galCat.P_miss( P_complete, z_min=z_min, z_max=z_max)
+            btot.append( self.GWevents[event].beta_miss(P_miss,z_max=z_max, Xi0=Xi0, H0=H0, dL=dL))
+        
+        return np.array(btot)
+    
+    
+    
+    
+    def _get_prior_flat(self, x, p_up, p_low):
+        '''
+        Flat prior
+        '''
+        
+        return np.where((x>p_up)  & (x<p_low), 0, 1/(p_up-p_low))
             
     
     def posterior(self, Xi0=1,  H0=None, n=1.91, level=0.99, std_number=3, 
-                  norm_to_mean=True, events=None, complete=False, Verbose=False,
+                  norm_to_mean=True, events=None, complete=False, completion='uniform',
+                  search_method='credible_region',
+                  Verbose=False,
                   beta_scheme='cat', band=None, L_star_frac=0.,lum_weighting=False, 
+                  z_err=True,
                   **params):
+        
+        '''
+        Posterior for given H0 or Xi0 
+        
+        Output: GW likelihood from catalogue, GW likelihood from completion, beta from catalogue, beta from completion, prior
+        '''
+        
         if H0 is None: 
             if Verbose:
                 print('############ POSTERIOR FOR XI0 ###############')
@@ -757,36 +802,59 @@ class GWGalaxy(object):
                 print('############ POSTERIOR FOR H0 ###############')
             prior = self._get_prior_flat(H0, PRIOR_UP_H0, PRIOR_LOW_H0)
         
-        #print('posterior std_number: %s ' %std_number)
-        GWgal_L_cat = self.GWgal_L_cat(events=events, Xi0=Xi0,  n=n, H0=H0, 
+        
+        # 1 CONTRIBUTION TO LIKELIHOOD AND BETA FROM THE CATALOGUE        
+        res = self.GWgal_L_cat(events=events, Xi0=Xi0,  n=n, H0=H0, 
                                        level=level, std_number=std_number, 
                                        norm_to_mean=norm_to_mean, Verbose=Verbose, 
-                                       complete=complete,
+                                       complete=complete, completion=completion,
                                        band=band, L_star_frac=L_star_frac,
-                                       lum_weighting=lum_weighting, **params
+                                       lum_weighting=lum_weighting, z_err=z_err, 
+                                       **params
                                        )
-        #GWgal_L_cat, fs = res[:,0], res[:,1] #, res[:,2] #, res[:,3]
-        
-        
-            
-
-            
-              
-        betas_cat = self._get_all_betas( Xi0=Xi0, H0=H0, events=events,
+        GWgal_L_cat, fs, z_mins, z_maxs = res[:,0], res[:,1] , res[:,2] , res[:,3]
+                          
+        betas_cat = self._get_all_betas_cat( fs=fs, Xi0=Xi0, H0=H0, events=events,
                                     scheme=beta_scheme, band=band, 
-                                    lum_weighting=lum_weighting, L_star_frac=L_star_frac)
+                                    lum_weighting=lum_weighting, L_star_frac=L_star_frac, z_err=z_err)
         
+         
+        # 1 CONTRIBUTION TO LIKELIHOOD AND BETA FROM THE COMPLETION
         if complete:
-            GWgal_L_miss = self.GWgal_L_miss(Xi0=Xi0, n=n, H0=H0, 
+            
+            
+            #LIKELIHOOD
+            if completion=='uniform':
+                print('Computing likelihood from completion ...')
+                
+                GWgal_L_miss = self.GWgal_L_miss(events=events,z_mins=z_mins, z_maxs=z_maxs,Xi0=Xi0, n=n, H0=H0, 
                                              std_number=std_number, level=level, Verbose=Verbose, 
                                              band=band, L_star_frac=L_star_frac, 
                                              lum_weighting=lum_weighting, **params)
+            else:
+                raise NotImplementedError('For completion, only uniform method is available, got %s' %completion)
+                
             
+            
+            # BETAS
             if beta_scheme=='uniform':
+                print('Got beta_scheme=uniform. No correction to beta from missing part required')
                 betas_miss = np.zeros(betas_cat.shape)
             else:
-                raise NotImplementedError('beta with catalogue from missing part is still to be implemented ! ')
+                print('Computing betas from completion...')
+                P_complete = self.galCat.P_complete( 
+                                                 band=band, L_star_frac=L_star_frac, 
+                                                 selection=self.which_z, 
+                                                 Verbose=False,
+                                                 )
+                betas_miss = self._get_all_betas_miss(events=events, Xi0=Xi0,  H0=H0, 
+                                                            P_complete=P_complete, z_mins=z_mins, z_maxs=z_maxs)
+                #print('beta with catalogue from missing part is still to be implemented ! Wrongly using beta_miss=0')
+        
         else:
+            if Verbose:
+                print('Not completing')
+            #P_complete = lambda x: x
             GWgal_L_miss = np.zeros(GWgal_L_cat.shape)
             betas_miss = np.zeros(betas_cat.shape)
         
@@ -798,8 +866,12 @@ class GWGalaxy(object):
 
       
         
-    def P_counterpart(self, event_name, count_GWGC_name, H0=None, Xi0=1, n=1.91, beta_scheme='uniform'):
-
+    def P_counterpart(self, event_name, count_GWGC_name, H0=None, Xi0=1, n=1.91, beta_scheme='uniform', z_err=True):
+        '''
+        Likelihood and beta in the counterpart case
+        Input:  - GWGC_name of counterpart
+                - event name
+        '''
         df = self.galCat.cat[self.galCat.cat['GWGC name']==count_GWGC_name]
         r = self.galCat._get_dL_GW( H0=H0, df=df, Xi0=Xi0, which_z=self.which_z)
         df.loc[:, 'r'] = r
@@ -808,12 +880,24 @@ class GWGalaxy(object):
                                                      df['dec'].values)
 
 
-        betas_cat = self._get_all_betas( Xi0=Xi0, H0=H0, events=[event_name,],
-                                    scheme=beta_scheme, band=None, lum_weighting=False, L_star_frac=0.)
+        betas_cat = self._get_all_betas_cat( Xi0=Xi0, H0=H0, events=[event_name,],
+                                    scheme=beta_scheme, band=None, lum_weighting=False, L_star_frac=0., z_err=z_err)
     
         return  Lr, betas_cat
 
-    # ------------- Only for visualization, don't trust contours...
+    
+    
+   
+    
+
+    
+    
+# --------------------------------------   
+ 
+#  VISUALIZATION TOOLS
+    
+# --------------------------------------
+
 
 
     def plot_mollview_contours(self, 
@@ -821,7 +905,10 @@ class GWGalaxy(object):
                            level=0.99, minmax_z = (0, 1),
                            value='Blum',
                            nside=2**7, levels_plot=[0.9], fsize=(14, 12)):
-    
+        '''
+        Make healpix map of the galaxy catalogue and draws on top of it the contours of confidence regions of GW events
+        
+        '''
         ######### MAKE HP MAP OF GALAXIES #########
     
         if events is None:
@@ -891,7 +978,11 @@ class GWGalaxy(object):
 
 def get_all_O2(O2_loc, subset=False, subset_names=['GW170817', 'GW170818', 'GW170814'], 
                **params):
+    '''
+    Returns dictionary with all skymaps in the folder O2_loc.
+    If subset=True, gives skymaps only for the event specified by subset_names
     
+    '''
     from os import listdir
     from os.path import isfile, join
     sm_files = [f for f in listdir(O2_loc) if ((isfile(join(O2_loc, f))) & (f!='.DS_Store'))]    

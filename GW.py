@@ -8,14 +8,12 @@ Created on Fri May  1 12:21:35 2020
 
 import numpy as np
 import scipy.stats
-#from astropy.io import fits
 import healpy as hp
 import os
 import matplotlib.pyplot as plt
 from scipy.integrate import cumtrapz
-from scipy.interpolate import  UnivariateSpline #interp1d,
-#from scipy.optimize import fsolve
-#import scipy.interpolate as interpolate
+from scipy.interpolate import  UnivariateSpline 
+from scipy.special import erf
 import pandas as pd
 from utils import *
 
@@ -86,6 +84,7 @@ class skymap_3D(object):
     
     def find_event_coords(self):   
         return self.find_ra_dec(np.argmax(self.p))
+    
     
     def find_ra_dec(self, pix):
         theta, phi = hp.pix2ang(self.nside, pix)
@@ -158,7 +157,8 @@ class skymap_3D(object):
         return self.p[self.find_pix(ra, dec)]
     
     def area_p(self, pp=0.9):
-        # Area of pp% credible region
+        ''' Area of pp% credible region '''
+        
         from ligo.skymap.postprocess import find_greedy_credible_levels
         credible_levels = find_greedy_credible_levels(self.p)
         return np.sum(credible_levels <= pp) * hp.nside2pixarea(self.nside, degrees=True)
@@ -185,6 +185,10 @@ class skymap_3D(object):
         return LL
     
     def _get_cosmo(self, H0=None):
+        '''
+        Given H0, returns astropy.cosmology FlatLambdaCDM object
+        If H0=None, 70 is used
+        '''
         if H0 is None:
             #print('Using self.cosmo')
             cosmo = self.cosmo
@@ -196,19 +200,27 @@ class skymap_3D(object):
     
     
     def z_max(self, Xi0=1, dL=None, n=1.91, SNR_ref=8, H0=None):
+        '''
+        Max redshift at which the evend could be seen, 
+        assuming its SNR and a threshold SNR_ref,
+        for the given Xi0 or H0
+        '''
         cosmo = self._get_cosmo(H0=H0)
-        #print('z_max call. H0=%s' %cosmo.H0)
         if H0 is not None:
             Xi0=1
         if dL is None:
             d_max = self.d_max(SNR_ref)
         else:
             d_max = dL
-        #print('z_max call. d_max=%s' %d_max)
         res = z(d_max, cosmo, Xi0=Xi0, n=n, H0=H0)
         return res
     
     def d_max(self, SNR_ref=8):
+        '''
+        Max GW luminosity distance at which the evend could be seen, 
+        assuming its SNR and a threshold SNR_ref:
+        d_max = d_obs*SNR/SNR_ref
+        '''
         try:
             d_obs = self.metadata['luminosity_distance'].values[0]
             SNR = self.metadata['network_matched_filter_snr'].values[0]
@@ -222,42 +234,81 @@ class skymap_3D(object):
         
         return d_max
         
+    
     def beta(self, cat=None, Xi0=1, H0=None, dL=None, scheme='cat', 
-             band='B', which_z='z_corr', lum_weighting=False):
+             band='B', which_z='z_corr', lum_weighting=False, z_err=True):
+        '''
+        Beta from catalogue or uniform
+        '''
         
         if scheme=='uniform':
             return self._beta_uniform( Xi0=Xi0, H0=H0, dL=dL)
         elif scheme=='cat':
             if cat is None:
                 raise ValueError('Provide valid catalogue to compute beta')
-            return self._beta_cat( cat=cat, Xi0=Xi0, H0=H0, dL=dL, band=band, which_z=which_z, lum_weighting=lum_weighting)
+            return self._beta_cat( cat=cat, Xi0=Xi0, H0=H0, dL=dL, 
+                                  band=band, which_z=which_z, lum_weighting=lum_weighting, z_err=z_err)
         
      
+    def beta_miss(self, P_miss, z_max, Xi0=1, H0=None, dL=None):
+        '''
+        Beta from completion
+        '''
+            
+        z_lim = self.z_max(Xi0=Xi0, dL=dL, H0=H0)
+        
+        z_up = np.array([z_lim, z_max]).min() 
+        if z_lim>z_max:
+            print('z_max(H0)=%s, z_R = %s' %(z_lim, z_max))
+            print(' Warning: max distance at which this event could be seen is is larger than max redshift of the localization region considered here! \n')
+        print('beta_miss using z_max=%s' %z_up)
+        z_grid = np.linspace(0, z_up, 20)
+        Igrid = P_miss(z_grid)
+        beta_miss = 4*np.pi*np.trapz(Igrid, z_grid)
+        
+        return beta_miss
+
+    
+        
     def _beta_cat(self, cat, Xi0=1, H0=None, 
                   dL=None, band='B', which_z='z_corr', 
-                  lum_weighting=False, **params):  
+                  lum_weighting=False, z_err=True, **params): 
+        '''
+        Beta from catalogue
+        '''
         
         #cosmo = self._get_cosmo(H0=H0)
 
         z_lim = self.z_max(Xi0=Xi0, dL=dL, H0=H0)
         
-        df = cat[ cat[which_z]< z_lim ]
-        #df_norm = cat[ cat[which_z]< self.z_max(Xi0=1, dL=dL, H0=70) ]
         df_norm=cat
+        
+        
+        if z_err:
+            df = cat
+            zs=df[which_z].values
+            sigmas=df['Delta_z'].values
+            num = erf((z_lim-zs)/(np.sqrt(2)*sigmas))/2+erf((zs)/(np.sqrt(2)*sigmas))/2
+        else:
+            df = cat[ cat[which_z]< z_lim ]
+            num=np.ones(df.shape[0])
         
         if band is not None and lum_weighting:
                              
             l_name=band+'_Lum'
-            num = df[l_name].sum()
+            weights = df[l_name].values#sum()
             norm=df_norm[l_name].sum()
         else:
-            num = df.shape[0]
+            weights = np.ones(df.shape[0])
             norm = df_norm.shape[0]
         
-        return num/norm
+        return (np.dot(num,weights))/norm #num/norm
     
      
     def _beta_uniform(self, Xi0=1, H0=None, dL=None, **params):
+        '''
+        Uniform beta
+        '''
         cosmo = self._get_cosmo( H0=H0)
         from scipy.integrate import quad        
         norm = quad(lambda x: cosmo.differential_comoving_volume(x).value, 0, self.z_max(Xi0=1, dL=dL, H0=70, **params) )[0]
@@ -266,8 +317,21 @@ class skymap_3D(object):
         num = quad(lambda x:  cosmo.differential_comoving_volume(x).value, 0, self.z_max(Xi0=Xi0, dL=dL, H0=H0, **params)  )[0]
         return num/norm
     
+    
+    
     def _get_minmax_d(self, Xi0=1, H0=None, std_number=3, n=1.91, 
                      Verbose=False, position_val='metadata'):
+        '''
+        Upper and lower limit in GW luminosity distance to search
+        
+        -  if position_val=='metadata': uses for the distance the median, upper and lower limits
+                                        provided in the metadata (usually 90% CL)
+        -  if position_val=='header': uses for the distance the mean and standard deviation
+                                        provided in the header of the skymap (number of std specified by std_number)
+        -  if position_val=='posterior': uses for the distance the median, upper and lower limits
+                                        computed from actual posterior samples (you need to specify the path to the data)                              
+        '''
+        
         #print('_get_minmax_d std_number: %s ' %std_number)
         cosmo = self._get_cosmo( H0=H0)
         if Verbose:
@@ -301,6 +365,16 @@ class skymap_3D(object):
     
     def _get_minmaxz(self, Xi0=1, H0=None, std_number=3, n=1.91, 
                      Verbose=False, position_val='metadata'):
+        '''
+        Upper and lower limit in redshift to search for given H0 or Xi0
+        
+        -  if position_val=='metadata': uses for the distance the median, upper and lower limits
+                                        provided in the metadata (usually 90% CL)
+        -  if position_val=='header': uses for the distance the mean and standard deviation
+                                        provided in the header of the skymap (number of std specified by std_number)
+        -  if position_val=='posterior': uses for the distance the median, upper and lower limits
+                                        computed from actual posterior samples (you need to specify the path to the data)                              
+        '''
         
         
         #print('_get_minmaxz std_number: %s ' %std_number)
@@ -321,7 +395,12 @@ class skymap_3D(object):
     
         return minmax_z
     
+    
     def z_range(self, Xi0max=3, Xi0min=0.2, H0max=None, H0min=None, n=1.91, Verbose=False, **params):  
+        '''
+        Computes the possible range in redshift for the event given the extreme values for H0 or XI0
+        '''
+        
         if Verbose:
             print('\n Computing range in redshift for all priors...')
         
@@ -335,7 +414,12 @@ class skymap_3D(object):
     def get_CI_from_posterior_sample(self, low_prob=0.01, up_prob=0.99,
                                      data_root='/Users/Michi/Dropbox/Local/Physics_projects/statistical_method_schutz_data_local/GWs/posteriors/',
                                      prior_key='IMRPhenomPv2NRT_lowSpin_prior', post_key='IMRPhenomPv2NRT_lowSpin_posterior'):
+        '''
+        Computes median, upper and lower limits
+        from actual posterior samples saved in data_root
         
+        Returns (median, upper limit, lower limit )
+        '''
         import h5py
         
         BBH_file = data_root+self.event_name+'_GWTC-1.hdf5'
@@ -353,6 +437,10 @@ class skymap_3D(object):
         return (med, up, low)
     
  
+    
+    
+    
+    
  # --------------------------------------   
  
  #  VISUALIZATION TOOLS
