@@ -10,12 +10,12 @@ Created on Wed Sep 23 10:33:30 2020
 # This module contains a class to handle the GLADE catalogue
 ####
 
-from Xi0Stat.galCat import Gal
+from Xi0Stat.galCat import GalCat
 
 
-class GLADE(Gal):
+class GLADE(GalCat):
     
-    def __init__(self, **kwargs):
+    def __init__(self, compl, **kwargs):
         print('Initializing GLADE...')
-        Gal.__init__(self, **kwargs)
+        GalCat.__init__(self, compl, **kwargs)
         pass

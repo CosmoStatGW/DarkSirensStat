@@ -18,7 +18,13 @@ class Completeness(object):
         pass
     
     
+class SkipCompleteness(Completeness):
     
+    def __init__(self, **kwargs):
+        print('Initializing SkipCompleteness...')
+        Completeness.__init__(self, **kwargs)
+        pass
+
     
 class LocalCompleteness(Completeness):
     
