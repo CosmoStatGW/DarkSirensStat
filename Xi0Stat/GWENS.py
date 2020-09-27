@@ -19,3 +19,6 @@ class GWENS(GalCat):
         print('Initializing GWENS...')
         GalCat.__init__(self, compl, **kwargs)
         pass
+
+    def load(self):
+        pass

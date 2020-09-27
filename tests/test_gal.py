@@ -24,13 +24,11 @@ class TestGal(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         compl = SkipCompleteness()
-        gl = GLADE(compl)
         cls.glade = GLADE(compl)
         cls.gwens   = GWENS(compl)
         
     @classmethod
     def tearDownClass(cls):
-        # cls.glade
         pass
         
     def setUp(self):
@@ -40,10 +38,14 @@ class TestGal(unittest.TestCase):
         self.gals.add_cat(TestGal.glade)
         self.gals.add_cat(TestGal.gwens)
         
-    def test_nothing(self):
-        pass
-     
+    def test_total_completeness(self):
+        self.gals.add_cat(TestGal.glade)
+    
+        self.assertTrue(self.gals.total_completeness([0,0], 0) == 1)
         
+        self.gals.add_cat(TestGal.gwens)
+     
+        self.assertTrue(self.gals.total_completeness([0,0], 0) == 2)
         
 if __name__ == '__main__':
     unittest.main()

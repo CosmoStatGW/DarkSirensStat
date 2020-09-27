@@ -19,3 +19,6 @@ class GLADE(GalCat):
         print('Initializing GLADE...')
         GalCat.__init__(self, compl, **kwargs)
         pass
+    
+    def load(self):
+        pass
