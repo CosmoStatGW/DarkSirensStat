@@ -15,9 +15,9 @@ from Xi0Stat.galCat import GalCat
 
 class GLADE(GalCat):
     
-    def __init__(self, compl, **kwargs):
+    def __init__(self, foldername, compl, **kwargs):
         print('Initializing GLADE...')
-        GalCat.__init__(self, compl, **kwargs)
+        GalCat.__init__(self, foldername, compl, **kwargs)
         pass
     
     def load(self):

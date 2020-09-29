@@ -45,7 +45,7 @@ class SkipCompleteness(Completeness):
         pass
         
     def compute_implementation(self):
-        pass
+        print("SkipCompleteness: nothing to compute")
     
     def get_implementation(self, Omega, z):
         return 1

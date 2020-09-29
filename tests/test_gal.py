@@ -24,8 +24,9 @@ class TestGal(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         compl = SkipCompleteness()
-        cls.glade = GLADE(compl)
-        cls.gwens   = GWENS(compl)
+        cls.glade = GLADE('GLADE', compl)
+        GWENS('GWENS', compl, [22])
+        cls.gwens   = GWENS('GWENS', compl)
         
     @classmethod
     def tearDownClass(cls):

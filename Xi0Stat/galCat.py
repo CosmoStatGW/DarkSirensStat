@@ -10,14 +10,25 @@ Created on Wed Sep 23 10:32:31 2020
 # This module contains a abstract classes to handle a galaxy catalogue
 ####
 
+import pandas as pd
+import healpy as hp
 
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
+from Xi0Stat.globals import *
+
+
 class GalCat(ABC):
     
-    def __init__(self, completeness, **kwargs):
+    def __init__(self, foldername, completeness, **kwargs):
         print('Initializing GalCat...')
+        
+        self._path = os.path.join(dirname, 'data', foldername)
+        
+        self._nside = 128
+        
+        self.data = pd.DataFrame()
         
         self.load()
         
@@ -55,9 +66,11 @@ class GalCompleted(object):
         confpower = 0.05
         return np.exp(confpower*(1-1/compl))
         
+    def get_inhom_contained(self, Omega, z):
+        pass
     
-    def get_inhom(self, Omega, z):
+    def eval_inhom(self, Omega, z):
         pass
         
-    def get_hom(self, Omega, z):
+    def eval_hom(self, Omega, z):
         pass

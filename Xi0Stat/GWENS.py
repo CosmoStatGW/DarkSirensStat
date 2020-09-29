@@ -1,24 +1,74 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Sep 23 10:33:30 2020
-
-@author: Michi
-"""
 
 ####
-# This module contains a class to handle the GLADE catalogue
+# This module contains a class to handle the GWENS catalogue
 ####
+
+
+import pandas as pd
+import healpy as hp
+import numpy as np
 
 from Xi0Stat.galCat import GalCat
 
 
+import os, os.path
+
+
 class GWENS(GalCat):
     
-    def __init__(self, compl, **kwargs):
-        print('Initializing GWENS...')
-        GalCat.__init__(self, compl, **kwargs)
-        pass
-
+    def __init__(self, foldername, compl, patches=[], **kwargs):
+        print('Loading GWENS...')
+       
+        self._patches = patches
+            
+        GalCat.__init__(self, foldername, compl, **kwargs)
+    
     def load(self):
-        pass
+
+        if self._patches == []:
+            print(os.listdir(self._path))
+            filenames = [os.path.join(self._path, name) for name in os.listdir(self._path) if (os.path.isfile(os.path.join(self._path, name)) and '.csv.gz' in name) ]
+        else:
+            filenames = [os.path.join(self._path, 'ra_{:03d}_{:03d}.csv.gz'.format(i*15, (i+1)*15)) for i in self._patches]
+            
+        for i, filename in enumerate(filenames):
+        
+            print('Loading patch ' + str(i) + ' of ' + str(len(filenames)) + ' patches of GWENS...')
+            
+            dg = pd.read_csv(filename, compression='gzip', error_bad_lines=False)
+            
+            dg = dg.loc[:,['ra','dec', 'medval', 'neg2sig', 'neg1sig', 'pos1sig', 'pos2sig', 'specflag', 'lstar']]
+
+            dg = dg[dg.ra.notna()]
+            dg = dg[dg.dec.notna()]
+            dg = dg[dg.medval.notna()]
+            dg = dg[dg.medval > 0]
+
+            mask = dg.neg1sig<1e-5
+            dg.neg1sig[mask] = dg.medval[mask]*0.5
+            dg.neg2sig[mask] = 0.0
+
+            mask = dg.pos2sig <= dg.pos1sig
+            dg.pos2sig[mask] = dg.pos1sig[mask]*1.1
+
+            dg.loc[:,"theta"] = np.pi/2 - (dg.dec*np.pi/180)
+            dg.loc[:,"phi"]   = dg.ra*np.pi/180
+            dg.loc[:,"z"]   = dg.medval
+            dg.loc[:,"z_err"]   = (dg.pos1sig - dg.neg1sig)*0.5
+
+            dg.loc[:, "z_lowerbound"] = dg.neg2sig
+            dg.loc[:, "z_lower"] = dg.neg1sig
+            dg.loc[:, "z_upper"] = dg.pos1sig
+            dg.loc[:, "z_upperbound"] = dg.pos2sig
+
+            dg = dg[dg.z_err.notna()]
+
+            dg = dg.loc[:,['theta','phi', 'z', 'z_err', 'z_lowerbound', 'z_lower', 'z_upper', 'z_upperbound']]
+
+            dg.loc[:,"pix" + str(self._nside)]   = hp.ang2pix(self._nside, dg.theta, dg.phi)
+
+            self.data = self.data.append(dg, ignore_index=True)
+         
+            
+            
+
