@@ -8,10 +8,9 @@ import pandas as pd
 import healpy as hp
 import numpy as np
 
-from Xi0Stat.galCat import GalCat
-
-
 import os, os.path
+
+from Xi0Stat.galCat import GalCat
 
 
 class GWENS(GalCat):
@@ -26,7 +25,6 @@ class GWENS(GalCat):
     def load(self):
 
         if self._patches == []:
-            print(os.listdir(self._path))
             filenames = [os.path.join(self._path, name) for name in os.listdir(self._path) if (os.path.isfile(os.path.join(self._path, name)) and '.csv.gz' in name) ]
         else:
             filenames = [os.path.join(self._path, 'ra_{:03d}_{:03d}.csv.gz'.format(i*15, (i+1)*15)) for i in self._patches]
@@ -60,10 +58,12 @@ class GWENS(GalCat):
             dg.loc[:, "z_lower"] = dg.neg1sig
             dg.loc[:, "z_upper"] = dg.pos1sig
             dg.loc[:, "z_upperbound"] = dg.pos2sig
+            
+            dg.loc[:, "w"] = 1
 
             dg = dg[dg.z_err.notna()]
 
-            dg = dg.loc[:,['theta','phi', 'z', 'z_err', 'z_lowerbound', 'z_lower', 'z_upper', 'z_upperbound']]
+            dg = dg.loc[:,['theta','phi', 'z', 'z_err', 'z_lowerbound', 'z_lower', 'z_upper', 'z_upperbound', 'w']]
 
             dg.loc[:,"pix" + str(self._nside)]   = hp.ang2pix(self._nside, dg.theta, dg.phi)
 

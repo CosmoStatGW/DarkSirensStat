@@ -12,6 +12,8 @@ Created on Wed Sep 23 10:32:31 2020
 
 import pandas as pd
 import healpy as hp
+import numpy as np
+import matplotlib.pyplot as plt
 
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -33,7 +35,7 @@ class GalCat(ABC):
         self.load()
         
         self._completeness = deepcopy(completeness)
-        self._completeness.compute()
+        self._completeness.compute(self.data)
         
     
     @abstractmethod
@@ -43,7 +45,24 @@ class GalCat(ABC):
     def completeness(self, Omega, z):
         return self._completeness.get(Omega, z)
     
+        
+    def completeness_maps(self):
     
+        zs = np.linspace(0.00, 0.5, 40)
+        nPix = hp.nside2npix(512)
+        px = np.arange(nPix)
+        
+        finemaps = self.completeness(hp.pix2ang(512, px), zs)
+        
+        for z in zs:
+            
+            finemap = self.completeness(hp.pix2ang(512, px), z)
+                                        
+            hp.mollview(finemap, notext=True)
+            
+            
+            plt.savefig('z=' + str(z) + '.png')
+
     
 class GalCompleted(object):
     
