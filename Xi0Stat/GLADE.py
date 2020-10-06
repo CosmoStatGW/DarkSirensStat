@@ -13,6 +13,7 @@ from Xi0Stat.globals import *
 from Xi0Stat.galCat import GalCat
 
 
+
 class GLADE(GalCat):
     
     def __init__(self, foldername, compl, subsurveysIncl = ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS'], subsurveysExcl = [], **kwargs):
@@ -27,8 +28,8 @@ class GLADE(GalCat):
         GalCat.__init__(self, foldername, compl, **kwargs)
         
     
-    def load(self, B_band_select=False,
-                   K_band_select=False,
+    def load(self, band=None,
+                   Lcut=0,
                    z_flag=None,
                    drop_z_uncorr=False,
                    get_cosmo_z=True, #cosmo=None, 
@@ -37,13 +38,24 @@ class GLADE(GalCat):
                    group_correct=True,
                    which_z_correct = 'z_cosmo',
                    group_cat_path = '/Users/Michi/Dropbox/statistical_method_schutz_data/data/Galaxy_Group_Catalogue.csv',
-                   CMB_correct=True, l_CMB=263.99, b_CMB=48.26, v_CMB=369,
-                   add_B_lum=True, MBSun=5.498,
-                   add_K_lum=True, MKSun=3.27,
+                   CMB_correct=True,
                    which_z='z_cosmo_CMB',
                    err_vals='GLADE',
                    drop_HyperLeda2=True, 
                    colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'B_Lum','K_Lum']):
+        
+        
+        if band=='B':
+            add_B_lum=True
+            add_K_lum=False
+        elif band=='K':
+            add_B_lum=False
+            add_K_lum=True
+        else:
+            add_B_lum=False
+            add_K_lum=False
+            
+            
         
         
         gname='GLADE_2.4.txt'
@@ -51,7 +63,7 @@ class GLADE(GalCat):
         filepath = os.path.join(self._path, gname)
 
         from astropy.cosmology import FlatLambdaCDM
-        cosmoGLADE = FlatLambdaCDM(H0=70.0, Om0=0.27)  # the values used by GLADE
+        cosmoGLADE = FlatLambdaCDM(H0=H0GLADE, Om0=Om0GLADE)  # the values used by GLADE
 
         
         
@@ -111,23 +123,7 @@ class GLADE(GalCat):
             
         
         # ------ Select parts of the catalogue
-        
-        if B_band_select and K_band_select:
-            print('Keeping only galaxies with known apparent magnitude in B and K band...')
-            df=df[(df.B.notna()==True) &(df.K.notna()==True)] #select the galaxies that have a measured value of B luminosity
-            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-            
-        
-        elif B_band_select:
-            print('Keeping only galaxies with known apparent magnitude in B band...')
-            df=df[df.B.notna()==True] #select the galaxies that have a measured value of B luminosity
-            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-        
-        elif K_band_select:
-            print('Keeping only galaxies with known apparent magnitude in K band...')
-            df=df[df.K.notna()==True] #select the galaxies that have a measured value of B luminosity
-            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-        
+                
         if z_flag is not None:
             print('Dropping galaxies with flag2=%s...' %z_flag)
             df=  df[df.flag2 != z_flag ]
@@ -257,10 +253,21 @@ class GLADE(GalCat):
             df = df.drop(columns='K')
         
         
-    
-        #dg=df.loc[:,['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'B_Lum','K_Lum']]
+        # ------ Apply cut in luminosity
+        if band is not None:
+            L_th = Lcut*LBstar07
+            print('Applying cut in luminosity and using %s-band luminosity for weighting. Selecting galaxies in %s band with L>%s x L_* = %s' %(band, band, Lcut, np.round(L_th,2)))
+            df = df[df.B_Lum>L_th]
+            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+        else:
+            print('No cut in luminosity applied. Using weights =1 ' )
         
-        df.loc[:, 'w'] = 1 #dg.B_Lum_over_h7sq
+    
+        # ------ Add 'w' column for weights
+        w = df.loc[:, band+'_Lum'].values
+        df.loc[:, 'w'] = w 
+        
+        # ------ Add pixel column
         df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta, df.phi)
         
         # ------ Keep only given columns
