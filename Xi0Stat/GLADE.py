@@ -37,7 +37,7 @@ class GLADE(GalCat):
                    drop_no_dist=False,
                    group_correct=True,
                    which_z_correct = 'z_cosmo',
-                   group_cat_path = '/Users/Michi/Dropbox/statistical_method_schutz_data/data/Galaxy_Group_Catalogue.csv',
+                  # group_cat_path = '/data/Galaxy_Group_Catalogue.csv',
                    CMB_correct=True,
                    which_z='z_cosmo_CMB',
                    err_vals='GLADE',
@@ -59,8 +59,9 @@ class GLADE(GalCat):
         
         
         gname='GLADE_2.4.txt'
-        print('Loading GLADE FROM %s...' %self._path+gname)
-        filepath = os.path.join(self._path, gname)
+        groupname='Galaxy_Group_Catalogue.csv'
+        filepath_GLADE = os.path.join(self._path, gname)
+        filepath_groups = os.path.join(self._group_path, groupname)
 
         from astropy.cosmology import FlatLambdaCDM
         cosmoGLADE = FlatLambdaCDM(H0=H0GLADE, Om0=Om0GLADE)  # the values used by GLADE
@@ -68,8 +69,8 @@ class GLADE(GalCat):
         
         
         # ------ LOAD CATALOGUE
-        
-        df = pd.read_csv(filepath, sep=" ", header=None, low_memory=False)
+        print('Loading GLADE from %s...' %filepath_GLADE)
+        df = pd.read_csv(filepath_GLADE, sep=" ", header=None, low_memory=False)
 
         colnames = ['PGC', 'GWGC_name', 'HYPERLEDA_name', 'TWOMASS_name', 'SDSS_name', 'flag1', 'RA', 'dec',
                     'dL', 'dL_err', 'z', 'B', 'B_err', 'B_Abs', 'J', 'J_err', 'H', 'H_err', 'K', 'K_err',
@@ -184,7 +185,8 @@ class GLADE(GalCat):
         if group_correct:
             if not get_cosmo_z:
                 raise ValueError('To apply group corrections, compute cosmological redshift first')
-            df_groups =  pd.read_csv(group_cat_path)
+            print('Loading glaxy group catalogue from %s...' %filepath_groups)
+            df_groups =  pd.read_csv(filepath_groups)
             df = self.group_correction(df, df_groups, which_z=which_z_correct)
             
       
@@ -255,16 +257,19 @@ class GLADE(GalCat):
         
         # ------ Apply cut in luminosity
         if band is not None:
+            col_name=band+'_Lum'
             L_th = Lcut*LBstar07
-            print('Applying cut in luminosity and using %s-band luminosity for weighting. Selecting galaxies in %s band with L>%s x L_* = %s' %(band, band, Lcut, np.round(L_th,2)))
-            df = df[df.B_Lum>L_th]
+            print('Applying cut in luminosity in %s-band. Selecting galaxies with %s>%s x L_* = %s' %(band, col_name, Lcut, np.round(L_th,2)))
+            df = df[df[col_name]>L_th]
             print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+            print('Using %s for weighting' %col_name)
+            w = df.loc[:, col_name].values
         else:
             print('No cut in luminosity applied. Using weights =1 ' )
-        
+            w = np.ones(df.shape[0])
     
         # ------ Add 'w' column for weights
-        w = df.loc[:, band+'_Lum'].values
+        
         df.loc[:, 'w'] = w 
         
         # ------ Add pixel column

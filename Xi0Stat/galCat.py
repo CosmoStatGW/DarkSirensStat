@@ -28,6 +28,8 @@ class GalCat(ABC):
         
         self._path = os.path.join(dirname, 'data', foldername)
         
+        self._group_path = os.path.join(dirname, 'data', 'misc')
+        
         self._nside = 128
         
         self.data = pd.DataFrame()

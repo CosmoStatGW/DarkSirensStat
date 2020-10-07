@@ -26,7 +26,7 @@ class TestGal(unittest.TestCase):
     def setUpClass(cls):
         
         compl = SkipCompleteness()
-        cls.glade = GLADE('GLADE', compl, colnames_final = ['GWGC_name', 'z', 'B_Lum','K_Lum'])
+        cls.glade = GLADE('MINIGLADE', compl, band='K', Lcut=0.2, colnames_final = ['GWGC_name', 'z', 'K_Lum', 'w'])
         #GWENS('GWENS', compl, [22])
         cls.gwens   = GWENS('GWENS', compl)
         
@@ -54,7 +54,7 @@ class TestGal(unittest.TestCase):
         
         # check corrected redshift of NGC4993
         NGC4993 = TestGal.glade.data[TestGal.glade.data['GWGC_name']=='NGC4993']
-        print('TestGal GLADE check: NGC4993 z, B_Lum, K_Lum')
+        print('TestGal GLADE check: NGC4993')
         print(NGC4993)
         self.assertTrue( np.round(NGC4993.z.values[0], 6) == 0.011026 )
         
