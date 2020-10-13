@@ -23,42 +23,40 @@ from Xi0Stat.globals import *
 
 class GalCat(ABC):
     
-    def __init__(self, foldername, completeness, **kwargs):
+    def __init__(self, foldername, completeness, useDirac, **kwargs):
         print('Initializing GalCat...')
         
-        self._path = os.path.join(dirname, 'data', foldername)
-        
-        self._group_path = os.path.join(dirname, 'data', 'misc')
-        
+        self._path = os.path.join(dirName, 'data', foldername)
+          
         self._nside = 128
-        
+        self._useDirac = useDirac
         self.data = pd.DataFrame()
         
         self.load(**kwargs)
         
         self._completeness = deepcopy(completeness)
-        self._completeness.compute() #self.data
+        self._completeness.compute(self.data, useDirac)
         
     
     @abstractmethod
     def load(self):
         pass
     
-    def completeness(self, Omega, z):
-        return self._completeness.get(Omega, z)
+    def completeness(self, theta, phi, z):
+        return self._completeness.get(theta, phi, z)
     
         
     def completeness_maps(self):
     
-        zs = np.linspace(0.00, 0.5, 40)
+        zs = np.linspace(0.00, 0.05, 40)
         nPix = hp.nside2npix(512)
         px = np.arange(nPix)
         
-        finemaps = self.completeness(hp.pix2ang(512, px), zs)
+        #finemaps = self.completeness(*hp.pix2ang(512, px), zs)
         
         for z in zs:
             
-            finemap = self.completeness(hp.pix2ang(512, px), z)
+            finemap = self.completeness(*hp.pix2ang(512, px), z)
                                         
             hp.mollview(finemap, notext=True)
             

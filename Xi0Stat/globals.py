@@ -1,5 +1,8 @@
 import os
-dirname = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+dirName = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+
+miscPath = os.path.join(dirName, 'data', 'misc')
+
 
 
 ###########################
@@ -40,6 +43,41 @@ alphaK07 =-1.02
 ###########################
 ###########################
 
+import multiprocessing
+
+nCores = multiprocessing.cpu_count()
+
+def fun(f, q_in, q_out):
+    while True:
+        i, x = q_in.get()
+        if i is None:
+            break
+        q_out.put((i, f(x)))
+
+
+def parmap(f, X):
+    q_in = multiprocessing.Queue(1)
+    q_out = multiprocessing.Queue()
+
+    proc = [multiprocessing.Process(target=fun, args=(f, q_in, q_out))
+            for _ in range(nCores)]
+    for p in proc:
+        p.daemon = True
+        p.start()
+
+    sent = [q_in.put((i, x)) for i, x in enumerate(X)]
+    [q_in.put((None, None)) for _ in range(nCores)]
+    res = [q_out.get() for _ in range(len(sent))]
+
+    [p.join() for p in proc]
+
+    return [x for i, x in sorted(res)]
+
+
+###########################
+###########################
+
+    
 def get_SchParams(self, Lstar, phiStar, h0):
         '''
         Input: Hubble parameter h0, values of Lstar, phiStar for h0=0.7

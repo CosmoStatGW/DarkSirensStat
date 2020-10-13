@@ -16,7 +16,7 @@ from Xi0Stat.galCat import GalCat
 
 class GLADE(GalCat):
     
-    def __init__(self, foldername, compl, subsurveysIncl = ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS'], subsurveysExcl = [], **kwargs):
+    def __init__(self, foldername, compl, useDirac, subsurveysIncl = ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS'], subsurveysExcl = [], **kwargs):
         print('Initializing GLADE...')
         
         self._subsurveysIncl = subsurveysIncl
@@ -25,11 +25,12 @@ class GLADE(GalCat):
         assert(set(subsurveysExcl).isdisjoint(subsurveysIncl))
         assert(len(subsurveysIncl) > 0)
                
-        GalCat.__init__(self, foldername, compl, **kwargs)
+        GalCat.__init__(self, foldername, compl, useDirac, **kwargs)
         
     
     def load(self, band=None,
                    Lcut=0,
+                   zMax = 100,
                    z_flag=None,
                    drop_z_uncorr=False,
                    get_cosmo_z=True, #cosmo=None, 
@@ -37,12 +38,10 @@ class GLADE(GalCat):
                    drop_no_dist=False,
                    group_correct=True,
                    which_z_correct = 'z_cosmo',
-                  # group_cat_path = '/data/Galaxy_Group_Catalogue.csv',
                    CMB_correct=True,
                    which_z='z_cosmo_CMB',
                    err_vals='GLADE',
-                   drop_HyperLeda2=True, 
-                   colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'B_Lum','K_Lum']):
+                   drop_HyperLeda2=True):
         
         
         if band=='B':
@@ -61,7 +60,7 @@ class GLADE(GalCat):
         gname='GLADE_2.4.txt'
         groupname='Galaxy_Group_Catalogue.csv'
         filepath_GLADE = os.path.join(self._path, gname)
-        filepath_groups = os.path.join(self._group_path, groupname)
+        filepath_groups = os.path.join(miscPath, groupname)
 
         from astropy.cosmology import FlatLambdaCDM
         cosmoGLADE = FlatLambdaCDM(H0=H0GLADE, Om0=Om0GLADE)  # the values used by GLADE
@@ -185,7 +184,7 @@ class GLADE(GalCat):
         if group_correct:
             if not get_cosmo_z:
                 raise ValueError('To apply group corrections, compute cosmological redshift first')
-            print('Loading glaxy group catalogue from %s...' %filepath_groups)
+            print('Loading galaxy group catalogue from %s...' %filepath_groups)
             df_groups =  pd.read_csv(filepath_groups)
             df = self.group_correction(df, df_groups, which_z=which_z_correct)
             
@@ -206,6 +205,11 @@ class GLADE(GalCat):
             df = df.drop(columns='z')
             df.rename(columns={which_z:'z'}, inplace=True)
         # From now on, the relevant column for redshift, including all corrections, will be 'z'
+        
+        # ------ Potentially drop large z
+        
+        df = df[df.z < zMax]
+        
         
         # ------ Add z errors
         
@@ -275,7 +279,8 @@ class GLADE(GalCat):
         # ------ Add pixel column
         df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta, df.phi)
         
-        # ------ Keep only given columns
+        # ------ Keep only some columns
+        colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w']
         
         if colnames_final is not None:
             print('Keeping only columns: %s' %colnames_final)
