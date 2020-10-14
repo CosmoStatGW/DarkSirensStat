@@ -178,12 +178,28 @@ class GalCompleted(object):
         # general interplation
         confpower = 0.05
         return np.exp(confpower*(1-1/compl))
-        
-    def get_inhom_contained(self, Omega, z):
+    
+    
+    
+    def set_z_range(self, z_min, z_max):
         pass
     
+    def set_area(self, pixels, nside):
+        pass
+    
+    def get_inhom_contained(self, Omega, z):
+        ''' return res_keelin '''
+        pass
+    
+    
     def eval_inhom(self, Omega, z):
+        '''
+        For the future if we had posterior samples
+        '''
         pass
         
     def eval_hom(self, Omega, z):
+        '''
+        Homogeneous completion part. Second term in 2.59
+        '''
         pass

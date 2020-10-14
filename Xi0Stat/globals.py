@@ -1,4 +1,5 @@
 import os
+import numpy as np
 dirName = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 miscPath = os.path.join(dirName, 'data', 'misc')
@@ -102,3 +103,16 @@ def get_SchNorm(self, phistar, Lstar, alpha, Lcut):
                 
         norm= phistar*Lstar*gamma(alpha+2)*gammaincc(alpha+2, Lcut)
         return norm
+
+
+
+def ra_dec_from_th_phi(theta, phi):
+        ra = np.rad2deg(phi)
+        dec = np.rad2deg(0.5 * np.pi - theta)
+        return ra, dec
+
+  
+def th_phi_from_ra_dec(ra, dec):
+    theta = 0.5 * np.pi - np.deg2rad(dec)
+    phi = np.deg2rad(ra)
+    return theta, phi

@@ -28,7 +28,7 @@ class GWENS(GalCat):
             filenames = [os.path.join(self._path, name) for name in os.listdir(self._path) if (os.path.isfile(os.path.join(self._path, name)) and '.csv.gz' in name) ]
         else:
             filenames = [os.path.join(self._path, 'ra_{:03d}_{:03d}.csv.gz'.format(i*15, (i+1)*15)) for i in self._patches]
-            
+        print(filenames)   
         for i, filename in enumerate(filenames):
         
             print('Loading patch ' + str(i) + ' of ' + str(len(filenames)) + ' patches of GWENS...')
@@ -59,7 +59,7 @@ class GWENS(GalCat):
             dg.loc[:, "z_upper"] = dg.pos1sig
             dg.loc[:, "z_upperbound"] = dg.pos2sig
             
-            dg.loc[:, "w"] = 1
+            dg.loc[:, "w"] = np.ones(dg.shape[0])
 
             dg = dg[dg.z_err.notna()]
 

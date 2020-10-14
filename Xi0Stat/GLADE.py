@@ -16,7 +16,9 @@ from Xi0Stat.galCat import GalCat
 
 class GLADE(GalCat):
     
-    def __init__(self, foldername, compl, useDirac, subsurveysIncl = ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS'], subsurveysExcl = [], **kwargs):
+    def __init__(self, foldername, compl, useDirac, 
+                 subsurveysIncl = ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS'], 
+                 subsurveysExcl = [], **kwargs):
         print('Initializing GLADE...')
         
         self._subsurveysIncl = subsurveysIncl
@@ -41,7 +43,8 @@ class GLADE(GalCat):
                    CMB_correct=True,
                    which_z='z_cosmo_CMB',
                    err_vals='GLADE',
-                   drop_HyperLeda2=True):
+                   drop_HyperLeda2=True, 
+                   colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w']):
         
         
         if band=='B':
@@ -108,7 +111,7 @@ class GLADE(GalCat):
             df = df.loc[df[excl] == False]
         
         
-        # ------ Add theta, phi for healpix
+        # ------ Add theta, phi for healpix in radians
         
         df.loc[:,"theta"] = np.pi/2 - (df.dec*np.pi/180)
         df.loc[:,"phi"]   = df.RA*np.pi/180
@@ -276,15 +279,15 @@ class GLADE(GalCat):
         
         df.loc[:, 'w'] = w 
         
-        # ------ Add pixel column
-        df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta, df.phi)
         
         # ------ Keep only some columns
-        colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w']
         
         if colnames_final is not None:
             print('Keeping only columns: %s' %colnames_final)
             df = df[colnames_final]
+       
+        # ------ Add pixel column. Note that GW skymaps use nest=True !!
+        df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta, df.phi)
         
         # ------ 
         print('Done.')
