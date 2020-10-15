@@ -18,12 +18,14 @@ import scipy.stats
 from Xi0Stat.globals import *
 
 
+
+
 class Skymap3D(object):
     
 
     def __init__(self, fname, 
                  nest=False,
-                 meta_path = 'data/GW/metadata/GWTC-1-confident.csv'):
+                 ):
         
         print('Initializing Skymap3D...')
         try:
@@ -54,9 +56,25 @@ class Skymap3D(object):
         self.norm   = smap[3]
         self.all_pixels = np.arange(self.npix)
         #self.credible_levels = None
-        self.metadata = self._get_metadata(meta_path)
+        self.metadata = self._get_metadata()
         self.nest=nest
         
+    
+    def _get_metadata(self):
+        O2metaPath = os.path.join(metaPath, 'GWTC-1-confident.csv')     
+        try:
+            df = pd.read_csv(O2metaPath)
+            res = df[df['commonName']==self.event_name]
+            #print(res.commonName.values)
+            if res.shape[0]==0:
+                print('No metadata found!')
+                res=None
+        except ValueError:
+            print('No metadata available!')
+            res=None
+        return res
+    
+    
     def find_pix_RAdec(self, ra, dec):
         '''
         input: ra dec in degrees
@@ -94,19 +112,6 @@ class Skymap3D(object):
         ra, dec = ra_dec_from_th_phi(theta, phi)
         return ra, dec
     
-    
-    def _get_metadata(self, meta_path):
-        try:
-            df = pd.read_csv(meta_path)
-            res = df[df['commonName']==self.event_name]
-            print(res.commonName.values)
-            if res.shape[0]==0:
-                print('No metadata found!')
-                res=None
-        except ValueError:
-            print('No metadata available!')
-            res=None
-        return res
     
     
     def find_event_coords(self):   
@@ -218,8 +223,30 @@ class Skymap3D(object):
         cArea_idxs = self.all_pixels[self.p>p_th]
         LL = self.likelihood_px(r, cArea_idxs)
         if Verbose:
-            print('Max GW likelihood = %s' %LL.max())
+            print('Max GW likelihood at dL=%s Mpc : %s' %(r,LL.max()))
             print('Pix of max GW likelihood = %s' %cArea_idxs[LL.argmax()])
-            print('RA, dec of max GW likelihood = %s, %s' %self.find_ra_dec(cArea_idxs[LL.argmax()]))
+            print('RA, dec of max GW likelihood at dL=%s Mpc: %s' %(r,self.find_ra_dec(cArea_idxs[LL.argmax()])))
         return LL
+    
+    
+    
+def get_all_O2(O2_loc='data/GW/O2/', subset=True, subset_names=['GW170817',]
+               ):
+    '''
+    Returns dictionary with all skymaps in the folder O2_loc.
+    If subset=True, gives skymaps only for the event specified by subset_names
+    
+    '''
+    from os import listdir
+    from os.path import isfile, join
+    sm_files = [f for f in listdir(O2_loc) if ((isfile(join(O2_loc, f))) & (f!='.DS_Store'))]    
+    ev_names = [fname.split('_')[0]  for fname in sm_files]
+    if subset:
+        ev_names = [e for e in ev_names if e in subset_names]
+        sm_files = [e+'_skymap.fits' for e in ev_names]
+    print('--- GW events:')
+    print(ev_names)
+    print('Reading skymaps....')
+    all_O2 = {fname.split('_')[0]: Skymap3D(O2_loc+fname, nest=False) for fname in sm_files}
+    return all_O2
     

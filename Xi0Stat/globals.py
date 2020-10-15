@@ -4,6 +4,8 @@ dirName = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 miscPath = os.path.join(dirName, 'data', 'misc')
 
+metaPath= os.path.join(dirName, 'data', 'GW', 'metadata') 
+
 
 
 ###########################
@@ -116,3 +118,13 @@ def th_phi_from_ra_dec(ra, dec):
     theta = 0.5 * np.pi - np.deg2rad(dec)
     phi = np.deg2rad(ra)
     return theta, phi
+
+
+
+def dL_GW(z, H0, Xi0, n=1.91):
+    '''
+    GW luminosity distance
+    '''
+    r=1
+    return r
+    

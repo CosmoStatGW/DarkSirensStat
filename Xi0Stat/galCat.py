@@ -179,25 +179,28 @@ class GalCompleted(object):
         confpower = 0.05
         return np.exp(confpower*(1-1/compl))
     
-    
-    
     def set_z_range(self, z_min, z_max):
         pass
     
     def set_area(self, pixels, nside):
         pass
     
-    def get_inhom_contained(self, Omega, z):
-        ''' return res_keelin '''
-        pass
-    
+    def get_inhom_contained(self, zGrid, nside):
+        ''' return pixels : array N_galaxies x 1
+        
+                    weights: array N_galaxies x len(zGrid)
+        '''
+        
+        pixels=1
+        weights=1
+        return pixels, weights
     
     def eval_inhom(self, Omega, z):
         '''
         For the future if we had posterior samples
         '''
         pass
-        
+    
     def eval_hom(self, Omega, z):
         '''
         Homogeneous completion part. Second term in 2.59
