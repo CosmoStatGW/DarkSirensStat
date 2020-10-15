@@ -81,7 +81,7 @@ def parmap(f, X):
 ###########################
 
     
-def get_SchParams(self, Lstar, phiStar, h0):
+def get_SchParams(Lstar, phiStar, h0):
         '''
         Input: Hubble parameter h0, values of Lstar, phiStar for h0=0.7
         Output: Schechter function parameters L_*, phi_* rescaled by h0
@@ -92,7 +92,7 @@ def get_SchParams(self, Lstar, phiStar, h0):
 
 
 
-def get_SchNorm(self, phistar, Lstar, alpha, Lcut):
+def get_SchNorm(phistar, Lstar, alpha, Lcut):
         '''
         
         Input:  - Schechter function parameters L_*, phi_*, alpha
