@@ -14,9 +14,9 @@ import healpy as hp
 
 class Completeness(ABC):
     
-    def __init__(self, **kwargs):
+    def __init__(self, comovingDensityGoal, **kwargs):
         self._computed = False
-        pass
+        self._comovingDensityGoal = comovingDensityGoal
         
     def compute(self, galdata, useDirac = False):
         print('Computing completeness')
@@ -74,8 +74,8 @@ class SkipCompleteness(Completeness):
     
     def __init__(self, **kwargs):
         print('Initializing SkipCompleteness...')
-        Completeness.__init__(self, **kwargs)
-        pass
+        Completeness.__init__(self, comovingDensityGoal, **kwargs)
+        
         
     def zstar(self, theta, phi):
         return 0
@@ -118,9 +118,8 @@ class SuperpixelCompleteness(Completeness):
         from astropy.cosmology import FlatLambdaCDM
         
         self._fiducialcosmo = FlatLambdaCDM(H0=70.0, Om0=0.3)
-        self._comovingDensityGoal = comovingDensityGoal
         
-        Completeness.__init__(self, **kwargs)
+        Completeness.__init__(self, comovingDensityGoal, **kwargs)
         
     def zstar(self, theta, phi):
         if self._interpolateOmega:
@@ -310,9 +309,8 @@ class MaskCompleteness(Completeness):
         from astropy.cosmology import FlatLambdaCDM
           
         self._fiducialcosmo = FlatLambdaCDM(H0=70.0, Om0=0.3)
-        self._comovingDensityGoal = comovingDensityGoal
           
-        Completeness.__init__(self, **kwargs)
+        Completeness.__init__(self, comovingDensityGoal, **kwargs)
           
     def zstar(self, theta, phi):
         return self._zstar[ self._mask[hp.ang2pix(self._nside, theta, phi)] ]

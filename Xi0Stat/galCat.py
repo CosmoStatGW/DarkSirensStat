@@ -34,16 +34,33 @@ class GalCat(ABC):
         
         self.load(**kwargs)
         
+        self.selectedData = self.data
+        
         self._completeness = deepcopy(completeness)
         self._completeness.compute(self.data, useDirac)
         
+    def get_data():
+        return self.selectedData
+        
+    def set_z_range(self, zMin, zMax):
+        self.selectedData = self.data[(self.data.z >= zMin) & (self.data.z < zMax)]
     
+    def set_area(self, pixels, nside):
+        pixname = "pix" + str(nside)
+        
+        if not pixname in self.data:
+            self.data.loc[:, pixname] = hp.ang2pix(nside, self.data.theta, self.data.phi)
+
+        mask = self.data.isin({pixname: pixels}).any(1)
+
+        self.selectedData = self.data[mask]
+        
     @abstractmethod
     def load(self):
         pass
     
-    def completeness(self, theta, phi, z):
-        return self._completeness.get(theta, phi, z)
+    def completeness(self, theta, phi, z, oneZPerAngle=False):
+        return self._completeness.get(theta, phi, z, oneZPerAngle)
     
         
     def completeness_maps(self):
@@ -160,30 +177,46 @@ def gal_to_eq(l, b):
     
 class GalCompleted(object):
     
-    def __init__(self, **kwargs):
+    def __init__(self, completionType = None, **kwargs):
         print('Initializing GalCompleted...')
         self._galcats = []
-    
-    def add_cat(self, cat):
-        self._galcats.append(cat)
+        self._catweights = []
         
-    def total_completeness(self, Omega, z):
-        return sum(list(map(lambda c: c.completeness(Omega, z), self._galcats)))
+        self._additive = False
+        self._multiplicative = False
+        
+        if completionType == 'add':
+            self._additive = True
+        elif completionType == 'mult':
+            self._multiplicative = True
     
-    def confidence(compl):
-        # multiplicative completion:
-        #return 1
-        # homogeneous completion
-        #return 0
-        # general interplation
-        confpower = 0.05
-        return np.exp(confpower*(1-1/compl))
     
-    def set_z_range(self, z_min, z_max):
-        pass
+    def add_cat(self, cat, weight = 1):
+        self._galcats.append(cat)
+        self._catweights.append(weight)
+        
+        
+    def total_completeness(self, theta, phi, z):
+    
+        # sums completnesses of all catalogs, taking into account the additional
+        # catalog weights
+        
+        res = 0
+        for c, w in zip(self._galcats, self._catweights):
+            res += w*c.completeness(theta, phi, z)
+        
+        return res + 1e-9
+        #return sum(list(map(lambda c: c.completeness, self._galcats)))
+    
+    
+    def set_z_range(self, zMin, zMax):
+        for c in self._galcats:
+            c.set_z_range(zMin, zMax)
     
     def set_area(self, pixels, nside):
-        pass
+        for c in self._galcats:
+            c.set_area(pixels, nside)
+            
     
     def get_inhom_contained(self, zGrid, nside):
         ''' return pixels : array N_galaxies x 1
@@ -191,9 +224,46 @@ class GalCompleted(object):
                     weights: array N_galaxies x len(zGrid)
         '''
         
-        pixels=1
-        weights=1
-        return pixels, weights
+        allpixels = []
+        allweights = []
+        
+        # iterate through catalogs and add results to lists
+        
+        for c, w in zip(self._galcats, self._catweights):
+        
+            # shorthand
+            d = c.get_data()
+            
+            pixname = "pix" + str(nside)
+            
+            # compute this only once
+            if not pixname in c.get_data():
+                d.loc[:, pixname] = hp.ang2pix(nside, d.theta, d.phi)
+
+            # pixels are already known
+            allpixels.append(d.pixname.to_numpy())
+            
+            # keelin weights. N has to be tuned for speed vs quality
+            weights = bounded_keelin_3_discrete_probabilities(zGrid, 0.16, d.z_lower, d.z, d.z_upper, d.z_lowerbound, d.z_upperbound, N=40, P=0.99999)
+            
+            # completness eval for each gal, on grid
+            completnesses = c.completeness(d.theta, d.phi, zGrid)
+                
+            # for additive completion we do not divide by completness as opposed to otherwise (mult, mix)
+            # an overall factor of completeness from the weighted average
+            # over catalogs then survives (in the case of 1 catalog, it is cancelling with total_completeness!).
+            # We get this one more factor of completeness in the case of additive completion automatically from the confidence function, which returns its argument in the case of additive completion.
+            # in all other cases (mult, mix), the confidence is a probability of trust in pure multiplicative completion and is =1 in mult, and between 0 and 1 in mix.
+            
+            # ... as well as another factor of completeness that confidence returns in the additive case.
+            weights *= self.confidence(completenesses)
+            weights *= w
+          
+            weights /= total_completeness(d.theta, d.phi, zGrid)
+            
+            allweights.append(weights)
+            
+        return np.vstack(allpixels), np.vstack(allweights)
     
     def eval_inhom(self, Omega, z):
         '''
@@ -201,8 +271,45 @@ class GalCompleted(object):
         '''
         pass
     
-    def eval_hom(self, Omega, z):
+    def eval_hom(self, theta, phi, z):
         '''
         Homogeneous completion part. Second term in 2.59
         '''
-        pass
+        assert(len(theta) == len(z))
+        
+        ret = np.zeros(len(theta))
+        
+        for c, w in zip(self._galcats, self._catweights):
+        
+            # completness eval for each point
+            completnesses = c.completeness(d.theta, d.phi, zGrid, oneZPerAngle = True)
+            
+            # for catalog averaging (1)
+            retc = completnesses
+            
+            # how much of homogeneous stuff to add - note in case of additive completion, confidence returns its argument, and we have 1 - completness, the correct prefactor in that case
+            
+            retc *= (1-self.confidence(completenesses))
+            
+            # for catalog averaging (2)
+            retc *= w
+            
+            # homogeneous density
+            retc *= c._completeness._comovingDensityGoal
+            
+            ret += retc
+        
+        # for catalog averaging (3)
+        ret /= total_completeness(d.theta, d.phi, zGrid)
+        return ret
+        
+        
+    def confidence(compl):
+    
+        if self._multiplicative:
+            return 1
+        elif self._additive:
+            return compl
+        else: #interpolation between multiplicative and additive
+            confpower = 0.05
+            return np.exp(confpower*(1-1/compl))
