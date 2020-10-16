@@ -103,30 +103,51 @@ class GalCat(ABC):
         
         '''
         
-        df.loc[:, which_z+'_or'] = df[which_z].values        
-            
+        
+
         print('Correcting %s for group velocities...' %which_z)
-   
-            
-        zs = df.loc[df['PGC'].isin(df_groups['PGC'])][['PGC', which_z]] 
+
+#        df_groups.loc[:, 'isInCat'] = df_groups['PGC'].isin(df['PGC'])
+#        print(df_groups)
+#        df_groups.set_index(keys=['PGC1'], drop=False, inplace=True)
+#        groups = df_groups.groupby(level=0)
+#        #groups = df_groups.groupby('PGC1')
+#
+#        isModified = np.zeros(len(df), dtype=int)
+#
+#        for grname, gr in groups:
+#
+#            if gr.isInCat.any():
+#                print('y')
+#                galnames = gr['PGC']
+#                mask = df['PGC'].isin(galnames)
+#
+#                z_group = gr.HRV.mean()/clight
+#
+#                df.loc[mask, which_z] = z_group
+#                isModified = isModified | mask.to_numpy().astype(int)
+#
+#        df.loc[:, 'group_correction'] = isModified
+       
+        df.loc[:, which_z+'_or'] = df[which_z].values
+        zs = df.loc[df['PGC'].isin(df_groups['PGC'])][['PGC', which_z]]
         z_corr_arr = []
         #z_group_arr = []
         for PGC in zs.PGC.values:
                 #z_or=zs.loc[zs['PGC']==PGC][which_z_correct].values[0]
             PGC1=df_groups[df_groups['PGC']==PGC]['PGC1'].values[0]
                 #print(PGC1)
-                
+
             z_group = df_groups[df_groups['PGC1']== PGC1].HRV.mean()/clight
-                
-                
+
+
             z_corr_arr.append(z_group)
         z_corr_arr=np.array(z_corr_arr)
-            
-        df.loc[df['PGC'].isin(df_groups['PGC']), which_z] = z_corr_arr                        
+
+        df.loc[df['PGC'].isin(df_groups['PGC']), which_z] = z_corr_arr
         correction_flag_array = np.where(df[which_z+'_or'] != df[which_z], 1, 0)
         df.loc[:, 'group_correction'] = correction_flag_array
-            
-        return df
+
         
     
     def CMB_correction(self, df, which_z='z_cosmo'):
@@ -154,7 +175,7 @@ class GalCat(ABC):
             
         z_corr = v_corr/clight
         df.loc[:,which_z+'_CMB'] = z_corr
-        return df
+  
  
     
     
@@ -251,6 +272,11 @@ class GalCompleted(object):
             # keelin weights. N has to be tuned for speed vs quality
             weights = bounded_keelin_3_discrete_probabilities(zGrid, 0.16, d.z_lower, d.z, d.z_upper, d.z_lowerbound, d.z_upperbound, N=40, P=0.99999)
             
+            if weights.ndim == 1:
+                weights = weights[np.newaxis, :]
+            
+            weights *= d.w[:, np.newaxis]
+            
             # completness eval for each gal, on grid
             completnesses = c.completeness(d.theta, d.phi, zGrid)
                 
@@ -265,6 +291,7 @@ class GalCompleted(object):
             weights *= w
           
             weights /= self.total_completeness(d.theta, d.phi, zGrid)
+            weights /= c._completeness._comovingDensityGoal
             
             allweights.append(weights)
             
@@ -303,7 +330,8 @@ class GalCompleted(object):
             retc *= w
             
             # homogeneous density
-            retc *= c._completeness._comovingDensityGoal
+            #   divide by it - do not multiply here.
+            #   retc *= c._completeness._comovingDensityGoal
             
             ret += retc
         

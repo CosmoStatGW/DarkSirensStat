@@ -177,9 +177,9 @@ class SuperpixelCompleteness(Completeness):
                 # if there is 1 galaxy only, weights won't be a matrix - fix
                 if weights.ndim == 1:
                     weights = weights[np.newaxis, :]
-                weights = weights * self.zcenters**2
+                #weights = weights * self.zcenters**2
                 # rows can be fully zero if galaxy sits beyond the z grid - avoid division by 0 by adding small epsilon (small cmp to a typical z^2, so e.g. 10^-4)
-                weights = weights / ((1e-9 + np.sum(weights, axis=1)[:, np.newaxis]))
+                #weights = weights / ((1e-9 + np.sum(weights, axis=1)[:, np.newaxis]))
                 return np.sum(weights * galpixel.w[:, np.newaxis], axis=0)
           
         gr = galdata.groupby(level=0)
@@ -201,6 +201,8 @@ class SuperpixelCompleteness(Completeness):
         idx = np.argmax(evals >= 1, axis=1)
         # however, if all enries are False, argmax returns 0, which would be the largest redshift, while we want 0 in that case
         self._zstar = np.where(idx == 0, 0, zFine[idx])
+        
+        print('Done.')
 
     # z is a number
     def get_at_z_implementation(self, theta, phi, z):
@@ -399,9 +401,9 @@ class MaskCompleteness(Completeness):
                 # if there is 1 galaxy only, weights won't be a matrix - fix
                 if weights.ndim == 1:
                     weights = weights[np.newaxis, :]
-                weights = weights * zcenters**2
+                #weights = weights * zcenters**2
                 # rows can be fully zero if galaxy sits beyond the z grid - avoid division by 0 by adding small epsilon (small cmp to a typical z^2, so e.g. 10^-4)
-                weights = weights / ((1e-9 + np.sum(weights, axis=1)[:, np.newaxis]))
+                #weights = weights / ((1e-9 + np.sum(weights, axis=1)[:, np.newaxis]))
                 return np.sum(weights * gals.w[:, np.newaxis], axis=0)
                 
                 
@@ -432,6 +434,8 @@ class MaskCompleteness(Completeness):
             self._zstar.append(0 if idx == 0 else zFine[idx])
             
         self._zstar = np.array(self._zstar)
+        
+        print('Done.')
         
         
         

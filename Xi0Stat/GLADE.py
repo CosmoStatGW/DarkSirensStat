@@ -189,7 +189,7 @@ class GLADE(GalCat):
                 raise ValueError('To apply group corrections, compute cosmological redshift first')
             print('Loading galaxy group catalogue from %s...' %filepath_groups)
             df_groups =  pd.read_csv(filepath_groups)
-            df = self.group_correction(df, df_groups, which_z=which_z_correct)
+            self.group_correction(df, df_groups, which_z=which_z_correct)
             
       
         
@@ -197,7 +197,7 @@ class GLADE(GalCat):
             if not get_cosmo_z:
                 raise ValueError('To apply CMB corrections, compute cosmological redshift first')
 
-            df = self.CMB_correction(df, which_z=which_z_correct)
+            self.CMB_correction(df, which_z=which_z_correct)
             if pos_z_cosmo:
                 print('Keeping only galaxies with positive redshift in the colums %s...' %which_z)
                 df = df[df[which_z ]>= 0]
