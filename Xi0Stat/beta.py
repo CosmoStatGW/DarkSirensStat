@@ -9,10 +9,15 @@ Created on Wed Sep 23 10:34:25 2020
 ####
 # This module contains an abstract class to compute beta
 ####
+from abc import ABC, abstractmethod
 
-
-class Beta(object):
+class Beta(ABC):
     
     def __init__(self, **kwargs):
         print('Initializing Beta...')
         pass
+    
+    @abstractmethod
+    def get_beta(self):
+        pass        
+        

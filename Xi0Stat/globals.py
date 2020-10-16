@@ -1,5 +1,7 @@
 import os
 import numpy as np
+from astropy.cosmology import FlatLambdaCDM
+
 dirName = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 miscPath = os.path.join(dirName, 'data', 'misc')
@@ -25,6 +27,9 @@ MKSun=3.27
 H0GLADE=70
 Om0GLADE=0.27
 
+# Cosmologival parameters used for the analysis (RT minimal; table 2 of 2001.07619)
+H0GLOB=69
+Om0GLOB=0.3
 
 
 # Parameters of Schechter function in B band in units of 10^10 solar B band
@@ -121,10 +126,31 @@ def th_phi_from_ra_dec(ra, dec):
 
 
 
-def dL_GW(z, H0, Xi0, n=1.91):
+def dLGW(z, H0, Xi0, n=1.91):
     '''
-    GW luminosity distance
+    Modified GW luminosity distance
     '''
-    r=1
-    return r
+    cosmo=FlatLambdaCDM(H0=H0, Om0=Om0GLOB)
+    return (cosmo.luminosity_distance(z).value)*Xi(z, Xi0, n=n) 
     
+def Xi(z, Xi0, n=1.91):
+
+    return Xi0+(1-Xi0)/(1+z)**n
+
+
+def z_from_dLGW(dL_GW_val, H0, Xi0, n=1.91): 
+    '''
+    Returns redshift for a given luminosity distance dL_GW_val (in Mpc)
+    
+    Input:
+        - dL_GW_val luminosity dist in Mpc
+        - H0
+        - Xi0: float. Value of Xi_0
+        - n: float. Value of n
+
+    '''   
+    from scipy.optimize import fsolve
+    #print(cosmo.H0)
+    func = lambda z : dLGW(z, H0, Xi0, n=n) - dL_GW_val
+    z = fsolve(func, 0.5)
+    return z[0]

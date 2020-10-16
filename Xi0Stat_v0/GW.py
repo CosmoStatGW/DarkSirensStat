@@ -184,6 +184,11 @@ class skymap_3D(object):
             print('Max GW likelihood = %s' %LL.max())
         return LL
     
+    
+    ########################################################################
+    ########################################################################
+    ########################################################################
+    
     def _get_cosmo(self, H0=None):
         '''
         Given H0, returns astropy.cosmology FlatLambdaCDM object

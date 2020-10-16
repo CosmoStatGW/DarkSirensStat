@@ -74,11 +74,13 @@ class SkipCompleteness(Completeness):
     
     def __init__(self, **kwargs):
         print('Initializing SkipCompleteness...')
-        Completeness.__init__(self, comovingDensityGoal, **kwargs)
+        Completeness.__init__(self, comovingDensityGoal=None, **kwargs)
         
         
     def zstar(self, theta, phi):
-        return 0
+        if np.isscalar(theta):
+            return 0
+        return np.zeros(theta.size)
         
     def compute_implementation(self, galdata, useDirac):
         print("SkipCompleteness: nothing to compute")

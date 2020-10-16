@@ -19,6 +19,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 
 from Xi0Stat.globals import *
+from Xi0Stat.keelin import bounded_keelin_3_discrete_probabilities
 
 
 class GalCat(ABC):
@@ -39,13 +40,16 @@ class GalCat(ABC):
         self._completeness = deepcopy(completeness)
         self._completeness.compute(self.data, useDirac)
         
-    def get_data():
+    def get_data(self):
         return self.selectedData
         
     def set_z_range(self, zMin, zMax):
+        print("Setting z range of the catalogue between %s, %s" %(zMin, zMax))
         self.selectedData = self.data[(self.data.z >= zMin) & (self.data.z < zMax)]
+        print('%s galaxies kept' %self.selectedData.shape[0])
     
     def set_area(self, pixels, nside):
+        print("Restricting area of the catalogue to %s pixels with nside=%s" %(pixels.shape[0], nside))
         pixname = "pix" + str(nside)
         
         if not pixname in self.data:
@@ -54,6 +58,7 @@ class GalCat(ABC):
         mask = self.data.isin({pixname: pixels}).any(1)
 
         self.selectedData = self.data[mask]
+        print('%s galaxies kept' %self.selectedData.shape[0])
         
     @abstractmethod
     def load(self):
@@ -241,7 +246,7 @@ class GalCompleted(object):
                 d.loc[:, pixname] = hp.ang2pix(nside, d.theta, d.phi)
 
             # pixels are already known
-            allpixels.append(d.pixname.to_numpy())
+            allpixels.append(d[pixname].to_numpy())
             
             # keelin weights. N has to be tuned for speed vs quality
             weights = bounded_keelin_3_discrete_probabilities(zGrid, 0.16, d.z_lower, d.z, d.z_upper, d.z_lowerbound, d.z_upperbound, N=40, P=0.99999)
@@ -256,14 +261,14 @@ class GalCompleted(object):
             # in all other cases (mult, mix), the confidence is a probability of trust in pure multiplicative completion and is =1 in mult, and between 0 and 1 in mix.
             
             # ... as well as another factor of completeness that confidence returns in the additive case.
-            weights *= self.confidence(completenesses)
+            weights *= self.confidence(completnesses)
             weights *= w
           
-            weights /= total_completeness(d.theta, d.phi, zGrid)
+            weights /= self.total_completeness(d.theta, d.phi, zGrid)
             
             allweights.append(weights)
             
-        return np.vstack(allpixels), np.vstack(allweights)
+        return np.squeeze(np.vstack(allpixels)), np.vstack(allweights)
     
     def eval_inhom(self, Omega, z):
         '''
@@ -280,16 +285,19 @@ class GalCompleted(object):
         ret = np.zeros(len(theta))
         
         for c, w in zip(self._galcats, self._catweights):
+            
+            # shorthand
+            d = c.get_data()
         
             # completness eval for each point
-            completnesses = c.completeness(d.theta, d.phi, zGrid, oneZPerAngle = True)
+            completnesses = c.completeness(d.theta, d.phi, z, oneZPerAngle = True)
             
             # for catalog averaging (1)
             retc = completnesses
             
             # how much of homogeneous stuff to add - note in case of additive completion, confidence returns its argument, and we have 1 - completness, the correct prefactor in that case
             
-            retc *= (1-self.confidence(completenesses))
+            retc *= (1-self.confidence(completnesses))
             
             # for catalog averaging (2)
             retc *= w
@@ -300,11 +308,11 @@ class GalCompleted(object):
             ret += retc
         
         # for catalog averaging (3)
-        ret /= total_completeness(d.theta, d.phi, zGrid)
+        ret /= self.total_completeness(d.theta, d.phi, z)
         return ret
         
         
-    def confidence(compl):
+    def confidence(self, compl):
     
         if self._multiplicative:
             return 1

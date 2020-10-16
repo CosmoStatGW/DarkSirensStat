@@ -12,7 +12,6 @@ Created on Wed Sep 23 10:30:19 2020
 
 
 import healpy as hp
-import numpy as np
 import pandas as pd
 import scipy.stats
 from Xi0Stat.globals import *
@@ -164,14 +163,17 @@ class Skymap3D(object):
     def likelihood_px(self, r, pix):
         '''
         Eq. 2.18
-        Likelihood given pixel
+        Likelihood given pixel. Note: to avoid negative values, we truncate the gaussian at zero.
         L(data|r,Omega_i)
           
         p(r,Omega_i|data) = L(data|r,Omega_i) * p(r) 
         p(r) = r^2
         '''
-          
-        return  self.p[pix]*self.norm[pix]*scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
+        myclip_a=0
+        myclip_b=np.infty
+        a, b = (myclip_a - self.mu[pix]) / self.sigma[pix], (myclip_b - self.mu[pix]) / self.sigma[pix]
+        return  self.p[pix]*self.norm[pix]*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
+        #scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
     
     
     def p_r(self, r):  
@@ -202,7 +204,8 @@ class Skymap3D(object):
     
     def _get_credible_region_pth(self, level=0.99):
         '''
-        Finds value of rho_i that bouds the x% credible region , with x=level
+        Finds value minskypdf of rho_i that bouds the x% credible region , with x=level
+        Then to select pixels in that region: self.all_pixels[self.p>minskypdf]
         '''
         prob_sorted = np.sort(self.p)[::-1]
         prob_sorted_cum = np.cumsum(prob_sorted)
@@ -213,14 +216,16 @@ class Skymap3D(object):
         #self.p[self.p]  >= minskypdf       
         return minskypdf
     
+    def get_credible_region_pixels(self, level=0.99):
+        return self.all_pixels[self.p>self._get_credible_region_pth(level=level)]
+    
     
     def likelihood_in_credible_region(self, r, level=0.99, Verbose=False):
         '''
         Returns likelihood for all the pixels in the x% credible region at distance r
         x=level
         '''
-        p_th = self._get_credible_region_pth(level=0.99)
-        cArea_idxs = self.all_pixels[self.p>p_th]
+        cArea_idxs = self.get_credible_region_pixels(level=level)
         LL = self.likelihood_px(r, cArea_idxs)
         if Verbose:
             print('Max GW likelihood at dL=%s Mpc : %s' %(r,LL.max()))
@@ -228,6 +233,70 @@ class Skymap3D(object):
             print('RA, dec of max GW likelihood at dL=%s Mpc: %s' %(r,self.find_ra_dec(cArea_idxs[LL.argmax()])))
         return LL
     
+ 
+    def d_max(self, SNR_ref=8):
+        '''
+        Max GW luminosity distance at which the evend could be seen, 
+        assuming its SNR and a threshold SNR_ref:
+        d_max = d_obs*SNR/SNR_ref
+        
+        d_obs is the posterior mean quoted in the GW metadata
+        '''
+        try:
+            d_obs = self.metadata['luminosity_distance'].values[0]
+            SNR = self.metadata['network_matched_filter_snr'].values[0]
+            #print('using d_obs and SNR from metadata')
+        except IndexError:
+            print('SNR for this event not available! Computing d_max with SNR=%s' %SNR_ref)
+            d_obs = np.float(dict(self.head)['DISTMEAN'])
+            SNR = SNR_ref
+        #std_quoted = np.float(dict(self.head)['DISTSTD'])
+        d_max = d_obs*SNR/SNR_ref
+        
+        return d_max
+        
+    
+    def get_zlims(self, H0max=220, H0min=20, Xi0max=3, Xi0min=0.2, n=1.91, Verbose=False):  
+        '''
+        Computes the possible range in redshift for the event given the prior range for H0 or XI0
+        '''
+        
+        if Verbose:
+            print('Computing range in redshift for all priors...')
+        grid=[]
+        for H0i in [H0min, H0max]:
+            for Xi0i in [Xi0min, Xi0max]:
+                grid.append([H0i, Xi0i]) 
+        zs = np.array([self._get_minmaxz(*vals,n=n, Verbose=Verbose) for vals in grid ])
+        
+        return zs.min(), zs.max()
+    
+    
+    def _get_minmaxz(self, H0, Xi0, n=1.91, std_number=3, Verbose=False):
+        '''
+        Upper and lower limit in redshift to search for given H0 or Xi0
+        '''
+        
+        # Get mu and sigma for dLGW
+        map_val = np.float(dict(self.head)['DISTMEAN'])
+        up_lim = np.float(dict(self.head)['DISTSTD'])
+        low_lim=-up_lim
+        dlow = max(map_val+std_number*low_lim,0)
+        dup=map_val+std_number*up_lim
+        if Verbose:
+            print('Position: %s +%s %s'%(map_val, up_lim, low_lim))
+        z1 = z_from_dLGW(dlow, H0, Xi0, n=n) 
+        z2 = z_from_dLGW(dup,  H0, Xi0, n=n)
+        if Verbose:
+            print('H0, Xi0: %s, %s' %(H0, Xi0))
+            print('lower limit to search: d_L = %s Mpc, z=%s' %(dlow,z1))
+            print('upper limit to search:d_L = %s Mpc, z=%s' %(dup, z2))
+ 
+        minmax_z = max(min(z1,z2), 0), max(z1,z2) 
+    
+        return minmax_z 
+            
+        
     
     
 def get_all_O2(O2_loc='data/GW/O2/', subset=True, subset_names=['GW170817',]
