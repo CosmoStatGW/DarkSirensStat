@@ -21,11 +21,11 @@ import matplotlib.pyplot as plt
 # Furthermore, the r.v. that is described by the pdf is bounded between lower and upper
 # To approximate semibounded pdfs, choose e.g. lower = 0, upper = median + 3 sigma
 #
-# P is the total probability that is covered by the returned pdf (which excludes the boundary points)
-# (if a tail is thin enough, no values in it will be returned for sufficiently small P < 1)
+# the argument P is the total probability that is covered by the returned pdf (which always excludes the boundary points)
+# (for example, if a tail is thin enough, no values in it will be returned for sufficiently small P < 1)
 #
-# P = 1 is ill-defined. So is lower = aquant_l, and other pathologies that cannot be represented.
-# No checks are done
+# Note that P = 1 is ill-defined. So is lower = aquant_l, and other pathologies that cannot be represented.
+# No checks on input are done.
 #
 # Returns: function returns 2 vectors of length N.
 #     The first is a generally nonuniform grid x
@@ -102,6 +102,7 @@ def bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N=100, P=.9999
     return np.squeeze(boundedQuantileFunc), np.squeeze(boundedpdf)
 
 # returns N random samples from the symetric percentile triplet bounded Keelin (logit metalog) distribution
+
 def sample_bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N):
 
     # Treat scalar case as special case of vector input
@@ -150,11 +151,46 @@ def sample_bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N):
     # (Note that coefficients have been derived such that the final result has the desired properties)
     boundedQuantileFunc = (lower+upper*positive)/(1+positive)
 
-    boundedpdf = False
-
     return np.squeeze(boundedQuantileFunc)
 
+# find bounds and quantiles to approximate any pdf by a keelin distribution. Output of this function may be the input of the others. For vector input, returns a matrix with 5 columns (lower, a, 50%, 1-a, upper) the results for each pdf which are expected to come in rows, together with their grids
 
+def fit_bounded_keelin_3(a, grids, pdfs):
+
+    import scipy.integrate as igt
+    
+    cdfs = igt.cumtrapz(pdfs, grids, initial = 0)
+    
+    if cdfs.ndim == 1:
+        cdfs  = cdfs[np.newaxis, :]
+        grids = grids[np.newaxis, :]
+    
+
+    cdfs =  cdfs / ((cdfs[:, -1])[:, np.newaxis])
+
+    ret = np.zeros((cdfs.shape[0], 5))
+    
+    for i, quant in enumerate([0.001, a, 0.5, 1-a, 0.999]):
+        
+        for row in np.arange(cdfs.shape[0]):
+            
+            ret[row, i] = grids[row, np.searchsorted(cdfs[row], quant)]
+            
+    return ret
+    
+# modifies quantile parameters by convolving a given keelin distribution with another arbitrary function func. Internally uses fit_bounded_keelin_3. 
+
+def convolve_bounded_keelin_3(func, a, aquant_l, median, aquant_u, lower, upper, N=100, P=.9999):
+
+    grid, pdfs = bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N, P=.9999, computePDF = True)
+    
+    #grid = np.linspace(lower, upper, N)
+    
+    newpdfs = func(grid) * pdfs
+    
+    return fit_bounded_keelin_3(a, grid, newpdfs)
+    
+    
 # This function returns neighbor difference of the bounded Keelin 3-term CDF for a given grid x.
 # These values approximate the probabilities pdf(x)dx.
 # The mass is distibuted equally to left and right gridpoint.
@@ -180,7 +216,7 @@ def sample_bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N):
 # since the CDF jumps there to 0 (left) and 1 (right) (visible for too small P).
 # None of this is pathological in the sense that the sum is guarantied to be == 1.
 
-def bounded_keelin_3_discrete_probabilities(x, a, aquant_l, median, aquant_u, lower, upper, N=100, P=.9999):
+def bounded_keelin_3_discrete_probabilities(x, a, aquant_l, median, aquant_u, lower, upper, N=1000, P=.99999):
 
     cdfs, _ = bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N, P, computePDF = False)
 
@@ -221,7 +257,7 @@ def bounded_keelin_3_discrete_probabilities(x, a, aquant_l, median, aquant_u, lo
 # This function returns neighbor difference of the bounded Keelin 3-term CDF for a given grid x.
 # These values approximate the probabilities pdf(x)dx.
 # The mass between two grid points is returned as an array one element shorter than the grid
-def bounded_keelin_3_discrete_probabilities_between(x, a, aquant_l, median, aquant_u, lower, upper, N=100, P=.9999):
+def bounded_keelin_3_discrete_probabilities_between(x, a, aquant_l, median, aquant_u, lower, upper, N=1000, P=.99999):
 
     cdfs, _ = bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N, P, computePDF = False)
 

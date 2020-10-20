@@ -173,13 +173,11 @@ class SuperpixelCompleteness(Completeness):
                 res, _ = np.histogram(a=galpixel.z.to_numpy(), bins=self.zedges, weights=galpixel.w.to_numpy())
                 return res.astype(float)
             else:
-                weights = bounded_keelin_3_discrete_probabilities_between(self.zedges, 0.16, galpixel.z_lower, galpixel.z, galpixel.z_upper, galpixel.z_lowerbound, galpixel.z_upperbound)
+                weights = bounded_keelin_3_discrete_probabilities_between(self.zedges, 0.16, galpixel.z_lower, galpixel.z, galpixel.z_upper, galpixel.z_lowerbound, galpixel.z_upperbound, N=1000)
                 # if there is 1 galaxy only, weights won't be a matrix - fix
                 if weights.ndim == 1:
                     weights = weights[np.newaxis, :]
-                #weights = weights * self.zcenters**2
-                # rows can be fully zero if galaxy sits beyond the z grid - avoid division by 0 by adding small epsilon (small cmp to a typical z^2, so e.g. 10^-4)
-                #weights = weights / ((1e-9 + np.sum(weights, axis=1)[:, np.newaxis]))
+                
                 return np.sum(weights * galpixel.w[:, np.newaxis], axis=0)
           
         gr = galdata.groupby(level=0)
@@ -397,13 +395,12 @@ class MaskCompleteness(Completeness):
                 res, _ = np.histogram(a=gals.z.to_numpy(), bins=zedges, weights=gals.w.to_numpy())
                 return res.astype(float)
             else:
-                weights = bounded_keelin_3_discrete_probabilities_between(zedges, 0.16, gals.z_lower, gals.z, gals.z_upper, gals.z_lowerbound, gals.z_upperbound)
+                weights = bounded_keelin_3_discrete_probabilities_between(zedges, 0.16, gals.z_lower, gals.z, gals.z_upper, gals.z_lowerbound, gals.z_upperbound, N=1000)
+                
                 # if there is 1 galaxy only, weights won't be a matrix - fix
                 if weights.ndim == 1:
                     weights = weights[np.newaxis, :]
-                #weights = weights * zcenters**2
-                # rows can be fully zero if galaxy sits beyond the z grid - avoid division by 0 by adding small epsilon (small cmp to a typical z^2, so e.g. 10^-4)
-                #weights = weights / ((1e-9 + np.sum(weights, axis=1)[:, np.newaxis]))
+                
                 return np.sum(weights * gals.w[:, np.newaxis], axis=0)
                 
                 
@@ -416,10 +413,12 @@ class MaskCompleteness(Completeness):
             z2 = self.zedges[i][1:]
             vol = self.areas[i] * (self._fiducialcosmo.comoving_distance(z2).value**3 - self._fiducialcosmo.comoving_distance(z1).value**3)/3
         
+        
             coarseden[i] /= vol
             self._compl.append(coarseden[i]/self._comovingDensityGoal)
         
             from scipy import interpolate
+            
             
             self._interpolators.append(interpolate.interp1d(self.zcenters[-1], self._compl[-1], kind='linear', bounds_error=False, fill_value=(1,0)))
         

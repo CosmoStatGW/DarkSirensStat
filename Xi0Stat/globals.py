@@ -46,8 +46,37 @@ phiKstar07 = 3.70 * 1e-3
 alphaK07 =-1.02
 
 
+###########################
+###########################
 
+from scipy.special import erfc, erfcinv
 
+def sample_trunc_gaussian(mu = 1, sigma = 1, lower = 0, size = 1):
+
+    sqrt2 = np.sqrt(2)
+    Phialpha = 0.5*erfc(-(lower-mu)/(sqrt2*sigma))
+    
+    if np.isscalar(mu):
+        arg = Phialpha + np.random.uniform(size=size)*(1-Phialpha)
+        return np.squeeze(mu - sigma*sqrt2*erfcinv(2*arg))
+    else:
+        Phialpha = Phialpha[:,np.newaxis]
+        arg = Phialpha + np.random.uniform(size=(mu.size, size))*(1-Phialpha)
+        
+        return np.squeeze(mu[:,np.newaxis] - sigma[:,np.newaxis]*sqrt2*erfcinv(2*arg))
+    
+def trunc_gaussian_pdf(x, mu = 1, sigma = 1, lower = 0):
+
+    if not np.isscalar(x) and not np.isscalar(mu):
+        x = x[:, np.newaxis]
+        if mu.ndim < 2:
+            mu = mu[np.newaxis, :]
+        if sigma.ndim < 2:
+            sigma = sigma[np.newaxis, :]
+        
+    Phialpha = 0.5*erfc(-(lower-mu)/(np.sqrt(2)*sigma))
+    return 1/(np.sqrt(2*np.pi)*sigma)/(1-Phialpha) * np.exp(-(x-mu)**2/(2*sigma**2))
+    
 ###########################
 ###########################
 
