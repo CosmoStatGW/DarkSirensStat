@@ -43,6 +43,7 @@ class GLADE(GalCat):
                    which_z_correct = 'z_cosmo',
                    CMB_correct=True,
                    which_z='z_cosmo_CMB',
+                   computePosterior = True,
                    err_vals='GLADE',
                    drop_HyperLeda2=True, 
                    colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w']):
@@ -255,6 +256,67 @@ class GLADE(GalCat):
             df.loc[:, 'z_upper'] = df.z + df.z_err
             df.loc[:, 'z_upperbound'] = df.z + 3*df.z_err
         
+            # ------ Estimate galaxy posteriors with contant-in-comoving prior
+            
+            if computePosterior:
+            
+                L = 0
+                nBatch = 100000
+                 
+                if self.verbose:
+                    print("Computing galaxy posteriors...")
+                  
+                from Xi0Stat.keelin import convolve_bounded_keelin_3
+                from astropy.cosmology import FlatLambdaCDM
+                fiducialcosmo = FlatLambdaCDM(H0=70.0, Om0=0.3)
+                zGrid = np.linspace(0, np.max(df.z_upperbound), 500)
+                jac = fiducialcosmo.comoving_distance(zGrid).value**2 / fiducialcosmo.H(zGrid).value
+                
+                from scipy import interpolate
+                func = interpolate.interp1d(zGrid, jac, kind='cubic')
+                
+                i = 0 
+                while True:
+                    i += 1
+                    if self.verbose:
+                        print("Batch " + str(i) + " of " + str(np.int(len(df)/nBatch)+1) )
+                    
+                    R = L + nBatch
+            
+                    if R >= len(df):
+                        ll = df.z_lowerbound.to_numpy()[L:]
+                        l  = df.z_lower.to_numpy()[L:]
+                        m  = df.z.to_numpy()[L:]
+                        u  = df.z_upper.to_numpy()[L:]
+                        uu = df.z_upperbound.to_numpy()[L:]
+                    else:
+                        ll = df.z_lowerbound.to_numpy()[L:R]
+                        l  = df.z_lower.to_numpy()[L:R]
+                        m  = df.z.to_numpy()[L:R]
+                        u  = df.z_upper.to_numpy()[L:R]
+                        uu = df.z_upperbound.to_numpy()[L:R]
+                        
+
+                    fits = convolve_bounded_keelin_3(func, 0.16, l, m, u, ll, uu, N=500)
+                    
+                    if R >= len(df):
+                        df.iloc[L:, df.columns.get_loc("z_lowerbound")] = fits[:, 0]
+                        df.iloc[L:, df.columns.get_loc("z_lower")] = fits[:, 1]
+                        df.iloc[L:, df.columns.get_loc("z")] = fits[:, 2]
+                        df.iloc[L:, df.columns.get_loc("z_upper")] = fits[:, 3]
+                        df.iloc[L:, df.columns.get_loc("z_upperbound")] = fits[:, 4]
+                        break
+                    else:
+                        df.iloc[L:R, df.columns.get_loc("z_lowerbound")] = fits[:, 0]
+                        df.iloc[L:R, df.columns.get_loc("z_lower")] = fits[:, 1]
+                        df.iloc[L:R, df.columns.get_loc("z")] = fits[:, 2]
+                        df.iloc[L:R, df.columns.get_loc("z_upper")] = fits[:, 3]
+                        df.iloc[L:R, df.columns.get_loc("z_upperbound")] = fits[:, 4]
+
+                    
+                    L += nBatch
+                
+            
         # ------ Add B luminosity
         
         if add_B_lum:

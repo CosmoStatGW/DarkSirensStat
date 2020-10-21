@@ -180,9 +180,9 @@ def fit_bounded_keelin_3(a, grids, pdfs):
     
 # modifies quantile parameters by convolving a given keelin distribution with another arbitrary function func. Internally uses fit_bounded_keelin_3. 
 
-def convolve_bounded_keelin_3(func, a, aquant_l, median, aquant_u, lower, upper, N=100, P=.9999):
+def convolve_bounded_keelin_3(func, a, aquant_l, median, aquant_u, lower, upper, N=100):
 
-    grid, pdfs = bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N, P=.9999, computePDF = True)
+    grid, pdfs = bounded_keelin_3(a, aquant_l, median, aquant_u, lower, upper, N, P=.99999999, computePDF = True)
     
     #grid = np.linspace(lower, upper, N)
     
