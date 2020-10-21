@@ -14,7 +14,6 @@ from abc import ABC, abstractmethod
 class Beta(ABC):
     
     def __init__(self, **kwargs):
-        print('Initializing Beta...')
         pass
     
     @abstractmethod

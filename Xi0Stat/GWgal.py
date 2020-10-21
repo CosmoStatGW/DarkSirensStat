@@ -14,13 +14,13 @@ from Xi0Stat.globals import *
 
 class GWgal(object):
     
-    def __init__(self, GalCompleted, GWevents,):
+    def __init__(self, GalCompleted, GWevents, credible_level=0.90, verbose=False):
         
         self.gals = GalCompleted
         self.GWevents = GWevents
-        self.cred_pixels = {event: self.GWevents[event].get_credible_region_pixels(level=0.99) for event in self.GWevents}
+        self.cred_pixels = {event: self.GWevents[event].get_credible_region_pixels(level=credible_level) for event in self.GWevents}
         self.z_lims = {event: self.GWevents[event].get_zlims() for event in self.GWevents}
-        
+        self.verbose=verbose
         
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
@@ -30,10 +30,10 @@ class GWgal(object):
         
         # Completeness needs a name or something to know if we use 
         # multiplicative, homogeneous or no completion
-        
-        print('\n --- GW events: ')
-        for event in GWevents.keys():
-            print(event)
+        if self.verbose:
+            print('\n --- GW events: ')
+            for event in GWevents.keys():
+                print(event)
             
     
     

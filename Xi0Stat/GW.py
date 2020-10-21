@@ -24,9 +24,10 @@ class Skymap3D(object):
 
     def __init__(self, fname, 
                  nest=False,
+                 verbose=False
                  ):
         
-        print('Initializing Skymap3D...')
+        self.verbose=verbose
         try:
             
             smap, header = hp.read_map(fname, field=range(4),
@@ -39,7 +40,8 @@ class Skymap3D(object):
         
         try:
             self.event_name=dict(header)['OBJECT']
-            print('Event name: %s \n' %self.event_name)
+            if self.verbose:
+                print('Event name: %s \n' %self.event_name)
         except KeyError:
             ename = fname.split('/')[-1].split('.')[0].split('_')[0]
             print('No event name in header for this event. Using name provided with filename %s ' %ename)
@@ -54,7 +56,6 @@ class Skymap3D(object):
         self.sigma   = smap[2]
         self.norm   = smap[3]
         self.all_pixels = np.arange(self.npix)
-        #self.credible_levels = None
         self.metadata = self._get_metadata()
         self.nest=nest
         
@@ -96,8 +97,8 @@ class Skymap3D(object):
 
     def find_theta_phi(self, pix):
         '''
-        input:  pixel ra dec in degrees
-        output: (theta, phi)of pixel center in degrees, with nside given by that of the skymap 
+        input:  pixel
+        output: (theta, phi)of pixel center in rad, with nside given by that of the skymap 
         '''
         return hp.pix2ang(self.nside, pix, nest=self.nest)
     
@@ -105,7 +106,7 @@ class Skymap3D(object):
     def find_ra_dec(self, pix):
         '''
         input:  pixel ra dec in degrees
-        output: (ra, dec)of pixel center in degrees, with nside given by that of the skymap 
+        output: (ra, dec) of pixel center in degrees, with nside given by that of the skymap 
         '''
         theta, phi = self.find_theta_phi(pix)
         ra, dec = ra_dec_from_th_phi(theta, phi)
@@ -151,7 +152,7 @@ class Skymap3D(object):
     def likelihood(self, r, theta, phi):
         '''
         Eq. 2.18 
-        Likelihood given r , ra, dec (ra, dec in degrees)
+        Likelihood given r , theta, phi ( theta, phi in rad)
         p(data|r,Omega) = p(r,Omega|data) * p(r) 
         p(r) = r^2
         
@@ -220,14 +221,14 @@ class Skymap3D(object):
         return self.all_pixels[self.p>self._get_credible_region_pth(level=level)]
     
     
-    def likelihood_in_credible_region(self, r, level=0.99, Verbose=False):
+    def likelihood_in_credible_region(self, r, level=0.99, verbose=False):
         '''
         Returns likelihood for all the pixels in the x% credible region at distance r
         x=level
         '''
         cArea_idxs = self.get_credible_region_pixels(level=level)
         LL = self.likelihood_px(r, cArea_idxs)
-        if Verbose:
+        if verbose:
             print('Max GW likelihood at dL=%s Mpc : %s' %(r,LL.max()))
             print('Pix of max GW likelihood = %s' %cArea_idxs[LL.argmax()])
             print('RA, dec of max GW likelihood at dL=%s Mpc: %s' %(r,self.find_ra_dec(cArea_idxs[LL.argmax()])))
@@ -256,12 +257,12 @@ class Skymap3D(object):
         return d_max
         
     
-    def get_zlims(self, H0max=220, H0min=20, Xi0max=3, Xi0min=0.2, n=1.91, Verbose=False):  
+    def get_zlims(self, H0max=220, H0min=20, Xi0max=3, Xi0min=0.2, n=1.91, verbose=False):  
         '''
-        Computes the possible range in redshift for the event given the prior range for H0 or XI0
+        Computes the possible range in redshift for the event given the prior range for H0 and XI0
         '''
         
-        if Verbose:
+        if verbose:
             print('Computing range in redshift for all priors...')
         grid=[]
         for H0i in [H0min, H0max]:
@@ -272,7 +273,7 @@ class Skymap3D(object):
         return zs.min(), zs.max()
     
     
-    def _get_minmaxz(self, H0, Xi0, n=1.91, std_number=3, Verbose=False):
+    def _get_minmaxz(self, H0, Xi0, n=1.91, std_number=3, verbose=False):
         '''
         Upper and lower limit in redshift to search for given H0 or Xi0
         '''
@@ -283,11 +284,11 @@ class Skymap3D(object):
         low_lim=-up_lim
         dlow = max(map_val+std_number*low_lim,0)
         dup=map_val+std_number*up_lim
-        if Verbose:
+        if verbose:
             print('Position: %s +%s %s'%(map_val, up_lim, low_lim))
         z1 = z_from_dLGW(dlow, H0, Xi0, n=n) 
         z2 = z_from_dLGW(dup,  H0, Xi0, n=n)
-        if Verbose:
+        if verbose:
             print('H0, Xi0: %s, %s' %(H0, Xi0))
             print('lower limit to search: d_L = %s Mpc, z=%s' %(dlow,z1))
             print('upper limit to search:d_L = %s Mpc, z=%s' %(dup, z2))
@@ -299,23 +300,25 @@ class Skymap3D(object):
         
     
     
-def get_all_O2(O2_loc='data/GW/O2/', subset=True, subset_names=['GW170817',]
+def get_all_events(loc='data/GW/O2/', subset=True, subset_names=['GW170817',], 
+                   verbose=False
                ):
     '''
-    Returns dictionary with all skymaps in the folder O2_loc.
+    Returns dictionary with all skymaps in the folder loc.
     If subset=True, gives skymaps only for the event specified by subset_names
     
     '''
     from os import listdir
     from os.path import isfile, join
-    sm_files = [f for f in listdir(O2_loc) if ((isfile(join(O2_loc, f))) & (f!='.DS_Store'))]    
+    sm_files = [f for f in listdir(loc) if ((isfile(join(loc, f))) & (f!='.DS_Store'))]    
     ev_names = [fname.split('_')[0]  for fname in sm_files]
     if subset:
         ev_names = [e for e in ev_names if e in subset_names]
         sm_files = [e+'_skymap.fits' for e in ev_names]
-    print('--- GW events:')
-    print(ev_names)
-    print('Reading skymaps....')
-    all_O2 = {fname.split('_')[0]: Skymap3D(O2_loc+fname, nest=False) for fname in sm_files}
-    return all_O2
+    if verbose:
+        print('--- GW events:')
+        print(ev_names)
+        print('Reading skymaps....')
+    all_events = {fname.split('_')[0]: Skymap3D(loc+fname, nest=False) for fname in sm_files}
+    return all_events
     

@@ -18,8 +18,9 @@ class GLADE(GalCat):
     
     def __init__(self, foldername, compl, useDirac, 
                  subsurveysIncl = ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS'], 
-                 subsurveysExcl = [], **kwargs):
-        print('Initializing GLADE...')
+                 subsurveysExcl = [], 
+                 verbose=False,
+                 **kwargs):
         
         self._subsurveysIncl = subsurveysIncl
         self._subsurveysExcl = subsurveysExcl
@@ -71,7 +72,8 @@ class GLADE(GalCat):
         
         
         # ------ LOAD CATALOGUE
-        print('Loading GLADE from %s...' %filepath_GLADE)
+        if self.verbose:
+            print('Loading GLADE from %s...' %filepath_GLADE)
         df = pd.read_csv(filepath_GLADE, sep=" ", header=None, low_memory=False)
 
         colnames = ['PGC', 'GWGC_name', 'HYPERLEDA_name', 'TWOMASS_name', 'SDSS_name', 'flag1', 'RA', 'dec',
@@ -120,7 +122,8 @@ class GLADE(GalCat):
         
         
         or_dim = df.shape[0] # ORIGINAL LENGTH OF THE CATALOGUE
-        print('N. of objects: %s' %or_dim)
+        if self.verbose:
+            print('N. of objects: %s' %or_dim)
         
        
             
@@ -128,26 +131,31 @@ class GLADE(GalCat):
         # ------ Select parts of the catalogue
                 
         if z_flag is not None:
-            print('Dropping galaxies with flag2=%s...' %z_flag)
             df=  df[df.flag2 != z_flag ]
-            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+            if self.verbose:
+                print('Dropping galaxies with flag2=%s...' %z_flag)
+                print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
             
         
         if drop_z_uncorr:
-            print('Keeping only galaxies with redshift corrected for peculiar velocities...')
             df=df[df['flag3']==1]
-            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+            if self.verbose:
+                print('Keeping only galaxies with redshift corrected for peculiar velocities...')
+            
+                print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
           
             
         if drop_no_dist:
-            print('Keeping only galaxies with known value of luminosity distance...')
             df=df[df.dL.notna()==True]
-            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+            if self.verbose:
+                print('Keeping only galaxies with known value of luminosity distance...')
+                print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
         
         if drop_HyperLeda2:
-            print("Dropping galaxies with HyperLeda name=null and flag2=2...")
             df=df.drop(df[(df['HYPERLEDA_name'].isna()) & (df['flag2']==2)].index)
-            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.00%}".format(df.shape[0]/or_dim)+' of total' )
+            if self.verbose:
+                print("Dropping galaxies with HyperLeda name=null and flag2=2...")
+                print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.00%}".format(df.shape[0]/or_dim)+' of total' )
         
         
         
@@ -155,20 +163,24 @@ class GLADE(GalCat):
         
         
         if get_cosmo_z:
-            print('Computing cosmological redshifts from given luminosity distance with H0=%s, Om0=%s...' %(cosmoGLADE.H0, cosmoGLADE.Om0))
+            if self.verbose:
+                print('Computing cosmological redshifts from given luminosity distance with H0=%s, Om0=%s...' %(cosmoGLADE.H0, cosmoGLADE.Om0))
 
             
             z_max = df[df.dL.notna()]['z'].max() +0.01
             z_min = max(0, df[df.dL.notna()]['z'].min() - 1e-05)
-            print('Interpolating between z_min=%s, z_max=%s' %(z_min, z_max))
+            if self.verbose:
+                print('Interpolating between z_min=%s, z_max=%s' %(z_min, z_max))
             z_grid = np.linspace(z_min, z_max, 200000)
             dL_grid = cosmoGLADE.luminosity_distance(z_grid).value
             
             if not drop_no_dist:
                 dLvals = df[df.dL.notna()]['dL']
-                print('%s points have valid entry for dist' %dLvals.shape[0])
+                if self.verbose:
+                    print('%s points have valid entry for dist' %dLvals.shape[0])
                 zvals = df[df.dL.isna()]['z']
-                print('%s points have null entry for dist, correcting original redshift' %zvals.shape[0])
+                if self.verbose:
+                    print('%s points have null entry for dist, correcting original redshift' %zvals.shape[0])
                 z_cosmo_vals = np.where(df.dL.notna(), np.interp( df.dL , dL_grid, z_grid), df.z)             
             else:
                 z_cosmo_vals = np.interp( df.dL , dL_grid, z_grid)
@@ -179,15 +191,18 @@ class GLADE(GalCat):
             
             
             if not CMB_correct and not group_correct and pos_z_cosmo:
-                print('Keeping only galaxies with positive cosmological redshift...')
+                if self.verbose:
+                    print('Keeping only galaxies with positive cosmological redshift...')
                 df = df[df.z_cosmo >= 0]
-                print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+                if self.verbose:
+                    print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
         
         
         if group_correct:
             if not get_cosmo_z:
                 raise ValueError('To apply group corrections, compute cosmological redshift first')
-            print('Loading galaxy group catalogue from %s...' %filepath_groups)
+            if self.verbose:
+                print('Loading galaxy group catalogue from %s...' %filepath_groups)
             df_groups =  pd.read_csv(filepath_groups)
             self.group_correction(df, df_groups, which_z=which_z_correct)
             
@@ -199,12 +214,15 @@ class GLADE(GalCat):
 
             self.CMB_correction(df, which_z=which_z_correct)
             if pos_z_cosmo:
-                print('Keeping only galaxies with positive redshift in the colums %s...' %which_z)
+                if self.verbose:
+                    print('Keeping only galaxies with positive redshift in the colums %s...' %which_z)
                 df = df[df[which_z ]>= 0]
-                print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+                if self.verbose:
+                    print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
         
         if which_z!='z':
-            print('Renaming column %s to z. This will be used in the analysis.' %which_z)
+            if self.verbose:
+                print('Renaming column %s to z. This will be used in the analysis.' %which_z)
             df = df.drop(columns='z')
             df.rename(columns={which_z:'z'}, inplace=True)
         # From now on, the relevant column for redshift, including all corrections, will be 'z'
@@ -217,7 +235,8 @@ class GLADE(GalCat):
         # ------ Add z errors
         
         if err_vals is not None:
-            print('Adding errors on z with %s values' %err_vals)
+            if self.verbose:
+                print('Adding errors on z with %s values' %err_vals)
             if err_vals=='GLADE':
                 scales = np.where(df['flag2'].values==3, 1.5*1e-04, 1.5*1e-02)
             elif err_vals=='const_perc':
@@ -239,7 +258,8 @@ class GLADE(GalCat):
         # ------ Add B luminosity
         
         if add_B_lum:
-            print('Computing total luminosity in B band...')
+            if self.verbose:
+                print('Computing total luminosity in B band...')
             # add  a column for B-band luminosity 
             #my_dist=cosmo.luminosity_distance(df.z.values).value
             #df.loc[:,"B_Abs"]=df.B-5*np.log10(my_dist)-25
@@ -253,7 +273,8 @@ class GLADE(GalCat):
         # ------ Add K luminosity
         
         if add_K_lum:
-            print('Computing total luminosity in K band...')
+            if self.verbose:
+                print('Computing total luminosity in K band...')
             my_dist=cosmoGLADE.luminosity_distance(df.z.values).value
             df.loc[:,"K_Abs"]=df.K-5*np.log10(my_dist)-25
             KLum = df.K_Abs.apply(lambda x: TotLum(x, MKSun))
@@ -266,13 +287,16 @@ class GLADE(GalCat):
         if band is not None:
             col_name=band+'_Lum'
             L_th = Lcut*LBstar07
-            print('Applying cut in luminosity in %s-band. Selecting galaxies with %s>%s x L_* = %s' %(band, col_name, Lcut, np.round(L_th,2)))
+            if self.verbose:
+                print('Applying cut in luminosity in %s-band. Selecting galaxies with %s>%s x L_* = %s' %(band, col_name, Lcut, np.round(L_th,2)))
             df = df[df[col_name]>L_th]
-            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-            print('Using %s for weighting' %col_name)
+            if self.verbose:
+                print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+                print('Using %s for weighting' %col_name)
             w = df.loc[:, col_name].values
         else:
-            print('No cut in luminosity applied. Using weights =1 ' )
+            if self.verbose:
+                print('No cut in luminosity applied. Using weights =1 ' )
             w = np.ones(df.shape[0])
     
         # ------ Add 'w' column for weights
@@ -283,7 +307,8 @@ class GLADE(GalCat):
         # ------ Keep only some columns
         
         if colnames_final is not None:
-            print('Keeping only columns: %s' %colnames_final)
+            if self.verbose:
+                print('Keeping only columns: %s' %colnames_final)
             df = df[colnames_final]
        
         # ------ Add pixel column. Note that GW skymaps use nest=True !!

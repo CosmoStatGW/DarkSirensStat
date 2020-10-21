@@ -11,15 +11,14 @@ Created on Wed Sep 23 10:36:12 2020
 ####
 
 
-from beta import Beta
+from Xi0Stat.beta import Beta
 from Xi0Stat.globals import *
 from scipy.integrate import quad
 
 class BetaHom(Beta):
     
     def __init__(self, **kwargs):
-        print('Initializing BetaHom...')
-        Beta.__init__(**kwargs)
+        Beta.__init__(self, **kwargs)
         
         
     def get_beta(self, H0, Xi0, dMax, zR=5, n=1.91, ):
