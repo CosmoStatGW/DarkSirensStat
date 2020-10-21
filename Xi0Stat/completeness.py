@@ -16,10 +16,12 @@ class Completeness(ABC):
     
     def __init__(self, comovingDensityGoal, **kwargs):
         self._computed = False
+        self.verbose = None
         self._comovingDensityGoal = comovingDensityGoal
-        
+       
     def compute(self, galdata, useDirac = False):
-        print('Computing completeness')
+        if self.verbose:
+            print('Computing completeness')
         self.compute_implementation(galdata, useDirac)
         self._computed = True
     
@@ -73,8 +75,7 @@ class Completeness(ABC):
 class SkipCompleteness(Completeness):
     
     def __init__(self, **kwargs):
-        print('Initializing SkipCompleteness...')
-        Completeness.__init__(self, comovingDensityGoal=None, **kwargs)
+        Completeness.__init__(self, comovingDensityGoal=1, **kwargs)
         
         
     def zstar(self, theta, phi):
@@ -83,7 +84,8 @@ class SkipCompleteness(Completeness):
         return np.zeros(theta.size)
         
     def compute_implementation(self, galdata, useDirac):
-        print("SkipCompleteness: nothing to compute")
+        if self.verbose:
+            print("SkipCompleteness: nothing to compute")
         
     def get_at_z_implementation(self, theta, phi, z):
         if np.isscalar(theta):
@@ -156,8 +158,8 @@ class SuperpixelCompleteness(Completeness):
 #            else:
 #                catparts.append(pd.DataFrame())
                 
-            
-        print('Computing in parallel... ', flush=True)
+        if self.verbose:
+            print('Computing in parallel... ', flush=True)
         #from multiprocessing import Pool
         #p = Pool(2)
         #from functools import partial
@@ -183,14 +185,15 @@ class SuperpixelCompleteness(Completeness):
         gr = galdata.groupby(level=0)
         coarseden = np.vstack( parmap(lambda i : g(gr, i), range(self._npix)) )
         
-    
-        print(' Almost done!')
+        if self.verbose:
+            print(' Almost done!')
         
         vol = self._pixarea * (self._fiducialcosmo.comoving_distance(z2).value**3 - self._fiducialcosmo.comoving_distance(z1).value**3)/3
    
         coarseden /= vol
         self._map = coarseden/self._comovingDensityGoal
-        print('Final computations for completeness...')
+        if self.verbose:
+            print('Final computations for completeness...')
         zFine = np.linspace(0, zmax, 3000)
         zFine = zFine[::-1]
         evals = self.get_implementation(*hp.pix2ang(self._nside, np.arange(self._npix)), zFine)
@@ -199,8 +202,8 @@ class SuperpixelCompleteness(Completeness):
         idx = np.argmax(evals >= 1, axis=1)
         # however, if all enries are False, argmax returns 0, which would be the largest redshift, while we want 0 in that case
         self._zstar = np.where(idx == 0, 0, zFine[idx])
-        
-        print('Done.')
+        if self.verbose:
+            print('Done.')
 
     # z is a number
     def get_at_z_implementation(self, theta, phi, z):
@@ -344,12 +347,12 @@ class MaskCompleteness(Completeness):
         X = np.sqrt(X)
         
         from sklearn import cluster
-        
-        print('Making masks...')
+        if self.verbose:
+            print('Making masks...')
         clusterer = cluster.AgglomerativeClustering(self._nMasks, linkage='ward')
         self._mask = clusterer.fit(X).labels_.astype(np.int)
-        
-        print('Preparing further... ')
+        if self.verbose:
+            print('Preparing further... ')
         
       #  catparts = []
 
@@ -377,8 +380,8 @@ class MaskCompleteness(Completeness):
                 self.zedges.append(np.array([0,1]))
                 self.zcenters.append(np.array([0.5]))
                 self.areas.append([1])
-        
-        print('Computing in parallel... ', flush=True)
+        if self.verbose:
+            print('Computing in parallel... ', flush=True)
        
         def g(galgroups, i):
         
@@ -405,8 +408,8 @@ class MaskCompleteness(Completeness):
                 
                 
         coarseden = parmap(lambda i : g(gr, i), range(self._nMasks))
-                
-        print('Final computations for completeness...')
+        if self.verbose:
+            print('Final computations for completeness...')
         
         for i in np.arange(self._nMasks):
             z1 = self.zedges[i][:-1]
@@ -433,8 +436,8 @@ class MaskCompleteness(Completeness):
             self._zstar.append(0 if idx == 0 else zFine[idx])
             
         self._zstar = np.array(self._zstar)
-        
-        print('Done.')
+        if self.verbose:
+            print('Done.')
         
         
         

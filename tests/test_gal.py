@@ -23,13 +23,11 @@ class TestGal(unittest.TestCase):
     def setUpClass(cls):
         
         compl = SkipCompleteness()
-        cls.glade = GLADE('MINIGLADE', compl, False, band='K', Lcut=0.2, colnames_final=['RA','dec', 'theta', 'phi','z', 'GWGC_name', 'w', 'K_Lum'])
+        verbose = False
+        cls.glade = GLADE('MINIGLADE', compl, False, verbose=verbose, band='K', Lcut=0.2, colnames_final=['RA','dec', 'theta', 'phi','z', 'GWGC_name', 'w', 'K_Lum'])
         #GWENS('GWENS', compl, [22])
-        cls.gwens   = GWENS('GWENS', compl, False)
+        #cls.gwens   = GWENS('GWENS', compl, False)
     
-        
-        #cls.gwens.completeness_maps()
-        #cls.gwens.completeness_maps()
     
     @classmethod
     def tearDownClass(cls):
@@ -40,38 +38,36 @@ class TestGal(unittest.TestCase):
     
     def test_add_cat(self):
         self.gals.add_cat(TestGal.glade)
-        self.gals.add_cat(TestGal.gwens)
+        self.gals.add_cat(TestGal.glade)
+        self.assertTrue(len(self.gals._galcats)==2)
     
     
     def test_data_GLADE(self):
-        print('\ntest_data_GLADE....')
+        #print('\ntest_data_GLADE....')
         # check corrected redshift of NGC4993
         NGC4993 = self.glade.data[self.glade.data['GWGC_name']=='NGC4993']
-        print('TestGal GLADE check: NGC4993')
-        print(NGC4993)
+        #print('TestGal GLADE check: NGC4993')
+        #print(NGC4993)
         self.assertTrue( np.round(NGC4993.z.values[0], 6) == 0.011026 )
-        print('test_data_GLADE done.\n')
+        
     
     def test_weights_GWENS(self):
         #print('\ntest_weights_GWENS....')
-        gwens = self.gwens.data
-        print(gwens.head(2))
+        #gwens = self.gwens.data
+        #print(gwens.head(2))
         #self.assertTrue( np.abs(np.sum(gwens.w) - len(gwens.data))/len(gwens.data) < 1e-6)
         #print('test_weights_GWENS done.\n')
         pass
 
 
 
-class TestCompl(unittest.TestCase):
+class TestComplGeneral(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls):
         compl = SkipCompleteness()
-        #compl = SuperpixelCompleteness(0.05, 3, 20, True)
-        
-        cls.glade = GLADE('MINIGLADE', compl, False, band='K', Lcut=0.2)
-        #cls.glade = SYNTH(compl, useDirac = False, zmax = 0.05, comovingNumberDensityGoal=0.1)
-        #cls.glade.completeness_maps()
+        verbose = False
+        cls.glade = GLADE('MINIGLADE', compl, False, verbose=verbose, band='K', Lcut=0.2)
     
     
     @classmethod
@@ -80,28 +76,58 @@ class TestCompl(unittest.TestCase):
     
     def setUp(self):
         self.gals = GalCompleted()
-        self.gals.add_cat(TestCompl.glade)
+        self.gals.add_cat(TestComplGeneral.glade)
     
     def test_completeness_1pt(self):
-        print('\test_completeness_1pt....')
-        print(TestCompl.glade.completeness([0,0], 0))
-        assert(TestCompl.glade.completeness([0,0], 0) <= 1)
-        print('test_completeness_1pt done.\n')
+        self.assertTrue(TestComplGeneral.glade.completeness(0,0, 0) <= 1)
+
         
     def test_total_completeness(self):
-        print('\ntest_total_completeness....')
+
         #self.gals.add_cat(TestGal.glade)
         
-        # Checks that completenss at \Omega=(0, 0), z=0 is 1
-        self.assertTrue(self.gals.total_completeness([0,0], 0) == 1)
+        # total SkipCompleteness for one catalog is 1
+        self.assertTrue(np.abs(self.gals.total_completeness(0,0, 0) - 1) < 1e-6)
+    
+        self.gals.add_cat(TestComplGeneral.glade)
+
+        # total SkipCompleteness for two catalogs is 2
+        self.assertTrue( np.abs(self.gals.total_completeness(0,0, 0) - 2) < 1e-6)
         
-        #self.gals.add_cat(TestGal.gwens)
+        self.gals.add_cat(TestComplGeneral.glade, weight=10)
         
-        # Checks that completenss at \Omega=(0, 0), z=0 is 2 when summing GLADE and GWENS
-        self.assertTrue(self.gals.total_completeness([0,0], 0) == 2)
-        print('test_total_completeness done.\n')   
+        # total SkipCompleteness for 3 catalogs with nontrivial weight
+        self.assertTrue( np.abs(self.gals.total_completeness(0,0, 0) - 12) < 1e-6)
+
   
+
+class TestSuperpixelCompleteness(unittest.TestCase):
       
+    @classmethod
+    def setUpClass(cls):
+        verbose = True
+        comovingDensityGoal = get_SchNorm(phistar=phiBstar07, Lstar=LBstar07, alpha=alphaB07, Lcut=0.6)
+        compl = SuperpixelCompleteness(comovingDensityGoal=comovingDensityGoal, angularRes=4, zRes=10, interpolateOmega = False)
+        complInterp = SuperpixelCompleteness(comovingDensityGoal=comovingDensityGoal, angularRes=4, zRes=10, interpolateOmega = True)
+
+        cls.synth = SYNTH(compl, verbose=verbose, useDirac = False, zMax = 0.005, comovingNumberDensityGoal=0.1)
+        cls.synthDirac = SYNTH(compl, verbose=verbose, useDirac = True, zMax = 0.005, comovingNumberDensityGoal=0.1)
+        
+        cls.synthInterp = SYNTH(complInterp, verbose=verbose, useDirac = False, zMax = 0.005, comovingNumberDensityGoal=0.1)
+        cls.synthDiracInterp = SYNTH(complInterp, verbose=verbose, useDirac = True, zMax = 0.005, comovingNumberDensityGoal=0.1)
+        
+      
+      
+    @classmethod
+    def tearDownClass(cls):
+        pass
+  
+    def setUp(self):
+        pass
+  
+    def test(self):
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

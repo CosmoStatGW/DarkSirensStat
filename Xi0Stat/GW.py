@@ -268,7 +268,7 @@ class Skymap3D(object):
         for H0i in [H0min, H0max]:
             for Xi0i in [Xi0min, Xi0max]:
                 grid.append([H0i, Xi0i]) 
-        zs = np.array([self._get_minmaxz(*vals,n=n, Verbose=Verbose) for vals in grid ])
+        zs = np.array([self._get_minmaxz(*vals,n=n, verbose=verbose) for vals in grid ])
         
         return zs.min(), zs.max()
     

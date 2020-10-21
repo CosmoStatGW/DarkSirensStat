@@ -27,8 +27,8 @@ class GLADE(GalCat):
         
         assert(set(subsurveysExcl).isdisjoint(subsurveysIncl))
         assert(len(subsurveysIncl) > 0)
-               
-        GalCat.__init__(self, foldername, compl, useDirac, **kwargs)
+
+        GalCat.__init__(self, foldername, compl, useDirac, verbose, **kwargs)
         
     
     def load(self, band=None,
@@ -314,8 +314,9 @@ class GLADE(GalCat):
         # ------ Add pixel column. Note that GW skymaps use nest=True !!
         df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta, df.phi)
         
-        # ------ 
-        print('Done.')
+        # ------
+        if self.verbose:
+            print('Done.')
         
         
         self.data = self.data.append(df, ignore_index=True)

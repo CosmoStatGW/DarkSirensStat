@@ -24,31 +24,31 @@ from Xi0Stat.keelin import bounded_keelin_3_discrete_probabilities
 
 class GalCat(ABC):
     
-    def __init__(self, foldername, completeness, useDirac, **kwargs):
-        print('Initializing GalCat...')
+    def __init__(self, foldername, completeness, useDirac, verbose, **kwargs):
         
         self._path = os.path.join(dirName, 'data', foldername)
           
         self._nside = 128
         self._useDirac = useDirac
         self.data = pd.DataFrame()
+        self.verbose = verbose
         
         self.load(**kwargs)
         
         self.selectedData = self.data
         
         self._completeness = deepcopy(completeness)
+        self._completeness.verbose = verbose
         self._completeness.compute(self.data, useDirac)
+        
+        
         
     def get_data(self):
         return self.selectedData
         
-    def set_z_range(self, zMin, zMax):
-        print("Setting z range of the catalogue between %s, %s" %(zMin, zMax))
-        self.selectedData = self.data[(self.data.z >= zMin) & (self.data.z < zMax)]
-        print('%s galaxies kept' %self.selectedData.shape[0])
     
-    def set_area(self, pixels, nside):
+    
+    def select_area(self, pixels, nside):
         print("Restricting area of the catalogue to %s pixels with nside=%s" %(pixels.shape[0], nside))
         pixname = "pix" + str(nside)
         
@@ -60,6 +60,11 @@ class GalCat(ABC):
         self.selectedData = self.data[mask]
         print('%s galaxies kept' %self.selectedData.shape[0])
         
+    def set_z_range_for_selection(self, zMin, zMax):
+        print("Setting z range of the catalogue between %s, %s" %(zMin, zMax))
+        self.selectedData = self.selectedData[(self.selectedData.z >= zMin) & (self.selectedData.z < zMax)]
+        print('%s galaxies kept' %self.selectedData.shape[0])
+        
     @abstractmethod
     def load(self):
         pass
@@ -67,23 +72,6 @@ class GalCat(ABC):
     def completeness(self, theta, phi, z, oneZPerAngle=False):
         return self._completeness.get(theta, phi, z, oneZPerAngle)
     
-        
-    def completeness_maps(self):
-    
-        zs = np.linspace(0.00, 0.05, 40)
-        nPix = hp.nside2npix(512)
-        px = np.arange(nPix)
-        
-        #finemaps = self.completeness(*hp.pix2ang(512, px), zs)
-        
-        for z in zs:
-            
-            finemap = self.completeness(*hp.pix2ang(512, px), z)
-                                        
-            hp.mollview(finemap, notext=True)
-            
-            
-            plt.savefig('z=' + str(z) + '.png')
 
 
     def group_correction(self, df, df_groups, which_z='z_cosmo'):
@@ -105,7 +93,7 @@ class GalCat(ABC):
         
         
 
-        print('Correcting %s for group velocities...' %which_z)
+        #print('Correcting %s for group velocities...' %which_z)
 
 #        df_groups.loc[:, 'isInCat'] = df_groups['PGC'].isin(df['PGC'])
 #        print(df_groups)
@@ -163,7 +151,7 @@ class GalCat(ABC):
         
         '''
         
-        print('Correcting %s for CMB reference frame...' %which_z)
+        #print('Correcting %s for CMB reference frame...' %which_z)
         
         v_gal = clight*df[which_z].values
         phi_CMB, dec_CMB = gal_to_eq(np.radians(l_CMB), np.radians(b_CMB))
@@ -204,7 +192,7 @@ def gal_to_eq(l, b):
 class GalCompleted(object):
     
     def __init__(self, completionType = None, **kwargs):
-        print('Initializing GalCompleted...')
+    
         self._galcats = []
         self._catweights = []
         
@@ -234,16 +222,15 @@ class GalCompleted(object):
         return res + 1e-9
         #return sum(list(map(lambda c: c.completeness, self._galcats)))
     
-    
-    def set_z_range(self, zMin, zMax):
+    def select_area(self, pixels, nside):
         for c in self._galcats:
-            c.set_z_range(zMin, zMax)
-    
-    def set_area(self, pixels, nside):
-        for c in self._galcats:
-            c.set_area(pixels, nside)
+            c.select_area(pixels, nside)
             
+    def set_z_range_for_selection(self, zMin, zMax):
+        for c in self._galcats:
+            c.set_z_range_for_selection(zMin, zMax)
     
+
     def get_inhom_contained(self, zGrid, nside):
         ''' return pixels : array N_galaxies x 1
         
@@ -291,6 +278,10 @@ class GalCompleted(object):
             weights *= w
           
             weights /= self.total_completeness(d.theta, d.phi, zGrid)
+            print(type(c._completeness._comovingDensityGoal))
+            print(c._completeness._comovingDensityGoal)
+            print(type(weights))
+            print(weights)
             weights /= c._completeness._comovingDensityGoal
             
             allweights.append(weights)

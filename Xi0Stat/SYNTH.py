@@ -17,14 +17,14 @@ from Xi0Stat.globals import *
 
 class SYNTH(GalCat):
     
-    def __init__(self, compl, useDirac, **kwargs):
-        print('Creating synthetic catalog...')
+    def __init__(self, compl, useDirac, verbose=False, **kwargs):
         
-        GalCat.__init__(self, '', compl, useDirac, **kwargs)
+        GalCat.__init__(self, '', compl, useDirac, verbose, **kwargs)
     
     def load(self, zMax = 0.1, zErrFac = 1, comovingNumberDensityGoal = 0.1):
-       
-        print('Sampling homogenously distributed galaxies...')
+        
+        if self.verbose:
+            print('Sampling homogenously distributed galaxies...')
         from astropy.cosmology import FlatLambdaCDM
         fiducialcosmo = FlatLambdaCDM(H0=70.0, Om0=0.3)
         
@@ -55,7 +55,8 @@ class SYNTH(GalCat):
         n = 100
         zedges = np.linspace(0,zMax,n)
         
-        print('Removing galaxies according to prescribed incompleteness function...')
+        if self.verbose:
+            print('Removing galaxies according to prescribed incompleteness function...')
         for i, z in enumerate(zedges):
             if i == n-1:
                 z2 = zMax+0.0001
@@ -86,7 +87,8 @@ class SYNTH(GalCat):
         
         dg.loc[:,"w"] = 1
         
-        print("Sample observations from truncated gaussian likelihood...")
+        if self.verbose:
+            print("Sample observations from truncated gaussian likelihood...")
         zerr = np.ones(len(dg.z))
         #zerr = dg.loc[:,"z"].to_numpy()/4
         dg.loc[:,"z_err"]   = zErrFac*np.clip(zerr, a_min = None, a_max = 0.01)
@@ -123,12 +125,14 @@ class SYNTH(GalCat):
             L = 0
             block = 10000
             
+            if self.verbose:
+                print("Computing galaxy posteriors...")
+                
             while True:
                 
                 R = L + block
              
-                    
-                print("Computing galaxy posteriors...")
+                
                 
                 # evaluate likelihood at fixed observations on sensible grids in mu
                 # note that sigma depends on mu as well.

@@ -15,12 +15,12 @@ from Xi0Stat.galCat import GalCat
 
 class GWENS(GalCat):
     
-    def __init__(self, foldername, compl, useDirac, patches=[], **kwargs):
+    def __init__(self, foldername, compl, useDirac, patches=[], verbose = False, **kwargs):
         print('Loading GWENS...')
        
         self._patches = patches
             
-        GalCat.__init__(self, foldername, compl, useDirac, **kwargs)
+        GalCat.__init__(self, foldername, compl, useDirac, verbose, **kwargs)
     
     def load(self):
 

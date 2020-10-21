@@ -70,7 +70,6 @@ class GWgal(object):
     
         rLow, rUp, nPoints = self._get_rLims(event)
         
-        
         zUp = z_from_dLGW(rUp, H0,  Xi0, n=n)
         zLow = z_from_dLGW(rLow, H0,  Xi0, n=n)
         z_table = np.linspace(min(zLow-zLow/10, 0), zUp+zUp/10, 500)
@@ -114,7 +113,7 @@ class GWgal(object):
         #rl = np.nan_to_num(rl)
         ru =  mu+nsigma*sigma
         #ru = np.nan_to_num(ru)
-        nPoints = minPoints*np.rint((mu.max()-mu.min())/sigma.max())
+        nPoints = minPoints*np.int((mu.max()-mu.min())/sigma.max())
         
         return rl.min(), ru.max(), nPoints
     
