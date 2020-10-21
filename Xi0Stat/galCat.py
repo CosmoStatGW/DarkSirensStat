@@ -41,13 +41,9 @@ class GalCat(ABC):
         self._completeness.verbose = verbose
         self._completeness.compute(self.data, useDirac)
         
-        
-        
     def get_data(self):
         return self.selectedData
         
-    
-    
     def select_area(self, pixels, nside):
         print("Restricting area of the catalogue to %s pixels with nside=%s" %(pixels.shape[0], nside))
         pixname = "pix" + str(nside)
@@ -65,13 +61,13 @@ class GalCat(ABC):
         self.selectedData = self.selectedData[(self.selectedData.z >= zMin) & (self.selectedData.z < zMax)]
         print('%s galaxies kept' %self.selectedData.shape[0])
         
+        
     @abstractmethod
     def load(self):
         pass
     
     def completeness(self, theta, phi, z, oneZPerAngle=False):
         return self._completeness.get(theta, phi, z, oneZPerAngle)
-    
 
 
     def group_correction(self, df, df_groups, which_z='z_cosmo'):
@@ -210,14 +206,14 @@ class GalCompleted(object):
         self._catweights.append(weight)
         
         
-    def total_completeness(self, theta, phi, z):
+    def total_completeness(self, theta, phi, z, oneZPerAngle=False):
     
         # sums completnesses of all catalogs, taking into account the additional
         # catalog weights
         
         res = 0
         for c, w in zip(self._galcats, self._catweights):
-            res += w*c.completeness(theta, phi, z)
+            res += w*c.completeness(theta, phi, z, oneZPerAngle)
         
         return res + 1e-9
         #return sum(list(map(lambda c: c.completeness, self._galcats)))
@@ -232,7 +228,7 @@ class GalCompleted(object):
     
 
     def get_inhom_contained(self, zGrid, nside):
-        ''' return pixels : array N_galaxies x 1
+        ''' return pixels : array N_galaxies
         
                     weights: array N_galaxies x len(zGrid)
         '''
@@ -273,20 +269,69 @@ class GalCompleted(object):
             # We get this one more factor of completeness in the case of additive completion automatically from the confidence function, which returns its argument in the case of additive completion.
             # in all other cases (mult, mix), the confidence is a probability of trust in pure multiplicative completion and is =1 in mult, and between 0 and 1 in mix.
             
-            # ... as well as another factor of completeness that confidence returns in the additive case.
             weights *= self.confidence(completnesses)
             weights *= w
           
             weights /= self.total_completeness(d.theta, d.phi, zGrid)
-            print(type(c._completeness._comovingDensityGoal))
-            print(c._completeness._comovingDensityGoal)
-            print(type(weights))
-            print(weights)
+           
             weights /= c._completeness._comovingDensityGoal
             
             allweights.append(weights)
             
-        return np.squeeze(np.vstack(allpixels)), np.vstack(allweights)
+        #return np.squeeze(np.vstack(allpixels)), np.vstack(allweights)
+        return np.hstack(allpixels), np.vstack(allweights)
+    
+
+    def get_inhom(self, nside):
+        '''
+        returns pixels, redshifts and weights of all galaxies (redshift medians) in the selection, ignoring galaxy redshift errror pdfs
+        
+        returns:
+        pixels :   array nGal
+        redshifts: array nGal
+        weights:   array nGal
+    
+        '''
+        
+        allpixels = []
+        allredshifts = []
+        allweights = []
+        
+        for c, w in zip(self._galcats, self._catweights):
+        
+            # shorthand
+            d = c.get_data()
+            
+            pixname = "pix" + str(nside)
+            
+            # compute this only once
+            if not pixname in c.get_data():
+                d.loc[:, pixname] = hp.ang2pix(nside, d.theta, d.phi)
+
+            allpixels.append(d[pixname].to_numpy())
+            
+            
+            weights = d.w.to_numpy()
+            
+            redshifts = d.z.to_numpy()
+            allredshifts.append(redshifts)
+            
+            # completness eval for each gal
+            completnesses = c.completeness(d.theta, d.phi, redshifts, oneZPerAngle = True)
+                
+            weights *= self.confidence(completnesses)
+            
+            weights *= w
+            
+          
+            weights /= self.total_completeness(d.theta, d.phi, redshifts, oneZPerAngle = True)
+       
+            weights /= c._completeness._comovingDensityGoal
+            
+            allweights.append(weights)
+            
+        #return np.squeeze(np.vstack(allpixels)), np.squeeze(np.vstack(allredshifts)), np.squeeze(np.vstack(allweights))
+        return np.hstack(allpixels), np.hstack(allredshifts), np.hstack(allweights)
     
     def eval_inhom(self, Omega, z):
         '''

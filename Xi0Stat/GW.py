@@ -54,10 +54,12 @@ class Skymap3D(object):
         self.head = header
         self.mu   = smap[1]
         self.sigma   = smap[2]
-        self.norm   = smap[3]
+        self.posteriorNorm   = smap[3]
         self.all_pixels = np.arange(self.npix)
         self.metadata = self._get_metadata()
         self.nest=nest
+      
+        self.norm  = 1/(np.sum(self.p)*self.pixarea)
         
     
     def _get_metadata(self):
@@ -128,7 +130,7 @@ class Skymap3D(object):
         output: eq. 2.19 , cfr 1 of Singer et al 2016
         '''
         pix = self.find_pix(theta, phi)
-        return (r**2)*self.norm[pix]*scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix]) 
+        return (r**2)*self.posteriorNorm[pix]*scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
 
     
     def dp_dr(self, r, theta, phi):
@@ -173,7 +175,7 @@ class Skymap3D(object):
         myclip_a=0
         myclip_b=np.infty
         a, b = (myclip_a - self.mu[pix]) / self.sigma[pix], (myclip_b - self.mu[pix]) / self.sigma[pix]
-        return  self.p[pix]*self.norm[pix]*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
+        return  self.p[pix]*self.norm*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
         #scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
     
     
@@ -183,7 +185,7 @@ class Skymap3D(object):
         marginalized over Omega
         To be compared with posterior chains 
         '''
-        return sum(self.p*self.norm*scipy.stats.norm(loc=self.mu, scale=self.sigma).pdf(r) )*r**2
+        return sum(self.p*self.posteriorNorm*scipy.stats.norm(loc=self.mu, scale=self.sigma).pdf(r) )*r**2
     
     def p_om(self, theta, phi):
         '''

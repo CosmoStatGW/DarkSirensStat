@@ -43,7 +43,7 @@ class Completeness(ABC):
                 assert(len(z) == len(theta))
                 close = z < self.zstar(theta, phi)
                 ret = np.zeros(len(z))
-                ret[~close] = self.get_many_implementation(self, theta[~close], phi[~close], z[~close])
+                ret[~close] = self.get_many_implementation(theta[~close], phi[~close], z[~close])
                 ret[close] = 1
                 return ret
             else:

@@ -14,6 +14,8 @@ metaPath= os.path.join(dirName, 'data', 'GW', 'metadata')
 # CONSTANTS
 ###########################
 
+nGlob = 1.91
+
 clight = 2.99792458* 10**5
 
 l_CMB, b_CMB = (263.99, 48.26)
