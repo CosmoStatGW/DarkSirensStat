@@ -179,6 +179,23 @@ class Skymap3D(object):
         #scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
     
     
+    def sample(self, nSamples):
+        # sample pixels
+                 
+        def discretesample(nSamples, pdf):
+            cdf = np.cumsum(pdf)
+            cdf = cdf / cdf[-1]
+            return np.searchsorted(cdf, np.random.uniform(size=nSamples))
+
+        dist = self.p
+        pix = discretesample(nSamples, dist)
+        
+        # sample distances
+        
+        r = sample_trunc_gaussian(self.mu[pix], self.sigma[pix], lower=0, size=1)
+        theta, phi = self.find_theta_phi(pix)
+        return theta, phi, r
+      
     def p_r(self, r):  
         '''
         Posterior on lum. distance p(r|data) 

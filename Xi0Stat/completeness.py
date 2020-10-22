@@ -175,7 +175,7 @@ class SuperpixelCompleteness(Completeness):
                 res, _ = np.histogram(a=galpixel.z.to_numpy(), bins=self.zedges, weights=galpixel.w.to_numpy())
                 return res.astype(float)
             else:
-                weights = bounded_keelin_3_discrete_probabilities_between(self.zedges, 0.16, galpixel.z_lower, galpixel.z, galpixel.z_upper, galpixel.z_lowerbound, galpixel.z_upperbound, N=1000)
+                weights = bounded_keelin_3_discrete_probabilities_between(self.zedges, 0.16, galpixel.z_lower, galpixel.z, galpixel.z_upper, galpixel.z_lowerbound, galpixel.z_upperbound, N=100)
                 # if there is 1 galaxy only, weights won't be a matrix - fix
                 if weights.ndim == 1:
                     weights = weights[np.newaxis, :]
@@ -398,7 +398,7 @@ class MaskCompleteness(Completeness):
                 res, _ = np.histogram(a=gals.z.to_numpy(), bins=zedges, weights=gals.w.to_numpy())
                 return res.astype(float)
             else:
-                weights = bounded_keelin_3_discrete_probabilities_between(zedges, 0.16, gals.z_lower, gals.z, gals.z_upper, gals.z_lowerbound, gals.z_upperbound, N=1000)
+                weights = bounded_keelin_3_discrete_probabilities_between(zedges, 0.16, gals.z_lower, gals.z, gals.z_upper, gals.z_lowerbound, gals.z_upperbound, N=100)
                 
                 # if there is 1 galaxy only, weights won't be a matrix - fix
                 if weights.ndim == 1:

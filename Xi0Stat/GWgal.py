@@ -14,7 +14,7 @@ from Xi0Stat.globals import *
 
 class GWgal(object):
     
-    def __init__(self, GalCompleted, GWevents, credible_level=0.90, galRedshiftErrors = True, verbose=False):
+    def __init__(self, GalCompleted, GWevents, credible_level=0.99, galRedshiftErrors = True, verbose=False):
         
         self.gals = GalCompleted
         self.GWevents = GWevents
@@ -39,7 +39,7 @@ class GWgal(object):
             
     
     
-    def get_inhom_lik(self, H0s, Xi0s, n=nGlob):
+    def get_lik(self, H0s, Xi0s, n=nGlob):
         '''
         Computes likelihood with p_cat for all events
         Returns dictionary {event_name: L_cat }
@@ -54,26 +54,29 @@ class GWgal(object):
   
             self.gals.set_z_range_for_selection( *self.z_lims[eventName])
             
-            L = np.ones((H0s.size, Xi0s.size))
+            Linhom = np.ones((H0s.size, Xi0s.size))
+            Lhom   = np.ones((H0s.size, Xi0s.size))
         
             for i in np.arange(H0s.size):
             
                 for j in np.arange(Xi0s.size):
            
-                    L[i,j] = self._inhom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n)
+                    Linhom[i,j] = self._inhom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n)
+                    
+                    Lhom[i,j] = self._hom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n)
 
-            ret[eventName] = np.squeeze(L)
+            ret[eventName] = (np.squeeze(Linhom), np.squeeze(Lhom))
             
         return ret
      
     
     
-    def get_hom_lik(self, H0, Xi0, n=nGlob):
-        '''
-        Computes likelihood with homogeneous part for all events.
-        Returns dictionary {event_name: L_hom }
-        '''
-        return {event: self._hom_lik(event, H0=H0, Xi0=Xi0, n=n) for event in self.GWevents}        
+#    def get_hom_lik(self, H0, Xi0, n=nGlob):
+#        '''
+#        Computes likelihood with homogeneous part for all events.
+#        Returns dictionary {event_name: L_hom }
+#        '''
+#        return {event: self._hom_lik(event, H0=H0, Xi0=Xi0, n=n) for event in self.GWevents}
             
     
     
@@ -89,16 +92,19 @@ class GWgal(object):
             # Convolution with z errors
             
             rLow, rUp, nPoints = self._get_rLims(eventName)
-            
-            zUp = z_from_dLGW(rUp, H0,  Xi0, n=n)
-            zLow = z_from_dLGW(rLow, H0,  Xi0, n=n)
-            z_table = np.linspace(min(zLow-zLow/10, 0), zUp+zUp/10, 500)
-            dLgw_table = dLGW(z_table, H0=H0, Xi0=Xi0, n=n)
-            # interpolate the func z(dL) and evaluate on rGrid
             rGrid = np.linspace(rLow, rUp, nPoints)
-            zGrid = np.interp( rGrid , dLgw_table, z_table).T
-                    
+#            zUp = z_from_dLGW(rUp, H0,  Xi0, n=n)
+#            zLow = z_from_dLGW(rLow, H0,  Xi0, n=n)
+#            z_table = np.linspace(min(zLow-zLow/10, 0), zUp+zUp/10, 500)
+#            dLgw_table = dLGW(z_table, H0=H0, Xi0=Xi0, n=n)
+#            # interpolate the func z(dL) and evaluate on rGrid
+            
+#            zGrid = np.interp( rGrid , dLgw_table, z_table).T
+
+            zGrid = z_from_dLGW_fast(rGrid, H0=H0, Xi0=Xi0, n=n)
+            
             pixels, weights = self.gals.get_inhom_contained(zGrid, self.GWevents[eventName].nside )
+            
             #print('pixels shape: %s' %str(pixels.shape))
             #l_weights = np.ones(z_weights.shape[0])
             
@@ -131,8 +137,22 @@ class GWgal(object):
         '''
         Computes likelihood homogeneous part for one event
         '''
+        nSamples = 1000
         
-        pass
+        theta, phi, r = self.GWevents[eventName].sample(nSamples=nSamples)
+        
+        z = z_from_dLGW_fast(r, H0=H0, Xi0=Xi0, n=n)
+        
+        # the prior is nbar in comoving volume, so it transforms if we integrate over D_L^{gw}
+        # nbar D_com^2 d D_com = nbar D_com^2 (d D_com/d D_L^{gw}) d D_L^{gw}
+       
+        jac = dVdcom_dVdLGW(z, H0=H0, Xi0=Xi0, n=n)
+         
+        # MC integration
+        
+        LL = np.sum(jac*self.gals.eval_hom(theta, phi, z))/nSamples
+        
+        return LL
     
     
     def _get_rLims(self, eventName, nsigma=3, minPoints=50):

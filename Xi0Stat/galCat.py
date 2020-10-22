@@ -349,11 +349,9 @@ class GalCompleted(object):
         
         for c, w in zip(self._galcats, self._catweights):
             
-            # shorthand
-            d = c.get_data()
         
             # completness eval for each point
-            completnesses = c.completeness(d.theta, d.phi, z, oneZPerAngle = True)
+            completnesses = c.completeness(theta, phi, z, oneZPerAngle = True)
             
             # for catalog averaging (1)
             retc = completnesses
@@ -372,7 +370,7 @@ class GalCompleted(object):
             ret += retc
         
         # for catalog averaging (3)
-        ret /= self.total_completeness(d.theta, d.phi, z)
+        ret /= self.total_completeness(theta, phi, z, oneZPerAngle=True)
         return ret
         
         

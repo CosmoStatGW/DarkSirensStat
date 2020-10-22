@@ -155,21 +155,28 @@ def th_phi_from_ra_dec(ra, dec):
     phi = np.deg2rad(ra)
     return theta, phi
 
+cosmo70GLOB = FlatLambdaCDM(H0=70, Om0=Om0GLOB)
 
-
-def dLGW(z, H0, Xi0, n=1.91):
+def dLGW(z, H0, Xi0, n):
     '''
     Modified GW luminosity distance
     '''
     cosmo=FlatLambdaCDM(H0=H0, Om0=Om0GLOB)
     return (cosmo.luminosity_distance(z).value)*Xi(z, Xi0, n=n) 
     
-def Xi(z, Xi0, n=1.91):
+def Xi(z, Xi0, n):
 
     return Xi0+(1-Xi0)/(1+z)**n
 
 
-def z_from_dLGW(dL_GW_val, H0, Xi0, n=1.91): 
+zGridGLOB = np.logspace(start=-10, stop=5, base=10, num=1000)
+dLGridGLOB = cosmo70GLOB.luminosity_distance(zGridGLOB).value
+def z_from_dLGW_fast(r, H0, Xi0, n):
+    from scipy import interpolate
+    z2dL = interpolate.interp1d(dLGridGLOB/H0*70*Xi(zGridGLOB, Xi0, n=n), zGridGLOB, kind='cubic', bounds_error=False, fill_value=(0,np.NaN), assume_sorted=True)
+    return z2dL(r)
+    
+def z_from_dLGW(dL_GW_val, H0, Xi0, n):
     '''
     Returns redshift for a given luminosity distance dL_GW_val (in Mpc)
     
@@ -185,3 +192,30 @@ def z_from_dLGW(dL_GW_val, H0, Xi0, n=1.91):
     func = lambda z : dLGW(z, H0, Xi0, n=n) - dL_GW_val
     z = fsolve(func, 0.5)
     return z[0]
+
+dcomGLOB = cosmo70GLOB.comoving_distance(zGridGLOB).value
+HGLOB = cosmo70GLOB.H(zGridGLOB).value
+from scipy import interpolate
+dcom70fast = interpolate.interp1d(zGridGLOB, dcomGLOB, kind='cubic', bounds_error=False, fill_value=(0, np.NaN), assume_sorted=True)
+H70fast = interpolate.interp1d(zGridGLOB, HGLOB, kind='cubic', bounds_error=False, fill_value=(70 ,np.NaN), assume_sorted=True)
+
+def dVdcom_dVdLGW(z, H0, Xi0, n):
+# D_com^2 d D_com = nbar D_com^2 (d D_com/d D_L^{gw}) d D_L^{gw}
+
+# d D_com / d D_L^{gw} = d D_com /dz * ( d D_L^{gw} / dz ) ^(-1)
+# [with D_L^{gw} = (Xi0 + (1-Xi0)(1+z)**(-n)) (1+z) Dcom ]
+# = c/H(z) * (  (Xi0 + (1-n) (1-Xi0)(1+z)**(-n)  ) D_com + (Xi0 + (1-Xi0)(1+z)**(-n)) (1+z) c/H(z)  )^(-1)
+# = (  (Xi0 + (1-n) (1-Xi0)(1+z)**(-n)  ) D_com H /c + (Xi0 + (1-Xi0)(1+z)**(-n)) (1+z)  )^(-1)
+
+    h7 = H0 / 70
+    
+    #dcom = cosmo70GLOB.comoving_distance(z).value/h7
+
+    #H = cosmo70GLOB.H(z).value*h7
+    
+    dcom = dcom70fast(z) / h7
+    H  = H70fast(z) * h7 
+    
+    jac = dcom**2 / (H*(Xi0 + (1-n)*(1-Xi0)*(1+z)**(-n))*dcom/clight + (Xi0+(1-Xi0)*(1+z)**(-n))*(1+z) )
+    
+    return jac
