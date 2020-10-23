@@ -199,8 +199,8 @@ from scipy import interpolate
 dcom70fast = interpolate.interp1d(zGridGLOB, dcomGLOB, kind='cubic', bounds_error=False, fill_value=(0, np.NaN), assume_sorted=True)
 H70fast = interpolate.interp1d(zGridGLOB, HGLOB, kind='cubic', bounds_error=False, fill_value=(70 ,np.NaN), assume_sorted=True)
 
-def dVdcom_dVdLGW(z, H0, Xi0, n):
-# D_com^2 d D_com = nbar D_com^2 (d D_com/d D_L^{gw}) d D_L^{gw}
+def dVdcom_dVdLGW_divided_by_dLGWsq(z, H0, Xi0, n):
+# D_com^2 d D_com = D_com^2 (d D_com/d D_L^{gw}) d D_L^{gw}
 
 # d D_com / d D_L^{gw} = d D_com /dz * ( d D_L^{gw} / dz ) ^(-1)
 # [with D_L^{gw} = (Xi0 + (1-Xi0)(1+z)**(-n)) (1+z) Dcom ]
@@ -214,8 +214,12 @@ def dVdcom_dVdLGW(z, H0, Xi0, n):
     #H = cosmo70GLOB.H(z).value*h7
     
     dcom = dcom70fast(z) / h7
-    H  = H70fast(z) * h7 
+    H  = H70fast(z) * h7
     
-    jac = dcom**2 / (H*(Xi0 + (1-n)*(1-Xi0)*(1+z)**(-n))*dcom/clight + (Xi0+(1-Xi0)*(1+z)**(-n))*(1+z) )
+    dLGWsq_over_dcomsq = ((1+z)*Xi(z, Xi0=Xi0, n=n))**2
+    
+    jac = 1 / (H*(Xi0 + (1-n)*(1-Xi0)*(1+z)**(-n))*dcom/clight + (Xi0+(1-Xi0)*(1+z)**(-n))*(1+z) )
+    
+    jac /= dLGWsq_over_dcomsq
     
     return jac

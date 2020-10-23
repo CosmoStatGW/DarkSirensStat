@@ -50,7 +50,7 @@ class Skymap3D(object):
         self.npix = len(smap[0])
         self.nside = hp.npix2nside(self.npix)
         self.pixarea = hp.nside2pixarea(self.nside, degrees=False) # pixel area in square radians
-        self.p = smap[0]
+        self.p_posterior = smap[0]
         self.head = header
         self.mu   = smap[1]
         self.sigma   = smap[2]
@@ -59,7 +59,16 @@ class Skymap3D(object):
         self.metadata = self._get_metadata()
         self.nest=nest
       
-        self.norm  = 1/(np.sum(self.p)*self.pixarea)
+        # the likelihood *does* still contain the posteriorNorm things, or in other words, the posterior p's are not the likelihood "pixel probabilities"
+        # we normalize the likelihood to get a pdf for the measure (dOmega d dLGW)
+        self.p_likelihood = self.p_posterior*self.posteriorNorm
+        # the normalization is a bit subtle. We want to normalize the likelihood in the same way as in the sampling-based evaluation, where we sample the posterior, obtained by combining the likelihood with dLGW^2.
+        # this means that the likelihood should be normalized to give the normalized posterior after multiplying by dLGW^2
+        # This is the case using the following. The posteriorNorm disappears because
+        # for each pixel it drops after doing the ddLGW integral.
+        # The angular integral gives sum pixarea * p_posterior_i which needs to be 1.
+        self.p_likelihood /= (np.sum(self.p_posterior)*self.pixarea)
+   
         
     
     def _get_metadata(self):
@@ -117,7 +126,7 @@ class Skymap3D(object):
     
     
     def find_event_coords(self):   
-        return self.find_ra_dec(np.argmax(self.p))
+        return self.find_ra_dec(np.argmax(self.p_posterior))
           
     
     def dp_dr_cond(self, r, theta, phi):
@@ -148,7 +157,7 @@ class Skymap3D(object):
         '''
         pix = self.find_pix(theta, phi)
         cond_p = self.dp_dr_cond(r, theta, phi)
-        return cond_p*self.p[pix] #/self.pixarea
+        return cond_p*self.p_posterior[pix] #/self.pixarea
     
     
     def likelihood(self, r, theta, phi):
@@ -175,26 +184,48 @@ class Skymap3D(object):
         myclip_a=0
         myclip_b=np.infty
         a, b = (myclip_a - self.mu[pix]) / self.sigma[pix], (myclip_b - self.mu[pix]) / self.sigma[pix]
-        return  self.p[pix]*self.norm*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
+        return  self.p_likelihood[pix]*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
         #scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
     
     
-    def sample(self, nSamples):
+    def sample_posterior(self, nSamples):
         # sample pixels
                  
         def discretesample(nSamples, pdf):
             cdf = np.cumsum(pdf)
             cdf = cdf / cdf[-1]
             return np.searchsorted(cdf, np.random.uniform(size=nSamples))
+            
+        # norm goes away sampling r^2 as well below, only prob remains to give pixel probability
+        
+        pixSampled = discretesample(nSamples, self.p_posterior)
 
-        dist = self.p
-        pix = discretesample(nSamples, dist)
-        
+
+        mu = self.mu[pixSampled]
+        sig = self.sigma[pixSampled]
+
         # sample distances
-        
-        r = sample_trunc_gaussian(self.mu[pix], self.sigma[pix], lower=0, size=1)
-        theta, phi = self.find_theta_phi(pix)
-        return theta, phi, r
+        res = 1000
+        lower = mu - 3.5*sig
+        np.clip(lower, a_min=0, a_max=None, out=lower)
+        upper = mu + 3.5*sig
+        grids = np.linspace(lower, upper, res).T
+        mu = mu[:, np.newaxis]
+        sig = sig[:, np.newaxis]
+
+        pdfs = mu**2*np.exp(-(mu - grids)**2/(2*sig**2))
+        # not necessary pdfs /= np.sqrt(2*np.pi)*sig
+
+        rSampled = np.zeros(nSamples)
+        for i in np.arange(nSamples):
+            idx = np.min((discretesample(1, pdfs[i, :]), res-1))
+            rSampled[i] = grids[i, idx]
+            
+        # sample distances
+#        rSampled = sample_trunc_gaussian(self.mu[pix], self.sigma[pix], lower=0, size=1)
+
+        theta, phi = self.find_theta_phi(pixSampled)
+        return theta, phi, rSampled
       
     def p_r(self, r):  
         '''
@@ -202,18 +233,18 @@ class Skymap3D(object):
         marginalized over Omega
         To be compared with posterior chains 
         '''
-        return sum(self.p*self.posteriorNorm*scipy.stats.norm(loc=self.mu, scale=self.sigma).pdf(r) )*r**2
+        return sum(self.p_posterior*self.posteriorNorm*scipy.stats.norm(loc=self.mu, scale=self.sigma).pdf(r) )*r**2
     
     def p_om(self, theta, phi):
         '''
         p(Omega)
         '''
-        return self.p[self.find_pix(theta, phi)]
+        return self.p_posterior[self.find_pix(theta, phi)]
     
     def area_p(self, pp=0.9):
         ''' Area of pp% credible region '''
-        i = np.flipud(np.argsort(self.p))
-        sorted_credible_levels = np.cumsum(self.p[i])
+        i = np.flipud(np.argsort(self.p_posterior))
+        sorted_credible_levels = np.cumsum(self.p_posterior[i])
         credible_levels = np.empty_like(sorted_credible_levels)
         credible_levels[i] = sorted_credible_levels
         #from ligo.skymap.postprocess import find_greedy_credible_levels
@@ -225,9 +256,9 @@ class Skymap3D(object):
     def _get_credible_region_pth(self, level=0.99):
         '''
         Finds value minskypdf of rho_i that bouds the x% credible region , with x=level
-        Then to select pixels in that region: self.all_pixels[self.p>minskypdf]
+        Then to select pixels in that region: self.all_pixels[self.p_posterior>minskypdf]
         '''
-        prob_sorted = np.sort(self.p)[::-1]
+        prob_sorted = np.sort(self.p_posterior)[::-1]
         prob_sorted_cum = np.cumsum(prob_sorted)
         # find index of array which bounds the self.area confidence interval
         idx = np.searchsorted(prob_sorted_cum, level)
@@ -237,7 +268,7 @@ class Skymap3D(object):
         return minskypdf
     
     def get_credible_region_pixels(self, level=0.99):
-        return self.all_pixels[self.p>self._get_credible_region_pth(level=level)]
+        return self.all_pixels[self.p_posterior>self._get_credible_region_pth(level=level)]
     
     
     def likelihood_in_credible_region(self, r, level=0.99, verbose=False):
@@ -319,7 +350,7 @@ class Skymap3D(object):
         
     
     
-def get_all_events(loc='data/GW/O2/', subset=True, subset_names=['GW170817',], 
+def get_all_events(loc='data/GW/O2/', subset=False, subset_names=['GW170817',], 
                    verbose=False
                ):
     '''

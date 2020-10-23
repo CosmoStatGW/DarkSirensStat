@@ -137,20 +137,22 @@ class GWgal(object):
         '''
         Computes likelihood homogeneous part for one event
         '''
-        nSamples = 1000
+        nSamples = 4000
         
-        theta, phi, r = self.GWevents[eventName].sample(nSamples=nSamples)
+        theta, phi, r = self.GWevents[eventName].sample_posterior(nSamples=nSamples)
         
         z = z_from_dLGW_fast(r, H0=H0, Xi0=Xi0, n=n)
         
         # the prior is nbar in comoving volume, so it transforms if we integrate over D_L^{gw}
         # nbar D_com^2 d D_com = nbar D_com^2 (d D_com/d D_L^{gw}) d D_L^{gw}
+        
+        # we put a D_L^{gw}^2 into sampling from the posterior instead from the likelihood, and divide the jacobian by it.
        
-        jac = dVdcom_dVdLGW(z, H0=H0, Xi0=Xi0, n=n)
+        jac = dVdcom_dVdLGW_divided_by_dLGWsq(z, H0=H0, Xi0=Xi0, n=n)
          
         # MC integration
         
-        LL = np.sum(jac*self.gals.eval_hom(theta, phi, z))/nSamples
+        LL = (H0/70)**3*np.mean(jac*self.gals.eval_hom(theta, phi, z))
         
         return LL
     

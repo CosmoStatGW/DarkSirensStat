@@ -381,5 +381,6 @@ class GalCompleted(object):
         elif self._additive:
             return compl
         else: #interpolation between multiplicative and additive
-            confpower = 0.05
-            return np.exp(confpower*(1-1/compl))
+            confpower = 0.20
+            complb = np.clip(compl, a_min=2e-3, a_max=1)
+            return np.exp(confpower*(1-1/complb))

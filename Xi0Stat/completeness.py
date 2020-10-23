@@ -501,7 +501,7 @@ class MaskCompleteness(Completeness):
             if np.sum(compMask) > 0:
                 
                 # res is a vector here
-                res = interpolators[i](z[compMask])
+                res = self._interpolators[i](z[compMask])
                 
                 # put it into all relevant outputs
                 ret[compMask] = res
