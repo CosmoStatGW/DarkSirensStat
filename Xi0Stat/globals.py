@@ -68,13 +68,13 @@ def sample_trunc_gaussian(mu = 1, sigma = 1, lower = 0, size = 1):
         return np.squeeze(mu[:,np.newaxis] - sigma[:,np.newaxis]*sqrt2*erfcinv(2*arg))
     
 def trunc_gaussian_pdf(x, mu = 1, sigma = 1, lower = 0):
-
-    if not np.isscalar(x) and not np.isscalar(mu):
-        x = x[:, np.newaxis]
-        if mu.ndim < 2:
-            mu = mu[np.newaxis, :]
-        if sigma.ndim < 2:
-            sigma = sigma[np.newaxis, :]
+#
+#    if not np.isscalar(x) and not np.isscalar(mu):
+#        x = x[np.newaxis, :]
+#        if mu.ndim < 2:
+#            mu = mu[:, np.newaxis]
+#        if sigma.ndim < 2:
+#            sigma = sigma[:, np.newaxis]
         
     Phialpha = 0.5*erfc(-(lower-mu)/(np.sqrt(2)*sigma))
     return 1/(np.sqrt(2*np.pi)*sigma)/(1-Phialpha) * np.exp(-(x-mu)**2/(2*sigma**2))

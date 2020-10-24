@@ -59,6 +59,7 @@ class GWgal(object):
             for i in np.arange(H0s.size):
             
                 for j in np.arange(Xi0s.size):
+                    
            
                     Linhom[i,j] = self._inhom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n)
                     
@@ -79,7 +80,7 @@ class GWgal(object):
         
             # Convolution with z errors
             
-            rGrid = self._get_rGrid(eventName)
+            rGrid = self._get_rGrid(eventName, nsigma=3, minPoints=50)
 
             zGrid = z_from_dLGW_fast(rGrid, H0=H0, Xi0=Xi0, n=n)
             
@@ -98,6 +99,8 @@ class GWgal(object):
             my_skymap = self.GWevents[eventName].likelihood_px(rs, pixels)
             
             LL = np.sum(my_skymap*weights)
+            
+            #print(weights.shape, weights)
         
         return LL
     
@@ -106,7 +109,7 @@ class GWgal(object):
         '''
         Computes likelihood homogeneous part for one event
         '''
-        nSamples = 4000
+        nSamples = 400
         
         theta, phi, r = self.GWevents[eventName].sample_posterior(nSamples=nSamples)
         

@@ -311,7 +311,7 @@ class GalCompleted(object):
             allpixels.append(d[pixname].to_numpy())
             
             
-            weights = d.w.to_numpy()
+            weights = d.w.to_numpy().copy()
             
             redshifts = d.z.to_numpy()
             allredshifts.append(redshifts)
@@ -381,6 +381,6 @@ class GalCompleted(object):
         elif self._additive:
             return compl
         else: #interpolation between multiplicative and additive
-            confpower = 0.20
+            confpower = 0.10
             complb = np.clip(compl, a_min=2e-3, a_max=1)
             return np.exp(confpower*(1-1/complb))

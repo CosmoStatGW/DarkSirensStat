@@ -140,10 +140,11 @@ class Skymap3D(object):
         return ra, dec
     
     
-    
-    def find_event_coords(self):   
-        return self.find_ra_dec(np.argmax(self.p_posterior))
-          
+    def find_event_coords(self, polarCoords=False):
+        if not polarCoords:
+            return self.find_ra_dec(np.argmax(self.p_posterior))
+        else:
+            return self.find_theta_phi(np.argmax(self.p_posterior))
     
     def dp_dr_cond(self, r, theta, phi):
         '''
@@ -197,10 +198,12 @@ class Skymap3D(object):
         p(r,Omega_i|data) = L(data|r,Omega_i) * p(r) 
         p(r) = r^2
         '''
-        myclip_a=0
-        myclip_b=np.infty
-        a, b = (myclip_a - self.mu[pix]) / self.sigma[pix], (myclip_b - self.mu[pix]) / self.sigma[pix]
-        return  self.p_likelihood_selected[pix]*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
+        #myclip_a=0
+        #myclip_b=np.infty
+        #a, b = (myclip_a - self.mu[pix]) / self.sigma[pix], (myclip_b - self.mu[pix]) / self.sigma[pix]
+        #return  self.p_likelihood_selected[pix]*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
+        
+        return trunc_gaussian_pdf(x=r, mu=self.mu[pix], sigma=self.sigma[pix], lower=0 )
         #scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
     
     
@@ -390,7 +393,7 @@ class Skymap3D(object):
         
         return meanmu, lower, upper, meansig
         
-    def metadata_r_lims(self):
+    def metadata_r_lims(self, std_number=3):
         '''
         "Official" limits based on metadata - independent of selected credible region
         '''
@@ -441,11 +444,11 @@ def get_all_events(loc='data/GW/O2/', level = 0.99, subset=False, subset_names=[
     ev_names = [fname.split('_')[0]  for fname in sm_files]
     if subset:
         ev_names = [e for e in ev_names if e in subset_names]
-        sm_files = [e+'_skymap.fits' for e in ev_names]
+        sm_files = [e+'_skymap.fits.gz' for e in ev_names]
     if verbose:
         print('--- GW events:')
         print(ev_names)
         print('Reading skymaps....')
-    all_events = {fname.split('_')[0]: Skymap3D(loc+fname, level=level, nest=False) for fname in sm_files}
+    all_events = {fname.split('_')[0]: Skymap3D(loc+fname, level=level, nest=False, verbose=verbose) for fname in sm_files}
     return all_events
     

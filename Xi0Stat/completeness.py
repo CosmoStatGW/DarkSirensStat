@@ -47,12 +47,18 @@ class Completeness(ABC):
                 ret[close] = 1
                 return ret
             else:
-                if len(z) == len(theta):
-                    print('Completeness::get: number of redshift bins and number of angles agree but oneZPerAngle is not True. This may be a coincidence, or indicate that the flag should be True')
+                if not np.isscalar(theta):
+                    if len(z) == len(theta):
+                        print('Completeness::get: number of redshift bins and number of angles agree but oneZPerAngle is not True. This may be a coincidence, or indicate that the flag should be True')
                 
-                ret = self.get_implementation(theta, phi, z)
-                close = z[np.newaxis, :] < self.zstar(theta, phi)[:, np.newaxis]
-                return np.where(close, 1, ret)
+                    ret = self.get_implementation(theta, phi, z)
+                    close = z[np.newaxis, :] < self.zstar(theta, phi)[:, np.newaxis]
+                    return np.where(close, 1, ret)
+                else:
+                    ret = self.get_implementation(theta, phi, z)
+                    close = z < self.zstar(theta, phi)
+                    return np.where(close, 1, ret)
+                    
     
     # z is scalar (theta, phi may or may not be)
     # useful to make maps at fixed z and for single points
@@ -135,7 +141,7 @@ class SuperpixelCompleteness(Completeness):
     def compute_implementation(self, galdata, useDirac):
     
         coarseden = self._map.copy()
-        zmax = 1.0001*np.max(galdata.z.to_numpy())
+        zmax = 1.5*np.quantile(galdata.z.to_numpy(), 0.9)
         self.zedges  = np.linspace(0, zmax, self._zRes+1)
         
         z1 = self.zedges[:-1]
@@ -369,7 +375,8 @@ class MaskCompleteness(Completeness):
                 #galcomp = galdata.loc[[i]]
                 #catparts.append(galcomp)
         
-                zmax = 1.0001*np.max(galcomp.z.to_numpy())
+                #zmax = 1.0001*np.max(galcomp.z.to_numpy())
+                zmax = 1.5*np.quantile(galdata.z.to_numpy(), 0.9)
                 self.zedges.append(np.linspace(0, zmax, self._zRes+1))
                 z1 = self.zedges[-1][:-1]
                 z2 = self.zedges[-1][1:]
