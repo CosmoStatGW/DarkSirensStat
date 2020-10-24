@@ -18,8 +18,7 @@ class GWgal(object):
         
         self.gals = GalCompleted
         self.GWevents = GWevents
-        self.cred_pixels = {event: self.GWevents[event].get_credible_region_pixels(level=credible_level) for event in self.GWevents}
-        self.z_lims = {event: self.GWevents[event].get_zlims() for event in self.GWevents}
+
         self._galRedshiftErrors = galRedshiftErrors
         self.verbose=verbose
         
@@ -50,9 +49,9 @@ class GWgal(object):
         
         for eventName in self.GWevents.keys():
         
-            self.gals.select_area(self.cred_pixels[eventName], self.GWevents[eventName].nside)
+            self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
   
-            self.gals.set_z_range_for_selection( *self.z_lims[eventName])
+            self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims())
             
             Linhom = np.ones((H0s.size, Xi0s.size))
             Lhom   = np.ones((H0s.size, Xi0s.size))
@@ -70,56 +69,26 @@ class GWgal(object):
         return ret
      
     
-    
-#    def get_hom_lik(self, H0, Xi0, n=nGlob):
-#        '''
-#        Computes likelihood with homogeneous part for all events.
-#        Returns dictionary {event_name: L_hom }
-#        '''
-#        return {event: self._hom_lik(event, H0=H0, Xi0=Xi0, n=n) for event in self.GWevents}
-            
-    
-    
     def _inhom_lik(self, eventName, H0, Xi0, n):
         '''
         Computes likelihood with p_cat for one event
         Output: np array of dim (N. galaxies in 99% credible region, 1)
         '''
         
-        
         if self._galRedshiftErrors:
         
             # Convolution with z errors
             
-            rLow, rUp, nPoints = self._get_rLims(eventName)
-            rGrid = np.linspace(rLow, rUp, nPoints)
-#            zUp = z_from_dLGW(rUp, H0,  Xi0, n=n)
-#            zLow = z_from_dLGW(rLow, H0,  Xi0, n=n)
-#            z_table = np.linspace(min(zLow-zLow/10, 0), zUp+zUp/10, 500)
-#            dLgw_table = dLGW(z_table, H0=H0, Xi0=Xi0, n=n)
-#            # interpolate the func z(dL) and evaluate on rGrid
-            
-#            zGrid = np.interp( rGrid , dLgw_table, z_table).T
+            rGrid = self._get_rGrid(eventName)
 
             zGrid = z_from_dLGW_fast(rGrid, H0=H0, Xi0=Xi0, n=n)
             
             pixels, weights = self.gals.get_inhom_contained(zGrid, self.GWevents[eventName].nside )
             
-            #print('pixels shape: %s' %str(pixels.shape))
-            #l_weights = np.ones(z_weights.shape[0])
-            
-            #my_skymap = np.array([self.GWevents[event].likelihood_px(r, pixels) for r in rGrid]).T
-    
-            my_skymap = self.GWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
-            
-            #print('z_weights shape: %s' %str(z_weights.shape))
-            #print('my_skymap shape: %s' %str(my_skymap.shape))
-            LL = np.sum(my_skymap*weights)
-            #print('L shape: %s' %str(L.shape))
-            # Apply weights and normalize
-            #print('l_weights shape: %s' %str(l_weights.shape))
-            #LL =  (np.dot(L.T,l_weights))/l_weights.sum()
-            
+            skymap = self.GWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
+         
+            LL = np.sum(skymap*weights)
+             
         else: # use Diracs
             
             pixels, zs, weights =  self.gals.get_inhom(self.GWevents[eventName].nside)
@@ -157,18 +126,14 @@ class GWgal(object):
         return LL
     
     
-    def _get_rLims(self, eventName, nsigma=3, minPoints=50):
+    def _get_rGrid(self, eventName, nsigma=3, minPoints=30):
+    
+        meanmu, lower, upper, meansig = self.GWevents[eventName].find_r_loc(std_number = nsigma)
         
-        cred_pixels=self.cred_pixels[eventName]
-        mu = self.GWevents[eventName].mu[cred_pixels]
-        sigma = self.GWevents[eventName].sigma[cred_pixels]
-        rl = mu-nsigma*sigma
-        rl = np.where(rl>0., rl, 0.)
-        #rl = np.nan_to_num(rl)
-        ru =  mu+nsigma*sigma
-        #ru = np.nan_to_num(ru)
-        nPoints = minPoints*np.int((mu.max()-mu.min())/sigma.max())
+        cred_pixels = self.GWevents[eventName].selected_pixels
         
-        return rl.min(), ru.max(), nPoints
+        nPoints = np.int(minPoints*(upper-lower)/meansig)
+        
+        return np.linspace(lower, upper, nPoints)
     
     

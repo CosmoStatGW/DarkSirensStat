@@ -22,7 +22,8 @@ from Xi0Stat.globals import *
 class Skymap3D(object):
     
 
-    def __init__(self, fname, 
+    def __init__(self, fname,
+                 level=0.99,
                  nest=False,
                  verbose=False
                  ):
@@ -50,6 +51,7 @@ class Skymap3D(object):
         self.npix = len(smap[0])
         self.nside = hp.npix2nside(self.npix)
         self.pixarea = hp.nside2pixarea(self.nside, degrees=False) # pixel area in square radians
+        
         self.p_posterior = smap[0]
         self.head = header
         self.mu   = smap[1]
@@ -69,8 +71,22 @@ class Skymap3D(object):
         # The angular integral gives sum pixarea * p_posterior_i which needs to be 1.
         self.p_likelihood /= (np.sum(self.p_posterior)*self.pixarea)
    
-        
+        self.set_credible_region(level)
     
+    
+    def set_credible_region(self, level):
+    
+        px = self.get_credible_region_pixels(level)
+        # further remove bad pixels where no skymap is available
+        pxmask = np.isfinite(self.mu[px])
+        self.selected_pixels = px[pxmask]
+        self.p_posterior_selected = np.zeros(self.npix)
+        self.p_posterior_selected[self.selected_pixels] = self.p_posterior[self.selected_pixels]
+        self.p_likelihood_selected = self.p_posterior_selected*self.posteriorNorm
+        self.p_likelihood_selected /= (np.sum(self.p_posterior_selected)*self.pixarea)
+        
+        self.compute_z_lims()
+        
     def _get_metadata(self):
         O2metaPath = os.path.join(metaPath, 'GWTC-1-confident.csv')     
         try:
@@ -157,7 +173,7 @@ class Skymap3D(object):
         '''
         pix = self.find_pix(theta, phi)
         cond_p = self.dp_dr_cond(r, theta, phi)
-        return cond_p*self.p_posterior[pix] #/self.pixarea
+        return cond_p*self.p_posterior_selected[pix] #/self.pixarea
     
     
     def likelihood(self, r, theta, phi):
@@ -184,7 +200,7 @@ class Skymap3D(object):
         myclip_a=0
         myclip_b=np.infty
         a, b = (myclip_a - self.mu[pix]) / self.sigma[pix], (myclip_b - self.mu[pix]) / self.sigma[pix]
-        return  self.p_likelihood[pix]*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
+        return  self.p_likelihood_selected[pix]*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
         #scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
     
     
@@ -198,7 +214,7 @@ class Skymap3D(object):
             
         # norm goes away sampling r^2 as well below, only prob remains to give pixel probability
         
-        pixSampled = discretesample(nSamples, self.p_posterior)
+        pixSampled = discretesample(nSamples, self.p_posterior_selected)
 
 
         mu = self.mu[pixSampled]
@@ -233,25 +249,35 @@ class Skymap3D(object):
         marginalized over Omega
         To be compared with posterior chains 
         '''
-        return sum(self.p_posterior*self.posteriorNorm*scipy.stats.norm(loc=self.mu, scale=self.sigma).pdf(r) )*r**2
+        return sum(self.p_posterior_selected*self.posteriorNorm*scipy.stats.norm(loc=self.mu, scale=self.sigma).pdf(r) )*r**2
     
     def p_om(self, theta, phi):
         '''
         p(Omega)
         '''
-        return self.p_posterior[self.find_pix(theta, phi)]
+        return self.p_posterior_selected[self.find_pix(theta, phi)]
     
-    def area_p(self, pp=0.9):
-        ''' Area of pp% credible region '''
-        i = np.flipud(np.argsort(self.p_posterior))
-        sorted_credible_levels = np.cumsum(self.p_posterior[i])
-        credible_levels = np.empty_like(sorted_credible_levels)
-        credible_levels[i] = sorted_credible_levels
-        #from ligo.skymap.postprocess import find_greedy_credible_levels
-        #credible_levels = find_greedy_credible_levels(self.p)
+#    def area_p(self, pp=0.9):
+#        ''' Area of pp% credible region '''
+#        i = np.flipud(np.argsort(self.p_posterior))
+#        sorted_credible_levels = np.cumsum(self.p_posterior[i])
+#        credible_levels = np.empty_like(sorted_credible_levels)
+#        credible_levels[i] = sorted_credible_levels
+#        #from ligo.skymap.postprocess import find_greedy_credible_levels
+#        #credible_levels = find_greedy_credible_levels(self.p)
+#
+#        return np.sum(credible_levels <= pp) * hp.nside2pixarea(self.nside, degrees=True)
+    
+    def area(self, level=None):
+        ''' Area of level% credible region, in square degrees.
+            If level is not specified, uses current selection '''
+            
+        if level==None:
+            return self.selected_pixels.size*self.pixarea*(180/np.pi)**2
+        else:
+            return self.get_credible_region_pixels(level).size*self.pixarea*(180/np.pi)**2
+            
         
-        return np.sum(credible_levels <= pp) * hp.nside2pixarea(self.nside, degrees=True)
-    
     
     def _get_credible_region_pth(self, level=0.99):
         '''
@@ -271,20 +297,20 @@ class Skymap3D(object):
         return self.all_pixels[self.p_posterior>self._get_credible_region_pth(level=level)]
     
     
-    def likelihood_in_credible_region(self, r, level=0.99, verbose=False):
-        '''
-        Returns likelihood for all the pixels in the x% credible region at distance r
-        x=level
-        '''
-        cArea_idxs = self.get_credible_region_pixels(level=level)
-        LL = self.likelihood_px(r, cArea_idxs)
-        if verbose:
-            print('Max GW likelihood at dL=%s Mpc : %s' %(r,LL.max()))
-            print('Pix of max GW likelihood = %s' %cArea_idxs[LL.argmax()])
-            print('RA, dec of max GW likelihood at dL=%s Mpc: %s' %(r,self.find_ra_dec(cArea_idxs[LL.argmax()])))
-        return LL
-    
- 
+#    def likelihood_in_credible_region(self, r, level=0.99, verbose=False):
+#        '''
+#        Returns likelihood for all the pixels in the x% credible region at distance r
+#        x=level
+#        '''
+#        cArea_idxs = self.get_credible_region_pixels(level=level)
+#        LL = self.likelihood_px(r, cArea_idxs)
+#        if verbose:
+#            print('Max GW likelihood at dL=%s Mpc : %s' %(r,LL.max()))
+#            print('Pix of max GW likelihood = %s' %cArea_idxs[LL.argmax()])
+#            print('RA, dec of max GW likelihood at dL=%s Mpc: %s' %(r,self.find_ra_dec(cArea_idxs[LL.argmax()])))
+#        return LL
+#
+#
     def d_max(self, SNR_ref=8):
         '''
         Max GW luminosity distance at which the evend could be seen, 
@@ -306,51 +332,102 @@ class Skymap3D(object):
         
         return d_max
         
-    
-    def get_zlims(self, H0max=220, H0min=20, Xi0max=3, Xi0min=0.2, n=1.91, verbose=False):  
+#
+#    def compute_z_lims(self, H0max=220, H0min=20, Xi0max=3, Xi0min=0.2, n=1.91, verbose=False):
+#        '''
+#        Computes the possible range in redshift for the event given the prior range for H0 and XI0
+#        '''
+#
+#        if verbose:
+#            print('Computing range in redshift for all priors...')
+#        grid=[]
+#        for H0i in [H0min, H0max]:
+#            for Xi0i in [Xi0min, Xi0max]:
+#                grid.append([H0i, Xi0i])
+#        zs = np.array([self._get_minmax_z(*vals,n=n, verbose=verbose) for vals in grid ])
+#
+#        self.zmin = zs.min()
+#        self.zmax = zs.max()
+#        return self.zmin, self.zmax
+#
+
+    def compute_z_lims(self, std_number=3, H0min=20, H0max=500, Xi0min=0.2, Xi0max=3, n=1.91, verbose=False):
         '''
-        Computes the possible range in redshift for the event given the prior range for H0 and XI0
+        Computes and stores z range of events given H0 and Xi0 ranges.
+        Based on actual skymap shape in the previously selected credible region, not on metadata
         '''
         
         if verbose:
-            print('Computing range in redshift for all priors...')
-        grid=[]
-        for H0i in [H0min, H0max]:
-            for Xi0i in [Xi0min, Xi0max]:
-                grid.append([H0i, Xi0i]) 
-        zs = np.array([self._get_minmaxz(*vals,n=n, verbose=verbose) for vals in grid ])
+            print('Computing range in redshift for parameter range H0=[{}, {}], Xi0=[{}, {}]...'.format(H0min, H0max, Xi0min, Xi0max))
+            
+        _, d_min, d_max, _ = self.find_r_loc(std_number=std_number)
         
-        return zs.min(), zs.max()
-    
-    
-    def _get_minmaxz(self, H0, Xi0, n=1.91, std_number=3, verbose=False):
+        self.zmin = z_from_dLGW(d_min, H0min, Xi0max, n=n)
+        self.zmax = z_from_dLGW(d_max, H0max, Xi0min, n=n)
+
+        return self.zmin, self.zmax
+        
+    def get_z_lims(self):
         '''
-        Upper and lower limit in redshift to search for given H0 or Xi0
+        Returns z range of events as computed for given H0 and Xi0 ranges.
+        Based on actual skymap shape in the selected credible region, not metadata
+        '''
+        return self.zmin, self.zmax
+    
+    def find_r_loc(self, std_number=3):
+        '''
+        Returns mean GW lum. distance, lower and upper limits of distance, and the mean sigma.
+        Based on actual skymap shape in the selected credible region, not metadata.
+        '''
+        mu = self.mu[self.selected_pixels]
+        sigma = self.sigma[self.selected_pixels]
+        p = self.p_likelihood_selected[self.selected_pixels]
+        
+        meanmu = np.average(mu, weights = p)
+        meansig = np.average(sigma, weights = p)
+        lower = max(np.average(mu-std_number*sigma, weights = p), 0)
+        upper = np.average(mu+std_number*sigma, weights = p)
+        
+        return meanmu, lower, upper, meansig
+        
+    def metadata_r_lims(self):
+        '''
+        "Official" limits based on metadata - independent of selected credible region
         '''
         
-        # Get mu and sigma for dLGW
         map_val = np.float(dict(self.head)['DISTMEAN'])
         up_lim = np.float(dict(self.head)['DISTSTD'])
         low_lim=-up_lim
         dlow = max(map_val+std_number*low_lim,0)
         dup=map_val+std_number*up_lim
-        if verbose:
+        if self.verbose:
             print('Position: %s +%s %s'%(map_val, up_lim, low_lim))
-        z1 = z_from_dLGW(dlow, H0, Xi0, n=n) 
-        z2 = z_from_dLGW(dup,  H0, Xi0, n=n)
-        if verbose:
-            print('H0, Xi0: %s, %s' %(H0, Xi0))
-            print('lower limit to search: d_L = %s Mpc, z=%s' %(dlow,z1))
-            print('upper limit to search:d_L = %s Mpc, z=%s' %(dup, z2))
- 
-        minmax_z = max(min(z1,z2), 0), max(z1,z2) 
+        return map_val, up_lim, low_lim
+        
+#    def _get_minmax_z(self, H0, Xi0, n=1.91, std_number=3):
+#        '''
+#        Upper and lower limit in redshift to search for given H0 or Xi0
+#        Based on selected credible region.
+#        '''
+#        _, dlow, dup, _ = find_r_loc(std_number=std_number)
+#
+#        z1 = z_from_dLGW(dlow, H0, Xi0, n=n)
+#        z2 = z_from_dLGW(dup,  H0, Xi0, n=n)
+#
+#        if self.verbose:
+#            print('H0, Xi0: %s, %s' %(H0, Xi0))
+#            print('lower limit to search: d_L = %s Mpc, z=%s' %(dlow,z1))
+#            print('upper limit to search:d_L = %s Mpc, z=%s' %(dup, z2))
+#
+#        return z1, z2
+        #minmax_z = max(min(z1,z2), 0), max(z1,z2)
     
-        return minmax_z 
+        #return minmax_z
             
         
     
     
-def get_all_events(loc='data/GW/O2/', subset=False, subset_names=['GW170817',], 
+def get_all_events(loc='data/GW/O2/', level = 0.99, subset=False, subset_names=['GW170817',],
                    verbose=False
                ):
     '''
@@ -369,6 +446,6 @@ def get_all_events(loc='data/GW/O2/', subset=False, subset_names=['GW170817',],
         print('--- GW events:')
         print(ev_names)
         print('Reading skymaps....')
-    all_events = {fname.split('_')[0]: Skymap3D(loc+fname, nest=False) for fname in sm_files}
+    all_events = {fname.split('_')[0]: Skymap3D(loc+fname, level=level, nest=False) for fname in sm_files}
     return all_events
     

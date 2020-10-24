@@ -171,6 +171,13 @@ def Xi(z, Xi0, n):
 
 zGridGLOB = np.logspace(start=-10, stop=5, base=10, num=1000)
 dLGridGLOB = cosmo70GLOB.luminosity_distance(zGridGLOB).value
+dcomGridGLOB = cosmo70GLOB.comoving_distance(zGridGLOB).value
+HGridGLOB = cosmo70GLOB.H(zGridGLOB).value
+from scipy import interpolate
+dcom70fast = interpolate.interp1d(zGridGLOB, dcomGridGLOB, kind='cubic', bounds_error=False, fill_value=(0, np.NaN), assume_sorted=True)
+H70fast = interpolate.interp1d(zGridGLOB, HGridGLOB, kind='cubic', bounds_error=False, fill_value=(70 ,np.NaN), assume_sorted=True)
+
+
 def z_from_dLGW_fast(r, H0, Xi0, n):
     from scipy import interpolate
     z2dL = interpolate.interp1d(dLGridGLOB/H0*70*Xi(zGridGLOB, Xi0, n=n), zGridGLOB, kind='cubic', bounds_error=False, fill_value=(0,np.NaN), assume_sorted=True)
@@ -192,12 +199,6 @@ def z_from_dLGW(dL_GW_val, H0, Xi0, n):
     func = lambda z : dLGW(z, H0, Xi0, n=n) - dL_GW_val
     z = fsolve(func, 0.5)
     return z[0]
-
-dcomGLOB = cosmo70GLOB.comoving_distance(zGridGLOB).value
-HGLOB = cosmo70GLOB.H(zGridGLOB).value
-from scipy import interpolate
-dcom70fast = interpolate.interp1d(zGridGLOB, dcomGLOB, kind='cubic', bounds_error=False, fill_value=(0, np.NaN), assume_sorted=True)
-H70fast = interpolate.interp1d(zGridGLOB, HGLOB, kind='cubic', bounds_error=False, fill_value=(70 ,np.NaN), assume_sorted=True)
 
 def dVdcom_dVdLGW_divided_by_dLGWsq(z, H0, Xi0, n):
 # D_com^2 d D_com = D_com^2 (d D_com/d D_L^{gw}) d D_L^{gw}
