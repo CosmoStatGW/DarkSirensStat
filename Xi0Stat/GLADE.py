@@ -54,22 +54,17 @@ class GLADE(GalCat):
             if self.verbose:
                 print("Directly loading final data " + self._finalData)
             df = pd.read_csv(os.path.join(self._path, self._finalData))
-            self.data = self.data.append(df, ignore_index=True)
+#            df2 = pd.read_csv(os.path.join(self._path, 'posteriorglade_.csv'))
+#            df.z = df2.z
+#            df.z_lower = df2.z_lower
+#            df.z_lowerbound = df2.z_lowerbound
+#            df.z_upper = df2.z_upper
+#            df.z_upperbound = df2.z_upperbound
+            
+            #self.data = self.data.append(df, ignore_index=True)
             
         else:
         
-            if band=='B':
-                add_B_lum=True
-                add_K_lum=False
-            elif band=='K':
-                add_B_lum=False
-                add_K_lum=True
-            else:
-                add_B_lum=False
-                add_K_lum=False
-                
-                
-            
             
             gname='GLADE_2.4.txt'
             groupname='Galaxy_Group_Catalogue.csv'
@@ -325,73 +320,87 @@ class GLADE(GalCat):
 
                         
                         L += nBatch
-                    
-                
-            # ------ Add B luminosity
-            
-            if add_B_lum:
-                if self.verbose:
-                    print('Computing total luminosity in B band...')
-                # add  a column for B-band luminosity
-                #my_dist=cosmo.luminosity_distance(df.z.values).value
-                #df.loc[:,"B_Abs"]=df.B-5*np.log10(my_dist)-25
-                BLum = df.B_Abs.apply(lambda x: TotLum(x, MBSun))
-                df.loc[:,"B_Lum"] =BLum
-                df = df.drop(columns='B_Abs')
-                df = df.drop(columns='B')
-                #print('Done.')
-            
-            
-            # ------ Add K luminosity
-            
-            if add_K_lum:
-                if self.verbose:
-                    print('Computing total luminosity in K band...')
-                my_dist=cosmoGLADE.luminosity_distance(df.z.values).value
-                df.loc[:,"K_Abs"]=df.K-5*np.log10(my_dist)-25
-                KLum = df.K_Abs.apply(lambda x: TotLum(x, MKSun))
-                df.loc[:,"K_Lum"]=KLum
-                df = df.drop(columns='K_Abs')
-                df = df.drop(columns='K')
-            
-            
-            # ------ Apply cut in luminosity
-            if band is not None:
-                col_name=band+'_Lum'
-                L_th = Lcut*LBstar07
-                if self.verbose:
-                    print('Applying cut in luminosity in %s-band. Selecting galaxies with %s>%s x L_* = %s' %(band, col_name, Lcut, np.round(L_th,2)))
-                df = df[df[col_name]>L_th]
-                if self.verbose:
-                    print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-                    print('Using %s for weighting' %col_name)
-                w = df.loc[:, col_name].values
-            else:
-                if self.verbose:
-                    print('No cut in luminosity applied. Using weights =1 ' )
-                w = np.ones(df.shape[0])
+                        
+        # ------ End if not use precomputed table
+        #        Always be able to still chose the weighting and cut.
         
-            # ------ Add 'w' column for weights
+        if band=='B':
+            add_B_lum=True
+            add_K_lum=False
+        elif band=='K':
+            add_B_lum=False
+            add_K_lum=True
+        else:
+            add_B_lum=False
+            add_K_lum=False
             
-            df.loc[:, 'w'] = w
             
-            
-            # ------ Keep only some columns
-            
-            if colnames_final is not None:
-                if self.verbose:
-                    print('Keeping only columns: %s' %colnames_final)
-                df = df[colnames_final]
-           
-            # ------ Add pixel column. Note that GW skymaps use nest=True !!
-            df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta, df.phi)
-            
-            # ------
+        # ------ Add B luminosity
+        
+        if add_B_lum:
             if self.verbose:
-                print('Done.')
-            
-            
-            self.data = self.data.append(df, ignore_index=True)
+                print('Computing total luminosity in B band...')
+            # add  a column for B-band luminosity
+            #my_dist=cosmo.luminosity_distance(df.z.values).value
+            #df.loc[:,"B_Abs"]=df.B-5*np.log10(my_dist)-25
+            BLum = df.B_Abs.apply(lambda x: TotLum(x, MBSun))
+            df.loc[:,"B_Lum"] =BLum
+            df = df.drop(columns='B_Abs')
+            # df = df.drop(columns='B') don't assume it's here
+            #print('Done.')
+        
+        
+        # ------ Add K luminosity
+        
+        if add_K_lum:
+            if self.verbose:
+                print('Computing total luminosity in K band...')
+            my_dist=cosmoGLADE.luminosity_distance(df.z.values).value
+            df.loc[:,"K_Abs"]=df.K-5*np.log10(my_dist)-25
+            KLum = df.K_Abs.apply(lambda x: TotLum(x, MKSun))
+            df.loc[:,"K_Lum"]=KLum
+            # df = df.drop(columns='K_Abs') don't assume it's here
+            df = df.drop(columns='K')
+        
+        
+        # ------ Apply cut in luminosity
+        if band is not None:
+            col_name=band+'_Lum'
+            L_th = Lcut*LBstar07
+            if self.verbose:
+                print('Applying cut in luminosity in %s-band. Selecting galaxies with %s>%s x L_* = %s' %(band, col_name, Lcut, np.round(L_th,2)))
+            or_dim = df.shape[0]
+            df = df[df[col_name]>L_th]
+            if self.verbose:
+                print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+                print('Using %s for weighting' %col_name)
+            w = df.loc[:, col_name].values
+        else:
+            if self.verbose:
+                print('No cut in luminosity applied. Using weights =1 ' )
+            w = np.ones(df.shape[0])
+    
+        # ------ Add 'w' column for weights
+        
+        df.loc[:, 'w'] = w
+        
+        
+        # ------ Keep only some columns
+        
+        if colnames_final is not None:
+            if self.verbose:
+                print('Keeping only columns: %s' %colnames_final)
+            df = df[colnames_final]
+       
+        # ------ Add pixel column. Note that not providing nest parameter to ang2pix defaults to nest=True, which has to be set in GW too!
+        df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta, df.phi)
+        
+        # ------
+        if self.verbose:
+            print('Done.')
+        
+        
+        self.data = self.data.append(df, ignore_index=True)
             
       
 

@@ -51,7 +51,8 @@ class Skymap3D(object):
         self.npix = len(smap[0])
         self.nside = hp.npix2nside(self.npix)
         self.pixarea = hp.nside2pixarea(self.nside, degrees=False) # pixel area in square radians
-        
+        #r = hp.Rotator(coord=['G','E'])
+        #r.rotate_map_pixel(
         self.p_posterior = smap[0]
         self.head = header
         self.mu   = smap[1]
@@ -78,7 +79,7 @@ class Skymap3D(object):
     
         px = self.get_credible_region_pixels(level)
         # further remove bad pixels where no skymap is available
-        pxmask = np.isfinite(self.mu[px])
+        pxmask = np.isfinite(self.mu[px]) & (self.mu[px] >= 0)
         self.selected_pixels = px[pxmask]
         self.p_posterior_selected = np.zeros(self.npix)
         self.p_posterior_selected[self.selected_pixels] = self.p_posterior[self.selected_pixels]
@@ -203,7 +204,7 @@ class Skymap3D(object):
         #a, b = (myclip_a - self.mu[pix]) / self.sigma[pix], (myclip_b - self.mu[pix]) / self.sigma[pix]
         #return  self.p_likelihood_selected[pix]*scipy.stats.truncnorm(a=a, b=b, loc=self.mu[pix], scale=self.sigma[pix]).pdf(r)
         
-        return trunc_gaussian_pdf(x=r, mu=self.mu[pix], sigma=self.sigma[pix], lower=0 )
+        return self.p_likelihood_selected[pix]*trunc_gaussian_pdf(x=r, mu=self.mu[pix], sigma=self.sigma[pix], lower=0 )
         #scipy.stats.norm.pdf(x=r, loc=self.mu[pix], scale=self.sigma[pix])
     
     
@@ -319,22 +320,23 @@ class Skymap3D(object):
         Max GW luminosity distance at which the evend could be seen, 
         assuming its SNR and a threshold SNR_ref:
         d_max = d_obs*SNR/SNR_ref
-        
-        d_obs is the posterior mean quoted in the GW metadata
+    
         '''
+        
+        d_obs, _, _, _ = self.find_r_loc()
+        
         try:
-            d_obs = self.metadata['luminosity_distance'].values[0]
+            #d_obs = self.metadata['luminosity_distance'].values[0]
+            
             SNR = self.metadata['network_matched_filter_snr'].values[0]
+            return d_obs*SNR/SNR_ref
             #print('using d_obs and SNR from metadata')
+            
         except IndexError:
-            print('SNR for this event not available! Computing d_max with SNR=%s' %SNR_ref)
-            d_obs = np.float(dict(self.head)['DISTMEAN'])
-            SNR = SNR_ref
-        #std_quoted = np.float(dict(self.head)['DISTSTD'])
-        d_max = d_obs*SNR/SNR_ref
-        
-        return d_max
-        
+            print('SNR for this event not available! Scaling event distance by 1.5...')
+            return 1.5*d_obs
+          
+      
 #
 #    def compute_z_lims(self, H0max=220, H0min=20, Xi0max=3, Xi0min=0.2, n=1.91, verbose=False):
 #        '''
@@ -354,7 +356,7 @@ class Skymap3D(object):
 #        return self.zmin, self.zmax
 #
 
-    def compute_z_lims(self, std_number=3, H0min=20, H0max=500, Xi0min=0.2, Xi0max=3, n=1.91, verbose=False):
+    def compute_z_lims(self, std_number=3, H0min=H0minGlob, H0max=H0maxGlob, Xi0min=Xi0minGlob, Xi0max=Xi0maxGlob, n=1.91, verbose=False):
         '''
         Computes and stores z range of events given H0 and Xi0 ranges.
         Based on actual skymap shape in the previously selected credible region, not on metadata
@@ -440,7 +442,7 @@ def get_all_events(loc='data/GW/O2/', level = 0.99, subset=False, subset_names=[
     '''
     from os import listdir
     from os.path import isfile, join
-    sm_files = [f for f in listdir(loc) if ((isfile(join(loc, f))) & (f!='.DS_Store'))]    
+    sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) & (f!='.DS_Store'))]
     ev_names = [fname.split('_')[0]  for fname in sm_files]
     if subset:
         ev_names = [e for e in ev_names if e in subset_names]
@@ -449,6 +451,6 @@ def get_all_events(loc='data/GW/O2/', level = 0.99, subset=False, subset_names=[
         print('--- GW events:')
         print(ev_names)
         print('Reading skymaps....')
-    all_events = {fname.split('_')[0]: Skymap3D(loc+fname, level=level, nest=False, verbose=verbose) for fname in sm_files}
+    all_events = {fname.split('_')[0]: Skymap3D(dirName+'/'+loc+fname, level=level, nest=False, verbose=verbose) for fname in sm_files}
     return all_events
     

@@ -33,6 +33,10 @@ Om0GLADE=0.27
 H0GLOB=69
 Om0GLOB=0.3
 
+H0minGlob = 20
+H0maxGlob = 220
+Xi0minGlob = 0.01
+Xi0maxGlob = 100
 
 # Parameters of Schechter function in B band in units of 10^10 solar B band
 # for h0=0.7
@@ -200,13 +204,15 @@ def z_from_dLGW(dL_GW_val, H0, Xi0, n):
     z = fsolve(func, 0.5)
     return z[0]
 
-def dVdcom_dVdLGW_divided_by_dLGWsq(z, H0, Xi0, n):
+def dVdcom_dVdLGW(z, H0, Xi0, n):
 # D_com^2 d D_com = D_com^2 (d D_com/d D_L^{gw}) d D_L^{gw}
 
 # d D_com / d D_L^{gw} = d D_com /dz * ( d D_L^{gw} / dz ) ^(-1)
 # [with D_L^{gw} = (Xi0 + (1-Xi0)(1+z)**(-n)) (1+z) Dcom ]
 # = c/H(z) * (  (Xi0 + (1-n) (1-Xi0)(1+z)**(-n)  ) D_com + (Xi0 + (1-Xi0)(1+z)**(-n)) (1+z) c/H(z)  )^(-1)
 # = (  (Xi0 + (1-n) (1-Xi0)(1+z)**(-n)  ) D_com H /c + (Xi0 + (1-Xi0)(1+z)**(-n)) (1+z)  )^(-1)
+
+# D_com^2 / D_L^{gw}^2 remains
 
     h7 = H0 / 70
     

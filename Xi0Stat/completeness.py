@@ -521,7 +521,10 @@ class MaskCompleteness(Completeness):
 
         components = self._mask[hp.ang2pix(self._nside, theta, phi)]
         
-        ret = np.zeros((len(theta), len(z)))
+        if not np.isscalar(theta):
+            ret = np.zeros((len(theta), len(z)))
+        else:
+            ret = np.zeros(len(z))
         
         for i in np.arange(self._nMasks):
             # select arguments in this component
@@ -534,7 +537,10 @@ class MaskCompleteness(Completeness):
                 res = self._interpolators[i](z)
                 
                 # put it into all relevant outputs
-                ret[compMask, :] = res
+                if not np.isscalar(theta):
+                    ret[compMask, :] = res
+                else:
+                    ret = res
                 
         return ret
         

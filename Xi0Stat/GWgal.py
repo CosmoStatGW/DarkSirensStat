@@ -22,6 +22,7 @@ class GWgal(object):
         self._galRedshiftErrors = galRedshiftErrors
         self.verbose=verbose
         
+        self.nHomSamples = 400
         
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
@@ -80,7 +81,7 @@ class GWgal(object):
         
             # Convolution with z errors
             
-            rGrid = self._get_rGrid(eventName, nsigma=3, minPoints=50)
+            rGrid = self._get_rGrid(eventName, nsigma=3, minPoints=20)
 
             zGrid = z_from_dLGW_fast(rGrid, H0=H0, Xi0=Xi0, n=n)
             
@@ -109,9 +110,8 @@ class GWgal(object):
         '''
         Computes likelihood homogeneous part for one event
         '''
-        nSamples = 400
         
-        theta, phi, r = self.GWevents[eventName].sample_posterior(nSamples=nSamples)
+        theta, phi, r = self.GWevents[eventName].sample_posterior(nSamples=self.nHomSamples)
         
         z = z_from_dLGW_fast(r, H0=H0, Xi0=Xi0, n=n)
         
@@ -120,7 +120,7 @@ class GWgal(object):
         
         # we put a D_L^{gw}^2 into sampling from the posterior instead from the likelihood, and divide the jacobian by it.
        
-        jac = dVdcom_dVdLGW_divided_by_dLGWsq(z, H0=H0, Xi0=Xi0, n=n)
+        jac = dVdcom_dVdLGW(z, H0=H0, Xi0=Xi0, n=n)
          
         # MC integration
         
@@ -129,7 +129,7 @@ class GWgal(object):
         return LL
     
     
-    def _get_rGrid(self, eventName, nsigma=3, minPoints=30):
+    def _get_rGrid(self, eventName, nsigma=3, minPoints=50):
     
         meanmu, lower, upper, meansig = self.GWevents[eventName].find_r_loc(std_number = nsigma)
         

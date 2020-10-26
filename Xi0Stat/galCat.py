@@ -67,7 +67,7 @@ class GalCat(ABC):
         pass
     
     def completeness(self, theta, phi, z, oneZPerAngle=False):
-        return self._completeness.get(theta, phi, z, oneZPerAngle)
+        return self._completeness.get(theta, phi, z, oneZPerAngle) + 1e-9
 
 
     def group_correction(self, df, df_groups, which_z='z_cosmo'):
@@ -215,7 +215,7 @@ class GalCompleted(object):
         for c, w in zip(self._galcats, self._catweights):
             res += w*c.completeness(theta, phi, z, oneZPerAngle)
         
-        return res + 1e-9
+        return res
         #return sum(list(map(lambda c: c.completeness, self._galcats)))
     
     def select_area(self, pixels, nside):
@@ -265,7 +265,8 @@ class GalCompleted(object):
                 
             # for additive completion we do not divide by completness as opposed to otherwise (mult, mix)
             # an overall factor of completeness from the weighted average
-            # over catalogs then survives (in the case of 1 catalog, it is cancelling with total_completeness!).
+            # over catalogs then survives but, in the case of 1 catalog, it is cancelling with total_completeness!
+            #
             # We get this one more factor of completeness in the case of additive completion automatically from the confidence function, which returns its argument in the case of additive completion.
             # in all other cases (mult, mix), the confidence is a probability of trust in pure multiplicative completion and is =1 in mult, and between 0 and 1 in mix.
             
@@ -275,7 +276,7 @@ class GalCompleted(object):
             weights /= self.total_completeness(d.theta, d.phi, zGrid)
            
             weights /= c._completeness._comovingDensityGoal
-            
+   
             allweights.append(weights)
             
         #return np.squeeze(np.vstack(allpixels)), np.vstack(allweights)
@@ -327,6 +328,7 @@ class GalCompleted(object):
             weights /= self.total_completeness(d.theta, d.phi, redshifts, oneZPerAngle = True)
        
             weights /= c._completeness._comovingDensityGoal
+            
             
             allweights.append(weights)
             
