@@ -21,7 +21,7 @@ class BetaHom(Beta):
         Beta.__init__(self, **kwargs)
         
         
-    def get_beta(self, H0, Xi0, dMax, zR=5, n=1.91, ):
+    def get_beta(self, H0, Xi0, dMax, zR=zRglob, n=1.91, ):
         '''
         Homogeneous beta -  Eq. 2.81 
         '''

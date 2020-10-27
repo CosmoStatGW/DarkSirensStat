@@ -14,7 +14,12 @@ metaPath= os.path.join(dirName, 'data', 'GW', 'metadata')
 # CONSTANTS
 ###########################
 
+d0GlobO2=123 # d_0 of eq. 2.125 for O2, in Mpc
+
+zRglob = 0.25
+
 nGlob = 1.91
+gammaGlob = 1.6
 
 clight = 2.99792458* 10**5
 
@@ -187,6 +192,7 @@ def z_from_dLGW_fast(r, H0, Xi0, n):
     z2dL = interpolate.interp1d(dLGridGLOB/H0*70*Xi(zGridGLOB, Xi0, n=n), zGridGLOB, kind='cubic', bounds_error=False, fill_value=(0,np.NaN), assume_sorted=True)
     return z2dL(r)
     
+
 def z_from_dLGW(dL_GW_val, H0, Xi0, n):
     '''
     Returns redshift for a given luminosity distance dL_GW_val (in Mpc)
