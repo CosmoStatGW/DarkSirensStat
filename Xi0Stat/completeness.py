@@ -552,12 +552,13 @@ class MaskCompleteness(Completeness):
 
 class LoadCompleteness(SuperpixelCompleteness):
     
-    def __init__(self, fname, 
-                 comovingDensityGoal, interpolateOmega, 
-                 **kwargs):
-        
-        self.fname = fname
-        f = open(self.fname)
+    def __init__(self, fname, interpolateOmega, **kwargs):
+        import os
+        filepath = os.path.join(dirName, 'data', 'GLADE', fname)
+
+        #self.fname = fname
+        #f = open(self.fname)
+        f = open(filepath)
         header = f.readline()
         f.close()
         self.zMin = float(header.split(',')[1].split('=')[1])
@@ -565,40 +566,40 @@ class LoadCompleteness(SuperpixelCompleteness):
         nside = int(header.split(',')[3].split('=')[1])
         angularRes = int(np.log2(nside))
         zRes = int(header.split(',')[4].split('=')[1])
+
+        SuperpixelCompleteness.__init__(self, 1, angularRes, zRes, interpolateOmega, **kwargs)
+
         
-        SuperpixelCompleteness.__init__(self, comovingDensityGoal, angularRes, zRes, interpolateOmega, **kwargs)
-             
-        
-    
-    def compute_implementation(self, galdata, useDirac):
-        
-        # Set _map, _zstar, zcenters, zedges
-        
-    
-        #zmax = 1.5*np.quantile(galdata.z.to_numpy(), 0.9)
-        self.zedges  = np.linspace(self.zMin, self.zMax, self._zRes+1)
-        
-        z1 = self.zedges[:-1]
-        z2 = self.zedges[1:]
-        
-        self.zcenters = 0.5*(z1 + z2)
-        
-        # LOAD MAP
-        if self.verbose:
-            print('Loading copleteness from %s...' %self.fname)
-        self._map = np.loadtxt(self.fname).T
-        #print(self._map[:2])
-        
-        if self.verbose:
-            print('Final computations for completeness...')
-        zFine = np.linspace(0, self.zMax, 3000)
-        zFine = zFine[::-1]
-        evals = self.get_implementation(*hp.pix2ang(self._nside, np.arange(self._npix)), zFine)
-       
-        # argmax returns "first" occurence of maximum, which is True in a boolean array. we search starting at large z due to the flip
-        idx = np.argmax(evals >= 1, axis=1)
-        # however, if all enries are False, argmax returns 0, which would be the largest redshift, while we want 0 in that case
-        self._zstar = np.where(idx == 0, 0, zFine[idx])
-        #print(self._zstar[:5])
-        if self.verbose:
-            print('Done.')
+#
+#    def compute_implementation(self, galdata, useDirac):
+#
+#        # Set _map, _zstar, zcenters, zedges
+#
+#
+#        #zmax = 1.5*np.quantile(galdata.z.to_numpy(), 0.9)
+#        self.zedges  = np.linspace(self.zMin, self.zMax, self._zRes+1)
+#
+#        z1 = self.zedges[:-1]
+#        z2 = self.zedges[1:]
+#
+#        self.zcenters = 0.5*(z1 + z2)
+#
+#        # LOAD MAP
+#        if self.verbose:
+#            print('Loading copleteness from %s...' %self.fname)
+#        self._map = np.loadtxt(self.fname).T
+#        #print(self._map[:2])
+#
+#        if self.verbose:
+#            print('Final computations for completeness...')
+#        zFine = np.linspace(0, self.zMax, 3000)
+#        zFine = zFine[::-1]
+#        evals = self.get_implementation(*hp.pix2ang(self._nside, np.arange(self._npix)), zFine)
+#
+#        # argmax returns "first" occurence of maximum, which is True in a boolean array. we search starting at large z due to the flip
+#        idx = np.argmax(evals >= 1, axis=1)
+#        # however, if all enries are False, argmax returns 0, which would be the largest redshift, while we want 0 in that case
+#        self._zstar = np.where(idx == 0, 0, zFine[idx])
+#        #print(self._zstar[:5])
+#        if self.verbose:
+#            print('Done.')

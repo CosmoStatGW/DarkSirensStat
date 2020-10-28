@@ -22,13 +22,11 @@ from Xi0Stat.globals import *
 class Skymap3D(object):
     
 
-    def __init__(self, fname,
-                 level=0.99,
-                 nest=False,
-                 verbose=False
-                 ):
+    def __init__(self, fname, priorlimits, level=0.99, nest=False, verbose=False):
         
-        self.verbose=verbose
+        self.verbose = verbose
+        self.priorlimits = priorlimits
+        
         try:
             
             smap, header = hp.read_map(fname, field=range(4),
@@ -356,7 +354,7 @@ class Skymap3D(object):
 #        return self.zmin, self.zmax
 #
 
-    def compute_z_lims(self, std_number=3, H0min=H0minGlob, H0max=H0maxGlob, Xi0min=Xi0minGlob, Xi0max=Xi0maxGlob, n=1.91, verbose=False):
+    def compute_z_lims(self, std_number=3, n=1.91, verbose=False):
         '''
         Computes and stores z range of events given H0 and Xi0 ranges.
         Based on actual skymap shape in the previously selected credible region, not on metadata
@@ -367,8 +365,8 @@ class Skymap3D(object):
             
         _, d_min, d_max, _ = self.find_r_loc(std_number=std_number)
         
-        self.zmin = z_from_dLGW(d_min, H0min, Xi0max, n=n)
-        self.zmax = z_from_dLGW(d_max, H0max, Xi0min, n=n)
+        self.zmin = z_from_dLGW(d_min, self.priorlimits.H0min, self.priorlimits.Xi0max, n=n)
+        self.zmax = z_from_dLGW(d_max, self.priorlimits.H0max, self.priorlimits.Xi0min, n=n)
 
         return self.zmin, self.zmax
         
@@ -432,7 +430,7 @@ class Skymap3D(object):
         
     
     
-def get_all_events(loc='data/GW/O2/', level = 0.99, subset=False, subset_names=['GW170817',],
+def get_all_events(priorlimits, loc='data/GW/O2/', level = 0.99, subset=False, subset_names=['GW170817',],
                    verbose=False
                ):
     '''
@@ -442,7 +440,8 @@ def get_all_events(loc='data/GW/O2/', level = 0.99, subset=False, subset_names=[
     '''
     from os import listdir
     from os.path import isfile, join
-    sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) & (f!='.DS_Store'))]
+    sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and (f.split('.')[-1]=='gz'))]
+    
     ev_names = [fname.split('_')[0]  for fname in sm_files]
     if subset:
         ev_names = [e for e in ev_names if e in subset_names]
@@ -451,6 +450,6 @@ def get_all_events(loc='data/GW/O2/', level = 0.99, subset=False, subset_names=[
         print('--- GW events:')
         print(ev_names)
         print('Reading skymaps....')
-    all_events = {fname.split('_')[0]: Skymap3D(dirName+'/'+loc+fname, level=level, nest=False, verbose=verbose) for fname in sm_files}
+    all_events = {fname.split('_')[0]: Skymap3D(dirName+'/'+loc+fname, priorlimits=priorlimits, level=level, nest=False, verbose=verbose) for fname in sm_files}
     return all_events
     

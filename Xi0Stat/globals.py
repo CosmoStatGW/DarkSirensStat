@@ -8,7 +8,7 @@ miscPath = os.path.join(dirName, 'data', 'misc')
 
 metaPath= os.path.join(dirName, 'data', 'GW', 'metadata') 
 
-
+detectorPath = os.path.join(dirName, 'data', 'GW', 'detectors')
 
 ###########################
 # CONSTANTS
@@ -38,10 +38,12 @@ Om0GLADE=0.27
 H0GLOB=69
 Om0GLOB=0.3
 
-H0minGlob = 20
-H0maxGlob = 220
-Xi0minGlob = 0.01
-Xi0maxGlob = 100
+class PriorLimits:
+    def __init__(self):
+        self.H0min = 20
+        self.H0max = 220
+        self.Xi0min = 0.01
+        self.Xi0max = 100
 
 # Parameters of Schechter function in B band in units of 10^10 solar B band
 # for h0=0.7
@@ -184,6 +186,8 @@ dcomGridGLOB = cosmo70GLOB.comoving_distance(zGridGLOB).value
 HGridGLOB = cosmo70GLOB.H(zGridGLOB).value
 from scipy import interpolate
 dcom70fast = interpolate.interp1d(zGridGLOB, dcomGridGLOB, kind='cubic', bounds_error=False, fill_value=(0, np.NaN), assume_sorted=True)
+dL70fast = interpolate.interp1d(zGridGLOB, dLGridGLOB, kind='cubic', bounds_error=False, fill_value=(0 ,np.NaN), assume_sorted=True)
+
 H70fast = interpolate.interp1d(zGridGLOB, HGridGLOB, kind='cubic', bounds_error=False, fill_value=(70 ,np.NaN), assume_sorted=True)
 
 

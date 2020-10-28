@@ -14,7 +14,7 @@ from Xi0Stat.globals import *
 
 class GWgal(object):
     
-    def __init__(self, GalCompleted, GWevents, credible_level=0.99, galRedshiftErrors = True, verbose=False):
+    def __init__(self, GalCompleted, GWevents, galRedshiftErrors = True, verbose=False):
         
         self.gals = GalCompleted
         self.GWevents = GWevents
@@ -100,8 +100,6 @@ class GWgal(object):
             my_skymap = self.GWevents[eventName].likelihood_px(rs, pixels)
             
             LL = np.sum(my_skymap*weights)
-            
-            #print(weights.shape, weights)
         
         return LL
     
