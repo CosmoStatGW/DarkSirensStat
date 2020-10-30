@@ -238,6 +238,8 @@ class GalCompleted(object):
         
         # iterate through catalogs and add results to lists
         
+        catweightTotal = 0
+        
         for c, w in zip(self._galcats, self._catweights):
         
             # shorthand
@@ -253,6 +255,7 @@ class GalCompleted(object):
             allpixels.append(d[pixname].to_numpy())
             
             # keelin weights. N has to be tuned for speed vs quality
+            # for each gal, on zGrid
             weights = bounded_keelin_3_discrete_probabilities(zGrid, 0.16, d.z_lower, d.z, d.z_upper, d.z_lowerbound, d.z_upperbound, N=40, P=0.99999)
             
             if weights.ndim == 1:
@@ -260,27 +263,34 @@ class GalCompleted(object):
             
             weights *= d.w[:, np.newaxis]
             
-            # completness eval for each gal, on grid
-            completnesses = c.completeness(d.theta, d.phi, zGrid)
+            if self._additive and (len(self._galcats) == 1): # no need to evaluate completeness...
+                catweightTotal = w
                 
-            # for additive completion we do not divide by completness as opposed to otherwise (mult, mix)
-            # an overall factor of completeness from the weighted average
-            # over catalogs then survives but, in the case of 1 catalog, it is cancelling with total_completeness!
-            #
-            # We get this one more factor of completeness in the case of additive completion automatically from the confidence function, which returns its argument in the case of additive completion.
-            # in all other cases (mult, mix), the confidence is a probability of trust in pure multiplicative completion and is =1 in mult, and between 0 and 1 in mix.
+            else:
             
-            weights *= self.confidence(completnesses)
-            weights *= w
-          
-            weights /= self.total_completeness(d.theta, d.phi, zGrid)
-           
+                # completness eval for each gal, on grid - same shape as weights
+                completness = c.completeness(d.theta, d.phi, zGrid)
+                    
+                # multiplicative completion
+                weights /= completness
+                # downweighted for low completeness
+                weights *= self.confidence(completnesses)
+                
+                # catalog weighting based also on completeness
+                catweight = w*np.mean(completeness)
+                weights *= catweight
+                catweightTotal += catweight
+            
+            # normalize in case different goals are used for different catalogs, to make them comparable
             weights /= c._completeness._comovingDensityGoal
    
             allweights.append(weights)
             
+        allweights = np.vstack(allweights)
+        allweights /= catweightTotal
+            
         #return np.squeeze(np.vstack(allpixels)), np.vstack(allweights)
-        return np.hstack(allpixels), np.vstack(allweights)
+        return np.hstack(allpixels), allweights
     
 
     def get_inhom(self, nside):
@@ -317,23 +327,33 @@ class GalCompleted(object):
             redshifts = d.z.to_numpy()
             allredshifts.append(redshifts)
             
-            # completness eval for each gal
-            completnesses = c.completeness(d.theta, d.phi, redshifts, oneZPerAngle = True)
+            if self._additive and (len(self._galcats) == 1): # no need to evaluate completeness...
+                catweightTotal = w
                 
-            weights *= self.confidence(completnesses)
-            
-            weights *= w
-            
-          
-            weights /= self.total_completeness(d.theta, d.phi, redshifts, oneZPerAngle = True)
-       
+            else:
+           
+                # completness eval for each gal
+                completness = c.completeness(d.theta, d.phi, redshifts, oneZPerAngle = True)
+                   
+                # multiplicative completion
+                weights /= completness
+                # downweighted for low completeness
+                weights *= self.confidence(completnesses)
+               
+                # catalog weighting based also on completeness
+                catweight = w*np.mean(completeness)
+                weights *= catweight
+                catweightTotal += catweight
+           
+            # normalize in case different goals are used for different catalogs, to make them comparable
             weights /= c._completeness._comovingDensityGoal
-            
-            
+  
             allweights.append(weights)
-            
-        #return np.squeeze(np.vstack(allpixels)), np.squeeze(np.vstack(allredshifts)), np.squeeze(np.vstack(allweights))
-        return np.hstack(allpixels), np.hstack(allredshifts), np.hstack(allweights)
+           
+        allweights = np.hstack(allweights)
+        allweights /= catweightTotal
+                   
+        return np.hstack(allpixels), np.hstack(allredshifts), allweights
     
     def eval_inhom(self, Omega, z):
         '''
@@ -349,31 +369,28 @@ class GalCompleted(object):
             assert(len(theta) == len(z))
         
         ret = np.zeros(len(theta))
+        catweightTotal = 0
         
         for c, w in zip(self._galcats, self._catweights):
             
         
             # completness eval for each point
-            completnesses = c.completeness(theta, phi, z, oneZPerAngle = True)
+            completeness = c.completeness(theta, phi, z, oneZPerAngle = True)
             
-            # for catalog averaging (1)
-            retc = completnesses
             
             # how much of homogeneous stuff to add - note in case of additive completion, confidence returns its argument, and we have 1 - completness, the correct prefactor in that case
             
-            retc *= (1-self.confidence(completnesses))
+            retcat = (1-self.confidence(completeness))
             
-            # for catalog averaging (2)
-            retc *= w
+            # catalog weighting based also on completeness
+            catweight = w*np.mean(completeness)
+            retcat *= catweight
+            catweightTotal += catweight
             
-            # homogeneous density
-            #   divide by it - do not multiply here.
-            #   retc *= c._completeness._comovingDensityGoal
-            
-            ret += retc
+            ret += retcat
         
         # for catalog averaging (3)
-        ret /= self.total_completeness(theta, phi, z, oneZPerAngle=True)
+        ret /= catweightTotal
         return ret
         
         

@@ -41,7 +41,7 @@ class BetaFit(Beta):
         
     
     
-    def _get_beta(self, H0, Xi0, n=1.91, zR=zRglob, **kwargs):
+    def _get_beta(self, H0, Xi0, n=1.91, zR=0.4, **kwargs):
         #print('zR get beta: %s' %zR)
         
         cosmo=FlatLambdaCDM(H0=H0GLOB, Om0=Om0GLOB)

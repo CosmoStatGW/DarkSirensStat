@@ -555,39 +555,43 @@ class LoadCompleteness(SuperpixelCompleteness):
     def __init__(self, fname, comovingDensityGoal, interpolateOmega, **kwargs):
         import os
         filepath = os.path.join(dirName, 'data', 'GLADE', fname)
+        
+        self.filepath = filepath
 
-        self.fname = filepath
-        #f = open(self.fname)
         f = open(filepath)
         header = f.readline()
         f.close()
-        self.zMin = float(header.split(',')[1].split('=')[1])
-        self.zMax = float(header.split(',')[2].split('=')[1])
+        
         nside = int(header.split(',')[3].split('=')[1])
-        angularRes = int(np.log2(nside))
+        angularRes = int(np.log2(nside)+1e-5)
         zRes = int(header.split(',')[4].split('=')[1])
-
+        
+        print(nside, 2**angularRes, zRes)
+        
         SuperpixelCompleteness.__init__(self, comovingDensityGoal, angularRes, zRes, interpolateOmega, **kwargs)
-
+        
+        zcentermin = float(header.split(',')[1].split('=')[1])
+        zcentermax = float(header.split(',')[2].split('=')[1])
+        
+        self.zcenters = np.linspace(zcentermin, zcentermax, zRes)
+        deltaz = self.zcenters[1]-self.zcenters[0]
+        self.zMin = self.zcenters[0] - deltaz*0.5
+        self.zMax = self.zcenters[-1] + deltaz*0.5
+        
+        self.zedges = np.linspace(self.zMin, self.zMax, zRes + 1)
         
 
+    
+
     def compute_implementation(self, galdata, useDirac):
-
-        # Set _map, _zstar, zcenters, zedges
-
-
-        #zmax = 1.5*np.quantile(galdata.z.to_numpy(), 0.9)
-        self.zedges  = np.linspace(self.zMin, self.zMax, self._zRes+1)
 
         z1 = self.zedges[:-1]
         z2 = self.zedges[1:]
 
-        self.zcenters = 0.5*(z1 + z2)
-
         # LOAD MAP
         if self.verbose:
-            print('Loading copleteness from %s...' %self.fname)
-        self._map = np.loadtxt(self.fname).T
+            print('Loading copleteness from %s...' %self.filepath)
+        self._map = np.loadtxt(self.filepath).T
         #print(self._map[:2])
 
         if self.verbose:

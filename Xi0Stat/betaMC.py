@@ -9,7 +9,9 @@ from Xi0Stat.globals import *
 
 class BetaMC:#(Beta):
     
-    def __init__(self, priorlimits, nSamples=1000000, observingRun = 'O2', SNRthresh = 8, verbose=False, **kwargs):
+    def __init__(self, priorlimits, nSamples=1000000, observingRun = 'O2', SNRthresh = 8, properAnisotropy = True, selectionFunc = None, verbose=False, **kwargs):
+    
+        self._properAnisotropy = properAnisotropy
         self._observingRun = observingRun
         
         self.verbose = verbose
@@ -25,6 +27,7 @@ class BetaMC:#(Beta):
         import os
         if self._observingRun == 'O2':
             filename = '2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt'
+            #filename = '2016-12-13_C01_L1_O2_Sensitivity_strain_asd.txt'
         elif self._observingRun == 'O3':
             filename = '2018-10-20_DELTAL_FE_L1_O3_Sensitivity_strain_asd.txt'
             
@@ -144,7 +147,14 @@ class BetaMC:#(Beta):
         phisample = 2*np.pi*np.random.uniform(size=self.nSamples)
         #pdf is sin(theta), cdf is (1-cos(theta))/2, inverse cdf is arccos(1-2*x)
         # ----no, actually only need cos of these angles which are uniform as they should
+        #costhetasample = 0.1 -0.2*np.random.uniform(size=self.nSamples)
         costhetasample = 1-2*np.random.uniform(size=self.nSamples)
+        tsample = np.random.uniform(size=self.nSamples)
+        
+        costhetaL, phiL = self._equat2detector('livingston', costhetasample, phisample, tsample)
+        costhetaH, phiH = self._equat2detector('hanford', costhetasample, phisample, tsample)
+        
+        
         cosinclsample = 1-2*np.random.uniform(size=self.nSamples)
         
         cosiota = cosinclsample
@@ -153,12 +163,20 @@ class BetaMC:#(Beta):
         # polarization in plane perpendicular to propagagion
         # from matching detector polarization reference and source (aligned to major and minor axis)
         # drops out in sum of squares (7.271) (ok: is also mentioned in a side note)
-        Fp = 0.5*(1+costhetasample**2)*np.cos(2*phisample)
-        Qp = Fp*0.5*(1+cosinclsample**2)
-        Fc = costhetasample*np.sin(2*phisample)
-        Qc = Fc*cosinclsample
-        # (7.178f)
-        Qsq = Qp**2 + Qc**2
+        
+        def Qsq(costh, phi, cosincl):
+        
+            Fp = 0.5*(1+costh**2)*np.cos(2*phi)
+            Qp = Fp*0.5*(1+cosincl**2)
+            Fc = costh*np.sin(2*phi)
+            Qc = Fc*cosincl
+            # (7.178f)
+            return Qp**2 + Qc**2
+            
+        QsqL = Qsq(costhetaL, phiL, cosinclsample)
+        QsqH = Qsq(costhetaH, phiH, cosinclsample)
+        
+        Qsq = np.minimum(QsqL, QsqH)
         
         GMsun_over_c3 = 4.927e-6# seconds
         clightMpc = clight/3.086e+19 #km/s -> Mpc/s
@@ -168,10 +186,80 @@ class BetaMC:#(Beta):
         SNR = 1/np.pi**(2/3)*(GMsun_over_c3*Mc)**(2.5/3)*(clightMpc/dist_true)*np.sqrt(5/6*Qsq*np.interp(fGW, self.freq, self.integr))
         
         ## SELECTION ###############
-        mask = SNR > self.SNRthresh
+       
+        mask = (SNR > self.SNRthresh) #& (costhetasample < 0.1) & (costhetasample > -0.1)
+        mask = mask & (z_from_dLGW_fast(dist_true, H0=70, Xi0=1, n=nGlob) < 0.2) 
+        
         SNR = SNR[mask]
         if self.verbose:
             if np.sum(mask > 0):
                 print("Largest distance detected in sample is " + str(dist_true[mask].max()))
         return SNR.size/self.nSamples
 
+
+
+    def _equat2detector(self, detector, costheta, phi, t):
+        
+        if self._properAnisotropy == False:
+        
+            return costheta, phi
+        
+        else:
+        
+            trafos = np.zeros((t.size,3,3))
+            
+            if detector == 'livingston':
+            
+                c = np.cos(-0.0135118 + 2*np.pi*t)
+                s = -np.sin(-0.0135118 + 2*np.pi*t)
+                
+                trafos[:,0,0] = -0.15713*c +  0.951057*s
+                trafos[:,0,1] =  0.951057*c + 0.15713*s
+                trafos[:,0,2] = -0.266086
+                
+                trafos[:,1,0] = -0.483595*c - 0.309017*s
+                trafos[:,1,1] = -0.309017*c + 0.483595*s
+                trafos[:,1,2] = -0.818929
+                
+                trafos[:,2,0] = -0.861073*c
+                trafos[:,2,1] =  0.861073*s
+                trafos[:,2,2] =  0.508482
+                
+            elif detector == 'hanford':
+            
+                c = np.cos(0.513263 + 2*np.pi*t)
+                s = -np.sin(0.513263 + 2*np.pi*t)
+                
+                trafos[:,0,0] = 0.586405*c + 0.587785*s
+                trafos[:,0,1] = 0.587785*c - 0.586405*s
+                trafos[:,0,2] = 0.557348
+                
+                trafos[:,1,0] = -0.426048*c + 0.809017*s
+                trafos[:,1,1] = 0.809017*c + 0.426048*s
+                trafos[:,1,2] = -0.404937
+                
+                trafos[:,2,0] = -0.688921*c
+                trafos[:,2,1] =  0.688921*s
+                trafos[:,2,2] =  0.724837
+     
+            sintheta = np.sqrt(1-costheta**2)
+            x = np.cos(phi)*sintheta
+            y = np.sin(phi)*sintheta
+            z = costheta
+            
+            dir = (np.vstack([x,y,z]).T)[:,np.newaxis,:]
+            
+            res = np.sum(dir*trafos, axis=2)
+            
+            costhetanew = np.clip(res[:, 2], a_min=0, a_max=1)
+            sinthetanew = np.sqrt(1-costhetanew**2)
+            xnew = res[:, 0]
+            ynew = res[:, 1]
+        
+            cosphinew = np.clip(xnew/sinthetanew, a_min=0, a_max=1)
+            phinew = np.arccos(cosphinew)
+
+            return costhetanew, phinew
+            
+           
+          
