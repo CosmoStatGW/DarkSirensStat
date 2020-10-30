@@ -269,12 +269,12 @@ class GalCompleted(object):
             else:
             
                 # completness eval for each gal, on grid - same shape as weights
-                completness = c.completeness(d.theta, d.phi, zGrid)
+                completeness = c.completeness(d.theta, d.phi, zGrid)
                     
                 # multiplicative completion
-                weights /= completness
+                weights /= completeness
                 # downweighted for low completeness
-                weights *= self.confidence(completnesses)
+                weights *= self.confidence(completeness)
                 
                 # catalog weighting based also on completeness
                 catweight = w*np.mean(completeness)
@@ -401,6 +401,6 @@ class GalCompleted(object):
         elif self._additive:
             return compl
         else: #interpolation between multiplicative and additive
-            confpower = 0.10
+            confpower = 0.05
             complb = np.clip(compl, a_min=2e-3, a_max=1)
             return np.exp(confpower*(1-1/complb))
