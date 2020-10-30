@@ -12,6 +12,7 @@ Created on Wed Oct 14 18:51:19 2020
 from Xi0Stat.globals import *
 
 
+
 class GWgal(object):
     
     def __init__(self, GalCompleted, GWevents, galRedshiftErrors = True, verbose=False):
@@ -37,9 +38,10 @@ class GWgal(object):
             for event in GWevents.keys():
                 print(event)
             
+        
+        
     
-    
-    def get_lik(self, H0s, Xi0s, n=nGlob):
+    def get_lik(self, H0s, Xi0s, n=nGlob, MC=True):
         '''
         Computes likelihood with p_cat for all events
         Returns dictionary {event_name: L_cat }
@@ -49,9 +51,13 @@ class GWgal(object):
         Xi0s = np.atleast_1d(Xi0s)
         
         for eventName in self.GWevents.keys():
-        
+            
+            # Print size of the credible region
+            area_deg, area_rad,  vol = self.GWevents[eventName]._get_credible_region_info()
+            vol="{:.2e}".format(vol)
+            print('%s credible region for %s: area=%s deg^2 (%s rad^2), volume= %s Mpc^3 (with Planck15 cosmology)' %(self.GWevents[eventName].level, eventName, np.round(area_deg), np.round(area_rad, 3), vol))
+            
             self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
-  
             self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims())
             
             Linhom = np.ones((H0s.size, Xi0s.size))
@@ -64,7 +70,8 @@ class GWgal(object):
            
                     Linhom[i,j] = self._inhom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n)
                     
-                    Lhom[i,j] = self._hom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n)
+                    Lhom[i,j] = self._hom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n, MC=MC)
+                    
 
             ret[eventName] = (np.squeeze(Linhom), np.squeeze(Lhom))
             
@@ -103,8 +110,34 @@ class GWgal(object):
         
         return LL
     
+    def _hom_lik(self, eventName, H0, Xi0, n, MC=True):
+        
+        if MC: 
+            return self._hom_lik_MC(eventName, H0, Xi0, n)
+        else: 
+            return self._hom_lik_trapz(eventName, H0, Xi0, n)
+        
+        
     
-    def _hom_lik(self, eventName, H0, Xi0, n):
+    def _hom_lik_trapz(self, eventName, H0, Xi0, n):
+        
+        zGrid = self.GWevents[eventName].adap_z_grid(H0, Xi0, n)
+        
+        #self.gals.eval_hom(theta, phi, z) #glade._completeness.get( *myGWgal.GWevents[ename].find_theta_phi(pxs), z)
+        
+        pxs = self.GWevents[eventName].get_credible_region_pixels()
+        th, ph = self.GWevents[eventName].find_theta_phi(pxs)
+        
+        integrand_grid = np.array([ j(z)*(self.gals.eval_hom(th, ph, z, MC=False))*self.GWevents[eventName].likelihood_px( dLGW(z, H0, Xi0, n), pxs) for z in zGrid])
+        
+        integral = np.trapz(integrand_grid.sum(axis=1), zGrid)
+        den = (70/clight)**3
+        LL = integral*self.GWevents[eventName].pixarea/den
+        
+        return LL
+    
+    
+    def _hom_lik_MC(self, eventName, H0, Xi0, n):
         '''
         Computes likelihood homogeneous part for one event
         '''

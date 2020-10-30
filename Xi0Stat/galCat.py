@@ -57,7 +57,7 @@ class GalCat(ABC):
         print('%s galaxies kept' %self.selectedData.shape[0])
         
     def set_z_range_for_selection(self, zMin, zMax):
-        print("Setting z range of the catalogue between %s, %s" %(zMin, zMax))
+        print("Setting z range of the catalogue between %s, %s" %(np.round(zMin,3), np.round(zMax,3)))
         self.selectedData = self.selectedData[(self.selectedData.z >= zMin) & (self.selectedData.z < zMax)]
         print('%s galaxies kept' %self.selectedData.shape[0])
         
@@ -341,11 +341,12 @@ class GalCompleted(object):
         '''
         pass
     
-    def eval_hom(self, theta, phi, z):
+    def eval_hom(self, theta, phi, z, MC=True):
         '''
         Homogeneous completion part. Second term in 2.59
         '''
-        assert(len(theta) == len(z))
+        if MC:
+            assert(len(theta) == len(z))
         
         ret = np.zeros(len(theta))
         

@@ -16,7 +16,7 @@ detectorPath = os.path.join(dirName, 'data', 'GW', 'detectors')
 
 d0GlobO2=123 # d_0 of eq. 2.125 for O2, in Mpc
 
-zRglob = 0.25
+zRglob = 0.5
 
 nGlob = 1.91
 gammaGlob = 1.6
@@ -240,3 +240,9 @@ def dVdcom_dVdLGW(z, H0, Xi0, n):
     jac /= dLGWsq_over_dcomsq
     
     return jac
+
+
+def j(z):
+    H0=70
+    cosmo=FlatLambdaCDM(H0=H0, Om0=Om0GLOB)
+    return cosmo.differential_comoving_volume(z).value*(H0/clight)**3
