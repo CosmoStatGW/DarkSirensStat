@@ -14,7 +14,7 @@ Created on Wed Sep 23 10:30:19 2020
 import healpy as hp
 import pandas as pd
 import scipy.stats
-from Xi0Stat.globals import *
+from globals import *
 from scipy.special import erfinv
 from astropy.cosmology import Planck15
 from scipy.integrate import quad
@@ -47,8 +47,8 @@ class Skymap3D(object):
         
         try:
             self.event_name=dict(header)['OBJECT']
-            if self.verbose:
-                print('Event name: %s \n' %self.event_name)
+            #if self.verbose:
+            #    print('Event name: %s \n' %self.event_name)
         except KeyError:
             ename = fname.split('/')[-1].split('.')[0].split('_')[0]
             print('No event name in header for this event. Using name provided with filename %s ' %ename)
@@ -492,9 +492,9 @@ def get_all_events(priorlimits, loc='data/GW/O2/', compressed=True,
         else:
             sm_files = [e+'_skymap.fits' for e in ev_names]
     if verbose:
-        print('--- GW events:')
+        print('GW events:')
         print(ev_names)
         print('Reading skymaps....')
-    all_events = {fname.split('_')[0]: Skymap3D(dirName+'/'+loc+fname, priorlimits=priorlimits, level=level, std_number=std_number, nest=False, verbose=verbose) for fname in sm_files}
+    all_events = {fname.split('_')[0]: Skymap3D(os.path.join(dirName,loc,fname), priorlimits=priorlimits, level=level, std_number=std_number, nest=False, verbose=verbose) for fname in sm_files}
     return all_events
     

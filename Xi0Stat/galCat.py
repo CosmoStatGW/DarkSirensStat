@@ -18,8 +18,8 @@ import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
-from Xi0Stat.globals import *
-from Xi0Stat.keelin import bounded_keelin_3_discrete_probabilities
+from globals import *
+from keelin import bounded_keelin_3_discrete_probabilities
 
 
 class GalCat(ABC):
