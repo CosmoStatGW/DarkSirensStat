@@ -5,7 +5,7 @@
 ####
 
 #from beta import Beta
-from Xi0Stat.globals import *
+from globals import *
 
 class BetaMC:#(Beta):
     

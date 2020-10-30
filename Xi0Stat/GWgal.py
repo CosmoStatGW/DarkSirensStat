@@ -9,13 +9,13 @@ Created on Wed Oct 14 18:51:19 2020
 ####
 # This module contains a class to handle GW-galaxy correlation and compute the likelihood
 ####
-from Xi0Stat.globals import *
+from globals import *
 
 
 
 class GWgal(object):
     
-    def __init__(self, GalCompleted, GWevents, galRedshiftErrors = True, verbose=False):
+    def __init__(self, GalCompleted, GWevents, MC = True, nHomSamples=1000, galRedshiftErrors = True, verbose=False):
         
         self.gals = GalCompleted
         self.GWevents = GWevents
@@ -23,7 +23,8 @@ class GWgal(object):
         self._galRedshiftErrors = galRedshiftErrors
         self.verbose=verbose
         
-        self.nHomSamples = 400
+        self.nHomSamples = nHomSamples
+        self.MC=MC
         
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
@@ -33,15 +34,15 @@ class GWgal(object):
         
         # Completeness needs a name or something to know if we use 
         # multiplicative, homogeneous or no completion
-        if self.verbose:
-            print('\n --- GW events: ')
-            for event in GWevents.keys():
-                print(event)
+        #if self.verbose:
+        #    print('\n --- GW events: ')
+        #    for event in GWevents.keys():
+        #        print(event)
             
         
         
     
-    def get_lik(self, H0s, Xi0s, n=nGlob, MC=True):
+    def get_lik(self, H0s, Xi0s, n=nGlob):
         '''
         Computes likelihood with p_cat for all events
         Returns dictionary {event_name: L_cat }
@@ -70,7 +71,7 @@ class GWgal(object):
            
                     Linhom[i,j] = self._inhom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n)
                     
-                    Lhom[i,j] = self._hom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n, MC=MC)
+                    Lhom[i,j] = self._hom_lik(eventName=eventName, H0=H0s[i], Xi0=Xi0s[j], n=n)
                     
 
             ret[eventName] = (np.squeeze(Linhom), np.squeeze(Lhom))
@@ -110,9 +111,9 @@ class GWgal(object):
         
         return LL
     
-    def _hom_lik(self, eventName, H0, Xi0, n, MC=True):
+    def _hom_lik(self, eventName, H0, Xi0, n):
         
-        if MC: 
+        if self.MC: 
             return self._hom_lik_MC(eventName, H0, Xi0, n)
         else: 
             return self._hom_lik_trapz(eventName, H0, Xi0, n)

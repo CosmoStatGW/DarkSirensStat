@@ -1,14 +1,19 @@
 import os
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
+import sys
 
 dirName = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 miscPath = os.path.join(dirName, 'data', 'misc')
 
-metaPath= os.path.join(dirName, 'data', 'GW', 'metadata') 
+baseGWPath= os.path.join(dirName, 'data', 'GW') 
 
-detectorPath = os.path.join(dirName, 'data', 'GW', 'detectors')
+metaPath= os.path.join(baseGWPath, 'metadata') 
+
+detectorPath = os.path.join(baseGWPath, 'detectors')
+
+
 
 ###########################
 # CONSTANTS
@@ -37,6 +42,7 @@ Om0GLADE=0.27
 # Cosmologival parameters used for the analysis (RT minimal; table 2 of 2001.07619)
 H0GLOB=69
 Om0GLOB=0.3
+Xi0Glob =1.
 
 class PriorLimits:
     def __init__(self):
@@ -246,3 +252,27 @@ def j(z):
     H0=70
     cosmo=FlatLambdaCDM(H0=H0, Om0=Om0GLOB)
     return cosmo.differential_comoving_volume(z).value*(H0/clight)**3
+
+
+class Logger(object):
+    
+    def __init__(self, fname):
+        self.terminal = sys.__stdout__
+        self.log = open(fname, "w+")
+        self.log.write('--------- LOG FILE ---------\n')
+        print('Logger created log file: %s' %fname)
+        #self.write('Logger')
+       
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        #this flush method is needed for python 3 compatibility.
+        #this handles the flush command by doing nothing.
+        #you might want to specify some extra behavior here.
+        pass    
+
+    def close(self):
+        self.log.close
+        sys.stdout = sys.__stdout__

@@ -4,8 +4,8 @@
 
 from abc import ABC, abstractmethod
 
-from Xi0Stat.keelin import bounded_keelin_3_discrete_probabilities_between
-from Xi0Stat.globals import *
+from keelin import bounded_keelin_3_discrete_probabilities_between
+from globals import *
 
 import numpy as np
 import pandas as pd

@@ -9,8 +9,8 @@ import os, os.path
 # This module contains a class to handle the GLADE catalogue
 ####
 
-from Xi0Stat.globals import *
-from Xi0Stat.galCat import GalCat
+from globals import *
+from galCat import GalCat
 
 
 
