@@ -10,10 +10,10 @@ import numpy as np
 
 import os, os.path
 
-from Xi0Stat.galCat import GalCat
-from Xi0Stat.keelin import convolve_bounded_keelin_3, sample_bounded_keelin_3, fit_bounded_keelin_3
+from galCat import GalCat
+from keelin import convolve_bounded_keelin_3, sample_bounded_keelin_3, fit_bounded_keelin_3
 
-from Xi0Stat.globals import *
+from globals import *
 
 class SYNTH(GalCat):
     

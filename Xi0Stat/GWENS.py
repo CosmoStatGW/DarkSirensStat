@@ -10,7 +10,7 @@ import numpy as np
 
 import os, os.path
 
-from Xi0Stat.galCat import GalCat
+from galCat import GalCat
 
 
 class GWENS(GalCat):

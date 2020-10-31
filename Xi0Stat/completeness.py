@@ -443,6 +443,7 @@ class MaskCompleteness(Completeness):
             self._zstar.append(0 if idx == 0 else zFine[idx])
             
         self._zstar = np.array(self._zstar)
+
         if self.verbose:
             print('Done.')
         
@@ -518,7 +519,7 @@ class MaskCompleteness(Completeness):
     def get_implementation(self, theta, phi, z):
         
         from scipy import interpolate
-
+        
         components = self._mask[hp.ang2pix(self._nside, theta, phi)]
         
         if not np.isscalar(theta):

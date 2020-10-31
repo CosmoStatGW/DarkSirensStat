@@ -249,7 +249,7 @@ class GalCompleted(object):
             
             # compute this only once
             if not pixname in c.get_data():
-                d.loc[:, pixname] = hp.ang2pix(nside, d.theta, d.phi)
+                d.loc[:, pixname] = hp.ang2pix(nside, d.theta.to_numpy(), d.phi.to_numpy())
 
             # pixels are already known
             allpixels.append(d[pixname].to_numpy())
@@ -269,7 +269,7 @@ class GalCompleted(object):
             else:
             
                 # completness eval for each gal, on grid - same shape as weights
-                completeness = c.completeness(d.theta, d.phi, zGrid)
+                completeness = c.completeness(d.theta.to_numpy(), d.phi.to_numpy(), zGrid)
                     
                 # multiplicative completion
                 weights /= completeness
@@ -317,7 +317,7 @@ class GalCompleted(object):
             
             # compute this only once
             if not pixname in c.get_data():
-                d.loc[:, pixname] = hp.ang2pix(nside, d.theta, d.phi)
+                d.loc[:, pixname] = hp.ang2pix(nside, d.theta.to_numpy(), d.phi.to_numpy())
 
             allpixels.append(d[pixname].to_numpy())
             
@@ -333,7 +333,7 @@ class GalCompleted(object):
             else:
            
                 # completness eval for each gal
-                completness = c.completeness(d.theta, d.phi, redshifts, oneZPerAngle = True)
+                completness = c.completeness(d.theta.to_numpy(), d.phi.to_numpy(), redshifts, oneZPerAngle = True)
                    
                 # multiplicative completion
                 weights /= completness
