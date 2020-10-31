@@ -208,7 +208,7 @@ class GalCompleted(object):
         
     def total_completeness(self, theta, phi, z, oneZPerAngle=False):
     
-        # sums completnesses of all catalogs, taking into account the additional
+        # sums completenesses of all catalogs, taking into account the additional
         # catalog weights
         
         res = 0
@@ -268,7 +268,7 @@ class GalCompleted(object):
                 
             else:
             
-                # completness eval for each gal, on grid - same shape as weights
+                # completeness eval for each gal, on grid - same shape as weights
                 completeness = c.completeness(d.theta.to_numpy(), d.phi.to_numpy(), zGrid)
                     
                 # multiplicative completion
@@ -307,6 +307,7 @@ class GalCompleted(object):
         allpixels = []
         allredshifts = []
         allweights = []
+        catweightTotal = 0
         
         for c, w in zip(self._galcats, self._catweights):
         
@@ -332,13 +333,13 @@ class GalCompleted(object):
                 
             else:
            
-                # completness eval for each gal
-                completness = c.completeness(d.theta.to_numpy(), d.phi.to_numpy(), redshifts, oneZPerAngle = True)
+                # completeness eval for each gal
+                completeness = c.completeness(d.theta.to_numpy(), d.phi.to_numpy(), redshifts, oneZPerAngle = True)
                    
                 # multiplicative completion
-                weights /= completness
+                weights /= completeness
                 # downweighted for low completeness
-                weights *= self.confidence(completnesses)
+                weights *= self.confidence(completeness)
                
                 # catalog weighting based also on completeness
                 catweight = w*np.mean(completeness)
@@ -374,11 +375,11 @@ class GalCompleted(object):
         for c, w in zip(self._galcats, self._catweights):
             
         
-            # completness eval for each point
+            # completeness eval for each point
             completeness = c.completeness(theta, phi, z, oneZPerAngle = True)
             
             
-            # how much of homogeneous stuff to add - note in case of additive completion, confidence returns its argument, and we have 1 - completness, the correct prefactor in that case
+            # how much of homogeneous stuff to add - note in case of additive completion, confidence returns its argument, and we have 1 - completeness, the correct prefactor in that case
             
             retcat = (1-self.confidence(completeness))
             
