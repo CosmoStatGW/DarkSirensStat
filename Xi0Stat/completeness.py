@@ -333,6 +333,7 @@ class MaskCompleteness(Completeness):
         
         # the only feature we use is number of galaxies in a pixel
         X = np.zeros((self._npix, 1))
+        avgweight = np.mean(galdata.w.to_numpy())
         
         galdata.loc[:,'pix'] = hp.ang2pix(self._nside, galdata.theta, galdata.phi)
         galdata.set_index(keys=['pix'], drop=False, inplace=True)
@@ -346,11 +347,12 @@ class MaskCompleteness(Completeness):
 #                X[i,0] = len(galdata.loc[[i]])
 #            else:
 #                X[i,0] = 0
-        foo = galdata.groupby(level=0).size()
+        #foo = galdata.groupby(level=0).size()
+        foo = galdata.groupby(level=0).w.sum()/avgweight
         X[foo.index.to_numpy(), 0] = foo.to_numpy()
         
         # this improves the clustering (at least for GLADE)
-        X = np.sqrt(X)
+        X = np.log(X+10)
         
         from sklearn import cluster
         if self.verbose:
@@ -376,22 +378,22 @@ class MaskCompleteness(Completeness):
                 #catparts.append(galcomp)
         
                 #zmax = 1.0001*np.max(galcomp.z.to_numpy())
-                zmax = 1.5*np.quantile(galdata.z.to_numpy(), 0.9)
+                zmax = 1.5*np.quantile(galcomp.z.to_numpy(), 0.9)
                 self.zedges.append(np.linspace(0, zmax, self._zRes+1))
-                z1 = self.zedges[-1][:-1]
-                z2 = self.zedges[-1][1:]
+                z1 = self.zedges[i][:-1]
+                z2 = self.zedges[i][1:]
                 self.zcenters.append(0.5*(z1 + z2))
                 self.areas.append(np.sum(self._mask == i)*self._pixarea)
             except KeyError as e: # label i was never put into the map, or it is the component without any galaxies. fill in some irrelevant but non-breaking stuff
                 #catparts.append(pd.DataFrame())
-                self.zedges.append(np.array([0,1]))
-                self.zcenters.append(np.array([0.5]))
-                self.areas.append([1])
+                self.zedges.append(np.array([0,1,2]))
+                self.zcenters.append(np.array([0.5,1.5]))
+                self.areas.append([1,1])
         if self.verbose:
             print('Computing in parallel... ', flush=True)
        
         def g(galgroups, i):
-        
+       
             zedges = self.zedges[i]
             zcenters = self.zcenters[i]
             
@@ -399,7 +401,7 @@ class MaskCompleteness(Completeness):
                 gals = galgroups.get_group(i)
             #if len(galpixel) == 0:
             except KeyError as e:
-                return np.zeros(len(zedges-1))
+                return np.zeros(len(zedges)-1)
                 
             if useDirac:
                 res, _ = np.histogram(a=gals.z.to_numpy(), bins=zedges, weights=gals.w.to_numpy())
@@ -415,6 +417,7 @@ class MaskCompleteness(Completeness):
                 
                 
         coarseden = parmap(lambda i : g(gr, i), range(self._nMasks))
+       
         if self.verbose:
             print('Final computations for completeness...')
         
@@ -423,19 +426,40 @@ class MaskCompleteness(Completeness):
             z2 = self.zedges[i][1:]
             vol = self.areas[i] * (self._fiducialcosmo.comoving_distance(z2).value**3 - self._fiducialcosmo.comoving_distance(z1).value**3)/3
         
-        
             coarseden[i] /= vol
-            self._compl.append(coarseden[i]/self._comovingDensityGoal)
-        
+            
             from scipy import interpolate
+            # first, make a 1000 pt linear interpolation
             
+            zFine = np.linspace(0, zmax, 1000)
             
-            self._interpolators.append(interpolate.interp1d(self.zcenters[-1], self._compl[-1], kind='linear', bounds_error=False, fill_value=(1,0)))
+            coarseden_interp = np.interp(zFine, self.zcenters[i], coarseden[i], right=0)
+            
+            # now filter our fluctuations.
+            from scipy.signal import savgol_filter
+            # with 251 points (must be odd) there are effectively 4 independent points left
+            # to describe the decay in the intervall adjusted to the part of the mask
+            coarseden_filtered = coarseden_interp
+            n=0
+            coarseden_filtered[n:] = savgol_filter(coarseden_interp[n:], 251, 2)
+            
+            # build a quadratic interpolator. A subseet of points is enough (will be faster to evaluate).
+            coarseden_filtered_sampled = np.interp(self.zcenters[i], zFine, coarseden_filtered)
+            
+            # save this just in case
+            self._compl.append(coarseden_filtered_sampled.copy()/self._comovingDensityGoal)
+        
+            # interpolator
+            if self.zcenters[i].size > 3:
+                self._interpolators.append(interpolate.interp1d(self.zcenters[i], self._compl[i], kind='quadratic', bounds_error=False, fill_value=(1,0)))
+            else:
+                self._interpolators.append(lambda x: np.squeeze(np.zeros(np.atleast_1d(x).shape)))
         
         
-            zFine = np.linspace(0, zmax, 3000)
+            # find the point where the interpolated result crosses 1 for the last time
+            zFine = np.linspace(0, zmax, 10000)
             zFine = zFine[::-1]
-            evals = self._interpolators[-1](zFine)
+            evals = self._interpolators[i](zFine)
         
             # argmax returns "first" occurence of maximum, which is True in a boolean array. we search starting at large z due to the flip
             idx = np.argmax(evals >= 1)

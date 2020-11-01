@@ -234,7 +234,7 @@ class Skymap3D(object):
         mu = self.mu[pixSampled]
         sig = self.sigma[pixSampled]
 
-        # sample distances
+        # sample distances. note mu is not the peak location of the *posterior* with r^2. be generous with sigma...
         res = 1000
         lower = mu - 3.5*sig
         np.clip(lower, a_min=0, a_max=None, out=lower)

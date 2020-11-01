@@ -89,7 +89,7 @@ class GWgal(object):
         
             # Convolution with z errors
             
-            rGrid = self._get_rGrid(eventName, nsigma=3, minPoints=20)
+            rGrid = self._get_rGrid(eventName, nsigma=self.GWevents[eventName].std_number, minPoints=20)
 
             zGrid = z_from_dLGW_fast(rGrid, H0=H0, Xi0=Xi0, n=n)
             
@@ -165,7 +165,7 @@ class GWgal(object):
     
         meanmu, lower, upper, meansig = self.GWevents[eventName].find_r_loc(std_number = nsigma)
         
-        cred_pixels = self.GWevents[eventName].selected_pixels
+        #cred_pixels = self.GWevents[eventName].selected_pixels
         
         nPoints = np.int(minPoints*(upper-lower)/meansig)
         
