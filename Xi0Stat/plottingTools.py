@@ -103,11 +103,16 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
 
     if (len(event_list)>1):
         ax.plot(grid,post['total'],'k', label = '{}'.format('total') )  
-        
+    
+    ax.plot(grid, np.repeat(1/(grid.max()-grid.min()),grid.shape[0] ), linestyle='dashdot',color='black', alpha=0.3,label = 'prior' )   
     ax.grid(linestyle='dotted', linewidth='0.6')
     ax.set_xlim(myMin, myMax)
-    ax.set_xlabel(varname, fontsize=20);
-    ax.set_ylabel(r'p('+varname+')', fontsize=20);
+    if varname=='Xi0':
+        ax.set_xlabel(r'$\Xi_0$', fontsize=20);
+        ax.set_ylabel(r'$p(\Xi_0)$', fontsize=20);
+    else:
+        ax.set_xlabel(r'$H_0$', fontsize=20);
+        ax.set_ylabel(r'$p(H_0)$', fontsize=20);
     ax.legend(fontsize=10);
     if zR is not None:
         ax.set_title('{} band, $L/L_* > $ {}, $z_R =$ {}'.format(band,Lcut,zR), fontsize=20)

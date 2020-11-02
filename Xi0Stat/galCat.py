@@ -56,11 +56,12 @@ class GalCat(ABC):
         self.selectedData = self.data[mask]
         print('%s galaxies kept' %self.selectedData.shape[0])
         
-    def set_z_range_for_selection(self, zMin, zMax):
+    def set_z_range_for_selection(self, zMin, zMax, return_count=False):
         print("Setting z range of the catalogue between %s, %s" %(np.round(zMin,3), np.round(zMax,3)))
         self.selectedData = self.selectedData[(self.selectedData.z >= zMin) & (self.selectedData.z < zMax)]
         print('%s galaxies kept' %self.selectedData.shape[0])
-        
+        if return_count:
+            return self.selectedData.shape[0]
         
     @abstractmethod
     def load(self):
@@ -222,9 +223,12 @@ class GalCompleted(object):
         for c in self._galcats:
             c.select_area(pixels, nside)
             
-    def set_z_range_for_selection(self, zMin, zMax):
+    def set_z_range_for_selection(self, zMin, zMax, return_count=False):
+        counts=[]
         for c in self._galcats:
-            c.set_z_range_for_selection(zMin, zMax)
+            count = c.set_z_range_for_selection(zMin, zMax, return_count=return_count)
+            counts.append(count)
+        return counts
     
 
     def get_inhom_contained(self, zGrid, nside):

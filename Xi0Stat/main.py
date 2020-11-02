@@ -160,7 +160,7 @@ def main():
     ###### 
     # GWgal
     ######
-    myGWgal = GWgal(gals, allGW, MC=MChom, nHomSamples=nHomSamples, verbose=True, galRedshiftErrors=galRedshiftErrors)
+    myGWgal = GWgal(gals, allGW, MC=MChom, nHomSamples=nHomSamples, verbose=True, galRedshiftErrors=galRedshiftErrors, zR=zR)
     
     
     ###### 
@@ -223,6 +223,10 @@ def main():
         np.savetxt(postPathhom, post_compl[event])
         np.savetxt(postPathinhom, post_cat[event])
         np.savetxt(postPathtot, post[event])
+    
+    myGWgal._get_summary()
+    #summary = myGWgal.summary()
+    myGWgal.summary.to_csv(os.path.join(out_path, 'summary.csv') )
     
     print('\nDone in %.2fs' %(time.time() - in_time))
     

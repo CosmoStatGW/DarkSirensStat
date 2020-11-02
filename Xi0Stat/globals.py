@@ -40,9 +40,10 @@ H0GLADE=70
 Om0GLADE=0.27
 
 # Cosmologival parameters used for the analysis (RT minimal; table 2 of 2001.07619)
-H0GLOB=69
+H0GLOB=67.9 #69
 Om0GLOB=0.3
 Xi0Glob =1.
+cosmoglob = FlatLambdaCDM(H0=H0GLOB, Om0=Om0GLOB)
 
 class PriorLimits:
     def __init__(self):
@@ -249,9 +250,7 @@ def dVdcom_dVdLGW(z, H0, Xi0, n):
 
 
 def j(z):
-    H0=70
-    cosmo=FlatLambdaCDM(H0=H0, Om0=Om0GLOB)
-    return cosmo.differential_comoving_volume(z).value*(H0/clight)**3
+    return cosmoglob.differential_comoving_volume(z).value*(cosmoglob.H0.value/clight)**3
 
 
 class Logger(object):

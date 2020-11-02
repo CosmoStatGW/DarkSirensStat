@@ -591,7 +591,7 @@ class LoadCompleteness(SuperpixelCompleteness):
         angularRes = int(np.log2(nside)+1e-5)
         zRes = int(header.split(',')[4].split('=')[1])
         
-        print(nside, 2**angularRes, zRes)
+        #print(nside, 2**angularRes, zRes)
         
         SuperpixelCompleteness.__init__(self, comovingDensityGoal, angularRes, zRes, interpolateOmega, **kwargs)
         

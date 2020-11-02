@@ -10,12 +10,17 @@ Created on Wed Oct 14 18:51:19 2020
 # This module contains a class to handle GW-galaxy correlation and compute the likelihood
 ####
 from globals import *
+import pandas as pd
 
 
 
 class GWgal(object):
     
-    def __init__(self, GalCompleted, GWevents, MC = True, nHomSamples=1000, galRedshiftErrors = True, verbose=False):
+    def __init__(self, GalCompleted, GWevents, 
+                 MC = True, nHomSamples=1000, 
+                 galRedshiftErrors = True, 
+                 zR=zRglob,
+                 verbose=False):
         
         self.gals = GalCompleted
         self.GWevents = GWevents
@@ -25,6 +30,10 @@ class GWgal(object):
         
         self.nHomSamples = nHomSamples
         self.MC=MC
+        self.zR=zR
+        self._get_avgPcompl()
+        self.nGals={}
+        
         
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
@@ -38,9 +47,64 @@ class GWgal(object):
         #    print('\n --- GW events: ')
         #    for event in GWevents.keys():
         #        print(event)
+    
+    
+    
+    def select_gals(self):
+        #self.nGals={}
+        for eventName in self.GWevents.keys(): 
+            self.select_gals_event(eventName)
+    
+    
+    def select_gals_event(self,eventName ):
+        self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
+        self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims(), return_count=True)
+        
+    
+    def _get_summary(self):
+        
+        self.summary = pd.DataFrame.from_dict({'name': [self.GWevents[eventName].event_name for eventName in self.GWevents.keys()],
+         'Omega_degSq': [self.GWevents[eventName].area for eventName in self.GWevents.keys()],
+         'dL_Mpc': [self.GWevents[eventName].dL for eventName in self.GWevents.keys()],
+        'dLlow_Mpc':[self.GWevents[eventName].dmin for eventName in self.GWevents.keys()],
+        'dLup_Mpc':[self.GWevents[eventName].dmax for eventName in self.GWevents.keys()],
+        'z_event':[self.GWevents[eventName].zEv for eventName in self.GWevents.keys()], 
+        'zLow':[self.GWevents[eventName].zmin for eventName in self.GWevents.keys()],
+        'zUp':[self.GWevents[eventName].zmax for eventName in self.GWevents.keys()],
+         'Vol_mpc3':[self.GWevents[eventName].vol for eventName in self.GWevents.keys()],
+         'nGal':[self.nGals[ eventName]for eventName in self.GWevents.keys()],
+         'Pc_Av': [self.PcAv[eventName] for eventName in self.GWevents.keys()],
+         'Pc_event': [self.PEv[eventName] for eventName in self.GWevents.keys()]})
+        
+        
+        
+        
+        
+        
+        
+    def _get_avgPcompl(self):
+        if self.verbose:
+            print('Computing <P_compl>...')
+        PcAv={}
+        PEv = {}
+        from scipy.integrate import quad
+        for eventName in self.GWevents.keys():
+            #self.GWevents[eventName].adap_z_grid(H0GLOB, Xi0Glob, nGlob, zR=self.zR)
+            zGrid = np.linspace(self.GWevents[eventName].zmin, self.GWevents[eventName].zmax, 100)
+            Pcomp = np.array([self.gals.total_completeness( *self.GWevents[eventName].find_theta_phi(self.GWevents[eventName].selected_pixels), z).sum() for z in zGrid])
+            vol = self.GWevents[eventName].area_rad*np.trapz(cosmoglob.differential_comoving_volume(zGrid).value, zGrid) #quad(lambda x: cosmoglob.differential_comoving_volume(x).value, self.GWevents[eventName].zmin,  self.GWevents[eventName].zmax)
+            _PcAv = np.trapz(Pcomp*cosmoglob.differential_comoving_volume(zGrid).value, zGrid)*self.GWevents[eventName].pixarea/vol
+            PcAv[eventName] = _PcAv
             
+            
+            _PEv = self.gals.total_completeness( *self.GWevents[eventName].find_event_coords(polarCoords=True), self.GWevents[eventName].zEv)
+            PEv[eventName] = _PEv
+            if self.verbose:
+                print('<P_compl> for %s = %s; Completeness at z_event: %s' %(eventName, np.round(_PcAv, 3), np.round(_PEv, 3)))        
+        self.PcAv = PcAv
+        self.PEv = PEv
         
-        
+    
     
     def get_lik(self, H0s, Xi0s, n=nGlob):
         '''
@@ -50,16 +114,11 @@ class GWgal(object):
         ret = {}
         H0s = np.atleast_1d(H0s)
         Xi0s = np.atleast_1d(Xi0s)
-        
         for eventName in self.GWevents.keys():
             
-            # Print size of the credible region
-            area_deg, area_rad,  vol = self.GWevents[eventName]._get_credible_region_info()
-            vol="{:.2e}".format(vol)
-            print('%s credible region for %s: area=%s deg^2 (%s rad^2), volume= %s Mpc^3 (with Planck15 cosmology)' %(self.GWevents[eventName].level, eventName, np.round(area_deg), np.round(area_rad, 3), vol))
-            
-            self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
-            self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims())
+            #self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
+            #self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims(), return_count=True)
+            self.select_gals_event(eventName)
             
             Linhom = np.ones((H0s.size, Xi0s.size))
             Lhom   = np.ones((H0s.size, Xi0s.size))
@@ -122,7 +181,7 @@ class GWgal(object):
     
     def _hom_lik_trapz(self, eventName, H0, Xi0, n):
         
-        zGrid = self.GWevents[eventName].adap_z_grid(H0, Xi0, n)
+        zGrid = self.GWevents[eventName].adap_z_grid(H0, Xi0, n, zR=self.zR)
         
         #self.gals.eval_hom(theta, phi, z) #glade._completeness.get( *myGWgal.GWevents[ename].find_theta_phi(pxs), z)
         
