@@ -24,7 +24,7 @@ def plot_completeness(base_path, allGW, catalogue):
         plt.figure(figsize=(20,10))
         #print(ev.find_r_loc())
         zmin, zmax = ev.get_z_lims()
-        mu, l, u, sig = ev.find_r_loc(std_number=2)
+        mu, l, u, sig = ev.find_r_loc(std_number=2, verbose=False)
         zl = z_from_dLGW(l, H0=70, Xi0=1, n=nGlob)
         zu = z_from_dLGW(u, H0=70, Xi0=1, n=nGlob)
     

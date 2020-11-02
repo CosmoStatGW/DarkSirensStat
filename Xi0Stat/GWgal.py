@@ -11,6 +11,7 @@ Created on Wed Oct 14 18:51:19 2020
 ####
 from globals import *
 import pandas as pd
+from copy import deepcopy
 
 
 
@@ -24,6 +25,7 @@ class GWgal(object):
         
         self.gals = GalCompleted
         self.GWevents = GWevents
+        self.selectedGWevents= deepcopy(GWevents)
 
         self._galRedshiftErrors = galRedshiftErrors
         self.verbose=verbose
@@ -49,16 +51,20 @@ class GWgal(object):
         #        print(event)
     
     
+    def _select_events(self, PavMin=0.01, PEvMin=0.1):
+        self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if ((self.PcAv[eventName] > PavMin) | (self.PEv[eventName] > PEvMin))}
+        print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(PavMin, PEvMin, str(list(self.selectedGWevents.keys()))))
+    
     
     def select_gals(self):
         #self.nGals={}
-        for eventName in self.GWevents.keys(): 
+        for eventName in self.selectedGWevents.keys(): 
             self.select_gals_event(eventName)
     
     
     def select_gals_event(self,eventName ):
-        self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
-        self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims(), return_count=True)
+        self.gals.select_area(self.selectedGWevents[eventName].selected_pixels, self.selectedGWevents[eventName].nside)
+        self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.selectedGWevents[eventName].get_z_lims(), return_count=True)
         
     
     def _get_summary(self):
@@ -72,7 +78,7 @@ class GWgal(object):
         'zLow':[self.GWevents[eventName].zmin for eventName in self.GWevents.keys()],
         'zUp':[self.GWevents[eventName].zmax for eventName in self.GWevents.keys()],
          'Vol_mpc3':[self.GWevents[eventName].vol for eventName in self.GWevents.keys()],
-         'nGal':[self.nGals[ eventName]for eventName in self.GWevents.keys()],
+         'nGal':[self.nGals[ eventName] if eventName in self.selectedGWevents.keys() else '--' for eventName in self.GWevents.keys()],
          'Pc_Av': [self.PcAv[eventName] for eventName in self.GWevents.keys()],
          'Pc_event': [self.PEv[eventName] for eventName in self.GWevents.keys()]})
         
@@ -114,10 +120,10 @@ class GWgal(object):
         ret = {}
         H0s = np.atleast_1d(H0s)
         Xi0s = np.atleast_1d(Xi0s)
-        for eventName in self.GWevents.keys():
+        for eventName in self.selectedGWevents.keys():
             
-            #self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
-            #self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims(), return_count=True)
+            #self.gals.select_area(self.selectedGWevents[eventName].selected_pixels, self.selectedGWevents[eventName].nside)
+            #self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.selectedGWevents[eventName].get_z_lims(), return_count=True)
             self.select_gals_event(eventName)
             
             Linhom = np.ones((H0s.size, Xi0s.size))
@@ -148,23 +154,23 @@ class GWgal(object):
         
             # Convolution with z errors
             
-            rGrid = self._get_rGrid(eventName, nsigma=self.GWevents[eventName].std_number, minPoints=20)
+            rGrid = self._get_rGrid(eventName, nsigma=self.selectedGWevents[eventName].std_number, minPoints=20)
 
             zGrid = z_from_dLGW_fast(rGrid, H0=H0, Xi0=Xi0, n=n)
             
-            pixels, weights = self.gals.get_inhom_contained(zGrid, self.GWevents[eventName].nside )
+            pixels, weights = self.gals.get_inhom_contained(zGrid, self.selectedGWevents[eventName].nside )
             
-            skymap = self.GWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
+            skymap = self.selectedGWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
          
             LL = np.sum(skymap*weights)
              
         else: # use Diracs
             
-            pixels, zs, weights =  self.gals.get_inhom(self.GWevents[eventName].nside)
+            pixels, zs, weights =  self.gals.get_inhom(self.selectedGWevents[eventName].nside)
             
             rs = dLGW(zs, H0=H0, Xi0=Xi0, n=n)
             
-            my_skymap = self.GWevents[eventName].likelihood_px(rs, pixels)
+            my_skymap = self.selectedGWevents[eventName].likelihood_px(rs, pixels)
             
             LL = np.sum(my_skymap*weights)
         
@@ -181,18 +187,18 @@ class GWgal(object):
     
     def _hom_lik_trapz(self, eventName, H0, Xi0, n):
         
-        zGrid = self.GWevents[eventName].adap_z_grid(H0, Xi0, n, zR=self.zR)
+        zGrid = self.selectedGWevents[eventName].adap_z_grid(H0, Xi0, n, zR=self.zR)
         
-        #self.gals.eval_hom(theta, phi, z) #glade._completeness.get( *myGWgal.GWevents[ename].find_theta_phi(pxs), z)
+        #self.gals.eval_hom(theta, phi, z) #glade._completeness.get( *myGWgal.selectedGWevents[ename].find_theta_phi(pxs), z)
         
-        pxs = self.GWevents[eventName].get_credible_region_pixels()
-        th, ph = self.GWevents[eventName].find_theta_phi(pxs)
+        pxs = self.selectedGWevents[eventName].get_credible_region_pixels()
+        th, ph = self.selectedGWevents[eventName].find_theta_phi(pxs)
         
-        integrand_grid = np.array([ j(z)*(self.gals.eval_hom(th, ph, z, MC=False))*self.GWevents[eventName].likelihood_px( dLGW(z, H0, Xi0, n), pxs) for z in zGrid])
+        integrand_grid = np.array([ j(z)*(self.gals.eval_hom(th, ph, z, MC=False))*self.selectedGWevents[eventName].likelihood_px( dLGW(z, H0, Xi0, n), pxs) for z in zGrid])
         
         integral = np.trapz(integrand_grid.sum(axis=1), zGrid)
         den = (70/clight)**3
-        LL = integral*self.GWevents[eventName].pixarea/den
+        LL = integral*self.selectedGWevents[eventName].pixarea/den
         
         return LL
     
@@ -202,7 +208,7 @@ class GWgal(object):
         Computes likelihood homogeneous part for one event
         '''
         
-        theta, phi, r = self.GWevents[eventName].sample_posterior(nSamples=self.nHomSamples)
+        theta, phi, r = self.selectedGWevents[eventName].sample_posterior(nSamples=self.nHomSamples)
         
         z = z_from_dLGW_fast(r, H0=H0, Xi0=Xi0, n=n)
         
@@ -222,9 +228,9 @@ class GWgal(object):
     
     def _get_rGrid(self, eventName, nsigma=3, minPoints=50):
     
-        meanmu, lower, upper, meansig = self.GWevents[eventName].find_r_loc(std_number = nsigma)
+        meanmu, lower, upper, meansig = self.selectedGWevents[eventName].dL ,self.selectedGWevents[eventName].dmin, self.selectedGWevents[eventName].dmax, self.selectedGWevents[eventName].sigmadL#self.selectedGWevents[eventName].find_r_loc(std_number = nsigma)
         
-        #cred_pixels = self.GWevents[eventName].selected_pixels
+        #cred_pixels = self.selectedGWevents[eventName].selected_pixels
         
         nPoints = np.int(minPoints*(upper-lower)/meansig)
         

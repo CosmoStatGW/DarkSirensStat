@@ -32,7 +32,7 @@ class GLADE(GalCat):
         GalCat.__init__(self, foldername, compl, useDirac, verbose, **kwargs)
         
     
-    def load(self, band=None,
+    def load(self, band=None, band_weight=None,
                    Lcut=0,
                    zMax = 100,
                    z_flag=None,
@@ -48,6 +48,9 @@ class GLADE(GalCat):
                    err_vals='GLADE',
                    drop_HyperLeda2=True, 
                    colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w']):
+        
+        if band_weight is not None:
+            assert band_weight==band
         
         if self._finalData is not None:
             
@@ -324,10 +327,10 @@ class GLADE(GalCat):
         # ------ End if not use precomputed table
         #        Always be able to still chose the weighting and cut.
         
-        if band=='B':
+        if band=='B' or band_weight=='B':
             add_B_lum=True
             add_K_lum=False
-        elif band=='K':
+        elif band=='K' or band_weight=='B':
             add_B_lum=False
             add_K_lum=True
         else:
@@ -373,15 +376,22 @@ class GLADE(GalCat):
             df = df[df[col_name]>L_th]
             if self.verbose:
                 print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-                print('Using %s for weighting' %col_name)
-            w = df.loc[:, col_name].values
+                       
         else:
             if self.verbose:
-                print('No cut in luminosity applied. Using weights =1 ' )
-            w = np.ones(df.shape[0])
-    
-        # ------ Add 'w' column for weights
+                print('No cut in luminosity applied ' )
+            #w = np.ones(df.shape[0])
         
+         
+        # ------ Add 'w' column for weights
+        if band_weight is not None:
+            w_name=band+'_Lum'
+            w = df.loc[:, w_name].values
+            print('Using %s for weighting' %col_name)
+        else:
+            w = np.ones(df.shape[0])
+            print('Using weights =1 .')
+            
         df.loc[:, 'w'] = w
         
         

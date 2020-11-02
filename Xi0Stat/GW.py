@@ -18,6 +18,9 @@ from globals import *
 from scipy.special import erfinv
 from astropy.cosmology import Planck15
 from scipy.integrate import quad
+from ligo.skymap.io import fits
+from os import listdir
+from os.path import isfile, join
 
 
 
@@ -29,6 +32,7 @@ class Skymap3D(object):
                  nest=False, verbose=False, std_number=None,
                  zLimSelection='skymap'):
         
+        self.nest=nest
         self.verbose = verbose
         self.priorlimits = priorlimits
         self.level=level
@@ -40,10 +44,72 @@ class Skymap3D(object):
         else:
             self.std_number=std_number
         
+        
+        self.read_map(fname) # sets p, mu, sigma, norm
+        
+        
+        self.npix = len(self.p_posterior)
+        self.nside = hp.npix2nside(self.npix)
+        self.pixarea = hp.nside2pixarea(self.nside, degrees=False) # pixel area in square radians
+        #self.p_posterior = smap[0]
+        #self.head = header
+        #self.mu   = smap[1]
+        #self.sigma   = smap[2]
+        #self.posteriorNorm   = smap[3]
+        self.all_pixels = np.arange(self.npix)
+        self.metadata = self._get_metadata()
+      
+        # the likelihood *does* still contain the posteriorNorm things, or in other words, the posterior p's are not the likelihood "pixel probabilities"
+        # we normalize the likelihood to get a pdf for the measure (dOmega d dLGW)
+        self.p_likelihood = self.p_posterior*self.posteriorNorm
+        # the normalization is a bit subtle. We want to normalize the likelihood in the same way as in the sampling-based evaluation, where we sample the posterior, obtained by combining the likelihood with dLGW^2.
+        # this means that the likelihood should be normalized to give the normalized posterior after multiplying by dLGW^2
+        # This is the case using the following. The posteriorNorm disappears because
+        # for each pixel it drops after doing the ddLGW integral.
+        # The angular integral gives sum pixarea * p_posterior_i which needs to be 1.
+        self.p_likelihood /= (np.sum(self.p_posterior)*self.pixarea)
+        self.set_credible_region()
+    
+    
+    def read_map(self, fname):
+        
+        if 'O2' in fname.split('/'):
+            return self._read_O2(fname)
+        else: 
+            return self._read_O3(fname)
+    
+    
+    def _read_O3(self, fname, convert_nested=True):
+        
+        skymap, metadata = fits.read_sky_map(fname, nest=None, distances=True) #Read the skymap
+        if len(fname.split('/')[-1].split('_')) == 2:    #Same as before since certain names contain a "_"
+            self.event_name = fname.split('/')[-1].split('_')[0]
+        elif len(fname.split('/')[-1].split('_')) == 3:
+            self.event_name = fname.split('/')[-1].split('_')[0]+'_'+fname.split('/')[-1].split('_')[1]
+        else:
+            raise ValueError('Could not set event name. Got fname= %s'%fname)
+        if self.verbose:
+                print('\nEvent: %s' %self.event_name)
+        if (convert_nested) & (metadata['nest']): #If one wants RING ordering (the one of O2 data afaik) just has to set "convert_nested" to True
+            self.p_posterior = hp.reorder(skymap[0],n2r=True)
+            self.mu = hp.reorder(skymap[1],n2r=True)
+            self.sigma = hp.reorder(skymap[2],n2r=True)
+            self.posteriorNorm = hp.reorder(skymap[3],n2r=True)
+        else:
+            self.p_posterior= skymap[0]
+            self.mu= skymap[1]
+            self.sigma = skymap[2]
+            self.posteriorNorm= skymap[3]        
+        
+        self.head = None
+    
+    
+    def _read_O2(self, fname):
+        
         try:
             
             smap, header = hp.read_map(fname, field=range(4),
-                                       h=True, nest=nest, verbose=False)
+                                       h=True, nest=self.nest, verbose=False)
                  
         except IndexError:
             print('No parameters for 3D gaussian likelihood')
@@ -59,30 +125,14 @@ class Skymap3D(object):
             print('No event name in header for this event. Using name provided with filename %s ' %ename)
             self.event_name = ename
         
-        self.npix = len(smap[0])
-        self.nside = hp.npix2nside(self.npix)
-        self.pixarea = hp.nside2pixarea(self.nside, degrees=False) # pixel area in square radians
-        #r = hp.Rotator(coord=['G','E'])
-        #r.rotate_map_pixel(
-        self.p_posterior = smap[0]
+        self.p_posterior=smap[0]
+        self.mu=smap[1]
+        self.sigma=smap[2]
+        self.posteriorNorm=smap[3]
         self.head = header
-        self.mu   = smap[1]
-        self.sigma   = smap[2]
-        self.posteriorNorm   = smap[3]
-        self.all_pixels = np.arange(self.npix)
-        self.metadata = self._get_metadata()
-        self.nest=nest
-      
-        # the likelihood *does* still contain the posteriorNorm things, or in other words, the posterior p's are not the likelihood "pixel probabilities"
-        # we normalize the likelihood to get a pdf for the measure (dOmega d dLGW)
-        self.p_likelihood = self.p_posterior*self.posteriorNorm
-        # the normalization is a bit subtle. We want to normalize the likelihood in the same way as in the sampling-based evaluation, where we sample the posterior, obtained by combining the likelihood with dLGW^2.
-        # this means that the likelihood should be normalized to give the normalized posterior after multiplying by dLGW^2
-        # This is the case using the following. The posteriorNorm disappears because
-        # for each pixel it drops after doing the ddLGW integral.
-        # The angular integral gives sum pixarea * p_posterior_i which needs to be 1.
-        self.p_likelihood /= (np.sum(self.p_posterior)*self.pixarea)
-        self.set_credible_region()
+        
+        
+        
     
     
     def set_credible_region(self, level=None):
@@ -406,13 +456,15 @@ class Skymap3D(object):
         return self.zmin, self.zmax
     
     
-    def find_r_loc(self, std_number=None):
+    def find_r_loc(self, std_number=None, verbose=None):
+        if verbose is None:
+            verbose=self.verbose
         if self.zLimSelection=='skymap':
-            if self.verbose:
+            if verbose:
                 print('DL range computed from skymap')
             return self._find_r_loc(std_number=std_number)
         else:
-            if self.verbose:
+            if verbose:
                 print('DL range computed from header')
             return self._metadata_r_lims(std_number=std_number)
         
@@ -496,10 +548,74 @@ class Skymap3D(object):
         z_grid=np.concatenate([np.log10(np.logspace(0, zLow, 50)), np.linspace(zLow+eps, zUp, 100),  np.linspace(zUp+eps, zUp+0.1, 20), np.linspace(zUp+0.1+eps, zR, 50)])
     
         return z_grid
+  
+
+
+
+
+
+def get_all_events(priorlimits, loc='data/GW/O2/', 
+                   wf_model_name='PublicationSamples',
+                   subset=False, 
+                   subset_names=['GW170817',],
+                   verbose=False, **kwargs
+               ):
     
+    if 'O2' in loc.split('/'):
+        run='O2'
+        sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') )]
+        ev_names = [fname.split('_')[0]  for fname in sm_files]
+    elif 'O3' in loc.split('/'):
+        run='O3'
+        sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and (wf_model_name+'.fits' in f.split('_')) )]
+        ev_names = [] #Initialize array
+        #Event names could display the time separated by a "_", for this reason the next two if are necessary
+        #Maybe this is not the best way, but it works and is fast
+        for fname in sm_files:
+            if len(fname.split('_')) == 2: 
+                ev_names.append(fname.split('_')[0])
+            elif len(fname.split('_')) == 3:
+                ev_names.append(fname.split('_')[0]+'_'+fname.split('_')[1])
+        #ev_names = [e+'_'+wf_model_name for e in ev_names]
+    else:
+        raise ValueError('O2 or O3 data expected.')
     
-def get_all_events(priorlimits, loc='data/GW/O2/', compressed=True,
-                   subset=False, subset_names=['GW170817',],
+    if verbose:
+        print('GW observing run: %s' %run)
+        print('Found %s skymaps: %s' %(len(sm_files), str(ev_names)))
+    
+    if sum([fname.endswith('.gz') for fname in sm_files])==len(sm_files):
+        compressed=True
+    else:
+        compressed=False
+        
+    if subset:
+        ev_names = [e for e in ev_names if e in subset_names]
+        if run=='O2':
+            if compressed:
+                sm_files = [e+'_skymap.fits.gz' for e in ev_names]
+            else:
+                sm_files = [e+'_skymap.fits' for e in ev_names]
+        else:
+            if compressed:
+                sm_files = [e+'_'+wf_model_name+'.fits.gz' for e in ev_names]
+            else:
+                sm_files = [e+'_'+wf_model_name+'.fits' for e in ev_names]
+    if verbose:
+        #print('GW events:')
+        #print(ev_names)
+        print('Reading skymaps: %s...' %str(ev_names))
+        all_events = {fname.split('_')[0]: Skymap3D(os.path.join(dirName,loc,fname), priorlimits=priorlimits, nest=False, verbose=verbose, **kwargs) for fname in sm_files}
+
+    return all_events
+
+
+
+
+def get_all_events_1(priorlimits, loc='data/GW/O2/', 
+                   wf_model_name='PublicationSamples',
+                   subset=False, 
+                   subset_names=['GW170817',],
                    verbose=False, **kwargs
                ):
     '''
@@ -507,23 +623,20 @@ def get_all_events(priorlimits, loc='data/GW/O2/', compressed=True,
     If subset=True, gives skymaps only for the event specified by subset_names
     
     '''
-    from os import listdir
-    from os.path import isfile, join
-    if compressed:
-        sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and (f.split('.')[-1]=='gz'))]
-    else:
-        sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and (f.split('.')[-1]=='fits') )]
-    ev_names = [fname.split('_')[0]  for fname in sm_files]
+
+    
+    sm_files, ev_names, compressed = get_file_list(loc, verbose=verbose)
+    
     if subset:
         ev_names = [e for e in ev_names if e in subset_names]
         if compressed:
-            sm_files = [e+'_skymap.fits.gz' for e in ev_names]
+            sm_files = [e+'.fits.gz' for e in ev_names]
         else:
-            sm_files = [e+'_skymap.fits' for e in ev_names]
+            sm_files = [e+'.fits' for e in ev_names]
     if verbose:
         #print('GW events:')
         #print(ev_names)
-        print('Reading skymaps....')
+        print('Reading skymaps: %s...' %str(sm_files))
     all_events = {fname.split('_')[0]: Skymap3D(os.path.join(dirName,loc,fname), priorlimits=priorlimits, nest=False, verbose=verbose, **kwargs) for fname in sm_files}
     return all_events
     

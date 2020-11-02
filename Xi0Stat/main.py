@@ -129,7 +129,7 @@ def main():
     allGW = get_all_events(loc=data_loc,
                     priorlimits=lims ,
                     subset=subset, subset_names=subset_names, 
-                    verbose=True, level = level, std_number=std_number, compressed=is_compressed)
+                    verbose=True, level = level, std_number=std_number, )#compressed=is_compressed)
     
     
     
@@ -149,19 +149,21 @@ def main():
     
     
     if catalogue in ('GLADE', 'MINIGLADE'):
-        glade = GLADE(catalogue, compl, useDirac, band=band, Lcut=Lcut, verbose=True, 
+        glade = GLADE(catalogue, compl, useDirac, band=band, band_weight=band_weight, Lcut=Lcut, verbose=True, 
               computePosterior=computePosterior)
         gals.add_cat(glade)
     else:
         raise NotImplementedError('Galaxy catalogues other than GLADE are not supported for the moment. ')
-    if plot_comp:
-        plot_completeness(out_path, allGW, glade)
+    
     
     ###### 
     # GWgal
     ######
     myGWgal = GWgal(gals, allGW, MC=MChom, nHomSamples=nHomSamples, verbose=True, galRedshiftErrors=galRedshiftErrors, zR=zR)
+    myGWgal._select_events(PavMin=PavMin, PEvMin=PEvMin)
     
+    if plot_comp:
+        plot_completeness(out_path, myGWgal.selectedGWevents, glade)
     
     ###### 
     # Grids
@@ -180,50 +182,53 @@ def main():
     ###### 
     # Beta
     ######
-    print('\n-----  COMPUTING BETAS ....')
-    betas = beta_case(which_beta, allGW, lims, H0grid, Xi0grid)
-    for event in allGW:
-        betaPath =os.path.join(out_path, event+'_beta'+goalParam+'.txt')
-        np.savetxt(betaPath, betas[event])
-    print('Done.') 
+    if do_inference:
+        print('\n-----  COMPUTING BETAS ....')
+        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid)
+        for event in myGWgal.selectedGWevents:
+            betaPath =os.path.join(out_path, event+'_beta'+goalParam+'.txt')
+            np.savetxt(betaPath, betas[event])
+        print('Done.') 
 
     
-    ###### 
-    # Likelihood
-    ######
-    print('\n-----  COMPUTING LIKELIHOOD ....')
-    liks = myGWgal.get_lik(H0s=H0grid, Xi0s=Xi0grid, n=nGlob)
-    for event in allGW:
-        liksPathhom =os.path.join(out_path, event+'_lik_compl'+goalParam+'.txt')
-        liksPathinhom =os.path.join(out_path, event+'_lik_cat'+goalParam+'.txt')
-        np.savetxt(liksPathhom, liks[event][1])
-        np.savetxt(liksPathinhom, liks[event][0])
-    print('Done.')
+        ###### 
+        # Likelihood
+        ######
+        print('\n-----  COMPUTING LIKELIHOOD ....')
+        liks = myGWgal.get_lik(H0s=H0grid, Xi0s=Xi0grid, n=nGlob)
+        for event in myGWgal.selectedGWevents:
+            liksPathhom =os.path.join(out_path, event+'_lik_compl'+goalParam+'.txt')
+            liksPathinhom =os.path.join(out_path, event+'_lik_cat'+goalParam+'.txt')
+            np.savetxt(liksPathhom, liks[event][1])
+            np.savetxt(liksPathinhom, liks[event][0])
+        print('Done.')
     
     
-    print('\n-----  COMPUTING POSTERIOR ....')
+        print('\n-----  COMPUTING POSTERIOR ....')
     
-    post, post_cat, post_compl = {},  {},  {}
-    for event in allGW.keys():
-        post[event], post_cat[event], post_compl[event] = get_norm_posterior(liks[event][0],liks[event][1], betas[event], grid)
+        post, post_cat, post_compl = {},  {},  {}
+        for event in myGWgal.selectedGWevents.keys():
+            post[event], post_cat[event], post_compl[event] = get_norm_posterior(liks[event][0],liks[event][1], betas[event], grid)
     
-    if goalParam=='H0':
-        myMin, myMax= lims.H0min, lims.H0max
-    else:  myMin, myMax= lims.Xi0min, lims.Xi0max
+        if goalParam=='H0':
+            myMin, myMax= lims.H0min, lims.H0max
+        else:  myMin, myMax= lims.Xi0min, lims.Xi0max
     
-    post, post_cat, post_compl = plot_post(out_path, grid, post, post_cat, post_compl, allGW.keys(),
+        post, post_cat, post_compl = plot_post(out_path, grid, post, post_cat, post_compl, myGWgal.selectedGWevents.keys(),
                                               band,Lcut,zR,
                                               myMin=myMin, myMax=myMax, 
                                               varname=goalParam,)
     
-    for event in allGW:
-        postPathhom =os.path.join(out_path, event+'_post_compl'+goalParam+'.txt')
-        postPathinhom =os.path.join(out_path, event+'_post_cat'+goalParam+'.txt')
-        postPathtot=os.path.join(out_path, event+'_post'+goalParam+'.txt')
-        np.savetxt(postPathhom, post_compl[event])
-        np.savetxt(postPathinhom, post_cat[event])
-        np.savetxt(postPathtot, post[event])
-    
+        for event in myGWgal.selectedGWevents:
+            postPathhom =os.path.join(out_path, event+'_post_compl'+goalParam+'.txt')
+            postPathinhom =os.path.join(out_path, event+'_post_cat'+goalParam+'.txt')
+            postPathtot=os.path.join(out_path, event+'_post'+goalParam+'.txt')
+            np.savetxt(postPathhom, post_compl[event])
+            np.savetxt(postPathinhom, post_cat[event])
+            np.savetxt(postPathtot, post[event])
+    else:
+        myGWgal.select_gals()
+        
     myGWgal._get_summary()
     #summary = myGWgal.summary()
     myGWgal.summary.to_csv(os.path.join(out_path, 'summary.csv') )
