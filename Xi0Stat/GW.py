@@ -565,7 +565,6 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
         run='O2'
         sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and  ('skymap' in f) )]
         ev_names = [fname.split('_')[0]  for fname in sm_files]
-        print(sm_files)
     elif 'O3' in loc.split('/'):
         run='O3'
         sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and (wf_model_name+'.fits' in f.split('_')) )]
