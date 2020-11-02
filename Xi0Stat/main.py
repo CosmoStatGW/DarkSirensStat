@@ -6,7 +6,7 @@ Created on Fri Oct 30 14:53:55 2020
 @author: Michi
 """
 
-from config import *
+from config_Andreas import *
 import os
 import time
 import sys
@@ -29,7 +29,7 @@ from plottingTools import plot_completeness, plot_post
 
 
 
-def completeness_case(completeness, band, Lcut, path):
+def completeness_case(completeness, band, Lcut, path=None):
     
     
     if band is None:
@@ -136,7 +136,10 @@ def main():
     ###### 
     # Completeness
     ######
-    compl =  completeness_case(completeness, band, Lcut, completeness_path)
+    if completeness=='load':
+        compl =  completeness_case(completeness, band, Lcut, completeness_path)
+    else:
+        compl =  completeness_case(completeness, band, Lcut)
     
     
     ###### 
@@ -149,12 +152,20 @@ def main():
     
     
     if catalogue in ('GLADE', 'MINIGLADE'):
-        glade = GLADE(catalogue, compl, useDirac, band=band, band_weight=band_weight, Lcut=Lcut, verbose=True, 
-              computePosterior=computePosterior)
-        gals.add_cat(glade)
-    else:
-        raise NotImplementedError('Galaxy catalogues other than GLADE are not supported for the moment. ')
     
+        if fastglade:
+            cat = GLADE('GLADE', compl, useDirac=False, finalData='posteriorglade.csv', verbose=True, band=band, Lcut=Lcut)
+        else:
+            cat = GLADE('GLADE', compl, useDirac, band=band, Lcut=Lcut, verbose=True,
+              computePosterior=computePosterior)
+        gals.add_cat(cat)
+        
+    elif catalogue is 'GWENS':
+        cat = GWENS('GWENS', compl, useDirac, verbose=True)
+    else:
+        raise NotImplementedError('Galaxy catalogues other than GLADE or GWENS are not supported for the moment. ')
+    if plot_comp:
+        plot_completeness(out_path, allGW, cat)
     
     ###### 
     # GWgal
@@ -163,7 +174,7 @@ def main():
     myGWgal._select_events(PavMin=PavMin, PEvMin=PEvMin)
     
     if plot_comp:
-        plot_completeness(out_path, myGWgal.selectedGWevents, glade)
+        plot_completeness(out_path, myGWgal.selectedGWevents, cat)
     
     ###### 
     # Grids

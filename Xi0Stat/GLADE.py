@@ -274,7 +274,7 @@ class GLADE(GalCat):
                     if self.verbose:
                         print("Computing galaxy posteriors...")
                       
-                    from Xi0Stat.keelin import convolve_bounded_keelin_3
+                    from keelin import convolve_bounded_keelin_3
                     from astropy.cosmology import FlatLambdaCDM
                     fiducialcosmo = FlatLambdaCDM(H0=70.0, Om0=0.3)
                     zGrid = np.linspace(0, 2*np.max(df.z_upperbound), 500)
