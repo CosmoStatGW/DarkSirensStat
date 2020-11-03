@@ -34,7 +34,11 @@ class GWENS(GalCat):
             print('Loading patch ' + str(i) + ' of ' + str(len(filenames)) + ' patches of GWENS...')
             
             dg = pd.read_csv(filename, compression='gzip', error_bad_lines=False)
-            
+            #dg = pd.read_csv(filename, error_bad_lines=False)
+           
+            if len(dg) < 1000:
+                continue
+
             dg = dg.loc[:,['ra','dec', 'medval', 'neg2sig', 'neg1sig', 'pos1sig', 'pos2sig', 'specflag', 'lstar']]
 
             dg = dg[dg.ra.notna()]

@@ -16,7 +16,7 @@ import shutil
 from globals import *
 from GW import get_all_events
 from GLADE import GLADE
-#from GWENS import GWENS
+from GWENS import GWENS
 #from SYNTH import SYNTH
 from completeness import *
 from galCat import GalCompleted
@@ -160,7 +160,7 @@ def main():
               computePosterior=computePosterior)
         gals.add_cat(cat)
         
-    elif catalogue is 'GWENS':
+    elif catalogue == 'GWENS':
         cat = GWENS('GWENS', compl, useDirac, verbose=True)
     else:
         raise NotImplementedError('Galaxy catalogues other than GLADE or GWENS are not supported for the moment. ')
