@@ -6,7 +6,7 @@ Created on Fri Oct 30 14:53:55 2020
 @author: Michi
 """
 
-from config_Andreas import *
+from config import *
 import os
 import time
 import sys
@@ -153,28 +153,31 @@ def main():
     
     if catalogue in ('GLADE', 'MINIGLADE'):
     
-        if fastglade:
-            cat = GLADE('GLADE', compl, useDirac=False, finalData='posteriorglade.csv', verbose=True, band=band, Lcut=Lcut)
-        else:
-            cat = GLADE('GLADE', compl, useDirac, band=band, Lcut=Lcut, verbose=True,
-              computePosterior=computePosterior)
-        gals.add_cat(cat)
+        #if fastglade:
+        #    cat = GLADE('GLADE', compl, useDirac=False, finalData='posteriorglade.csv', verbose=True, band=band, Lcut=Lcut)
+        #else:
+        cat = GLADE('GLADE', compl, useDirac, band=band, Lcut=Lcut, verbose=True,
+              galPosterior=galPosterior, band_weight=band_weight)
         
     elif catalogue == 'GWENS':
         cat = GWENS('GWENS', compl, useDirac, verbose=True)
     else:
         raise NotImplementedError('Galaxy catalogues other than GLADE or GWENS are not supported for the moment. ')
+    
+    gals.add_cat(cat)
+    
     if plot_comp:
         plot_completeness(out_path, allGW, cat)
+    
     
     ###### 
     # GWgal
     ######
     myGWgal = GWgal(gals, allGW, MC=MChom, nHomSamples=nHomSamples, verbose=True, galRedshiftErrors=galRedshiftErrors, zR=zR)
-    myGWgal._select_events(PavMin=PavMin, PEvMin=PEvMin)
+    myGWgal._select_events(completnessThreshAvg=completnessThreshAvg, completnessThreshCentral=completnessThreshCentral)
     
-    if plot_comp:
-        plot_completeness(out_path, myGWgal.selectedGWevents, cat)
+    #if plot_comp:
+    #    plot_completeness(out_path, myGWgal.selectedGWevents, cat)
     
     ###### 
     # Grids

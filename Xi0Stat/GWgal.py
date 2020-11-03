@@ -51,9 +51,9 @@ class GWgal(object):
         #        print(event)
     
     
-    def _select_events(self, PavMin=0.01, PEvMin=0.1):
-        self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if ((self.PcAv[eventName] > PavMin) | (self.PEv[eventName] > PEvMin))}
-        print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(PavMin, PEvMin, str(list(self.selectedGWevents.keys()))))
+    def _select_events(self, completnessThreshAvg=0.01, completnessThreshCentral=0.1, ):
+        self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if ((self.PcAv[eventName] > completnessThreshAvg) | (self.PEv[eventName] > completnessThreshCentral))}
+        print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(completnessThreshAvg, completnessThreshCentral, str(list(self.selectedGWevents.keys()))))
     
     
     def select_gals(self):

@@ -16,7 +16,7 @@ from galCat import GalCat
 
 class GLADE(GalCat):
     
-    def __init__(self, foldername, compl, useDirac, finalData = None,
+    def __init__(self, foldername, compl, useDirac, #finalData = None,
                  subsurveysIncl = ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS'], 
                  subsurveysExcl = [], 
                  verbose=False,
@@ -24,7 +24,7 @@ class GLADE(GalCat):
         
         self._subsurveysIncl = subsurveysIncl
         self._subsurveysExcl = subsurveysExcl
-        self._finalData = finalData
+        #self._finalData = finalData
         
         assert(set(subsurveysExcl).isdisjoint(subsurveysIncl))
         assert(len(subsurveysIncl) > 0)
@@ -44,7 +44,7 @@ class GLADE(GalCat):
                    which_z_correct = 'z_cosmo',
                    CMB_correct=True,
                    which_z='z_cosmo_CMB',
-                   computePosterior = True,
+                   galPosterior = True,
                    err_vals='GLADE',
                    drop_HyperLeda2=True, 
                    colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w']):
@@ -52,11 +52,19 @@ class GLADE(GalCat):
         if band_weight is not None:
             assert band_weight==band
         
-        if self._finalData is not None:
-            
-            if self.verbose:
-                print("Directly loading final data " + self._finalData)
-            df = pd.read_csv(os.path.join(self._path, self._finalData))
+        posteriorglade = Path(os.path.join(self._path, 'posteriorglade_.csv'))                     
+        if galPosterior and posteriorglade.is_file():
+                if self.verbose:
+                    print("Directly loading final data " + self._finalData)
+                df = pd.read_csv(os.path.join(self._path, self._finalData))
+                loaded=True
+        elif (not(posteriorglade.is_file()) and galPosterior):
+                computePosterior=True
+                loaded=False
+        elif not galPosterior:
+            computePosterior=False
+            loaded=False
+                
 #            df2 = pd.read_csv(os.path.join(self._path, 'posteriorglade_.csv'))
 #            df.z = df2.z
 #            df.z_lower = df2.z_lower
@@ -66,7 +74,7 @@ class GLADE(GalCat):
             
             #self.data = self.data.append(df, ignore_index=True)
             
-        else:
+        if not loaded:
         
             
             gname='GLADE_2.4.txt'
