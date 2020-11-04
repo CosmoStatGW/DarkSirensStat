@@ -51,28 +51,22 @@ class GLADE(GalCat):
         
         if band_weight is not None:
             assert band_weight==band
-        
-        posteriorglade = Path(os.path.join(self._path, 'posteriorglade_.csv'))                     
-        if galPosterior and posteriorglade.is_file():
+       
+        loaded = False
+        computePosterior = False
+        posteriorglade = os.path.join(self._path, 'posteriorglade.csv')
+        print(posteriorglade)
+        if galPosterior:
+            from os.path import isfile
+            if isfile(posteriorglade):
                 if self.verbose:
-                    print("Directly loading final data " + self._finalData)
-                df = pd.read_csv(os.path.join(self._path, self._finalData))
+                    print("Directly loading final data ")
+                df = pd.read_csv(os.path.join(self._path, 'posteriorglade.csv'))
                 loaded=True
-        elif (not(posteriorglade.is_file()) and galPosterior):
+            else:
                 computePosterior=True
                 loaded=False
-        elif not galPosterior:
-            computePosterior=False
-            loaded=False
                 
-#            df2 = pd.read_csv(os.path.join(self._path, 'posteriorglade_.csv'))
-#            df.z = df2.z
-#            df.z_lower = df2.z_lower
-#            df.z_lowerbound = df2.z_lowerbound
-#            df.z_upper = df2.z_upper
-#            df.z_upperbound = df2.z_upperbound
-            
-            #self.data = self.data.append(df, ignore_index=True)
             
         if not loaded:
         

@@ -102,7 +102,7 @@ def trunc_gaussian_pdf(x, mu = 1, sigma = 1, lower = 0):
 
 import multiprocessing
 
-nCores = multiprocessing.cpu_count()
+nCores = max(1,int(multiprocessing.cpu_count()/2)-1)
 
 def fun(f, q_in, q_out):
     while True:

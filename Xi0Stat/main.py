@@ -17,6 +17,7 @@ from globals import *
 from GW import get_all_events
 from GLADE import GLADE
 from GWENS import GWENS
+from DES import DES
 #from SYNTH import SYNTH
 from completeness import *
 from galCat import GalCompleted
@@ -161,8 +162,12 @@ def main():
         
     elif catalogue == 'GWENS':
         cat = GWENS('GWENS', compl, useDirac, verbose=True)
+
+    elif catalogue == 'DES':
+        cat = DES('DES', compl, useDirac, verbose=True)
+
     else:
-        raise NotImplementedError('Galaxy catalogues other than GLADE or GWENS are not supported for the moment. ')
+        raise NotImplementedError('Galaxy catalogues other than GLADE, GWENS or DES are not supported for the moment. ')
     
     gals.add_cat(cat)
     

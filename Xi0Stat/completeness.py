@@ -392,31 +392,42 @@ class MaskCompleteness(Completeness):
         if self.verbose:
             print('Computing in parallel... ', flush=True)
        
-        def g(galgroups, i):
+        def g(galgroups, maskId, batchId, nBatches):
        
-            zedges = self.zedges[i]
-            zcenters = self.zcenters[i]
+            zedges = self.zedges[maskId]
+            zcenters = self.zcenters[maskId]
             
             try:
-                gals = galgroups.get_group(i)
+                gals = galgroups.get_group(maskId)
             #if len(galpixel) == 0:
             except KeyError as e:
                 return np.zeros(len(zedges)-1)
-                
+            
+            N = len(gals)
+            n = int(N/nBatches)
+            start = n*batchId
+            stop = n*(1+batchId) 
+            if batchId == nBatches-1:
+                stop = N
+
+            batch = gals.iloc[start:stop]
+
             if useDirac:
-                res, _ = np.histogram(a=gals.z.to_numpy(), bins=zedges, weights=gals.w.to_numpy())
+                res, _ = np.histogram(a=batch.z.to_numpy(), bins=zedges, weights=batch.w.to_numpy())
                 return res.astype(float)
             else:
-                weights = bounded_keelin_3_discrete_probabilities_between(zedges, 0.16, gals.z_lower, gals.z, gals.z_upper, gals.z_lowerbound, gals.z_upperbound, N=100)
+                weights = bounded_keelin_3_discrete_probabilities_between(zedges, 0.16, batch.z_lower, batch.z, batch.z_upper, batch.z_lowerbound, batch.z_upperbound, N=100)
                 
                 # if there is 1 galaxy only, weights won't be a matrix - fix
                 if weights.ndim == 1:
                     weights = weights[np.newaxis, :]
                 
-                return np.sum(weights * gals.w[:, np.newaxis], axis=0)
+                return np.sum(weights * batch.w[:, np.newaxis], axis=0)
                 
-                
-        coarseden = parmap(lambda i : g(gr, i), range(self._nMasks))
+        coarseden = []  
+        nBatches = 4000
+        for i in np.arange(self._nMasks):   
+            coarseden.append(sum(parmap(lambda b : g(gr, maskId=i, batchId=b, nBatches=nBatches), range(nBatches))))
        
         if self.verbose:
             print('Final computations for completeness...')
