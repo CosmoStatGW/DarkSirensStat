@@ -462,18 +462,20 @@ class Skymap3D(object):
         if self.zLimSelection=='skymap':
             if verbose:
                 print('DL range computed from skymap')
-            return self._find_r_loc(std_number=std_number)
+            return self._find_r_loc(std_number=std_number, verbose=verbose)
         else:
             if verbose:
                 print('DL range computed from header')
-            return self._metadata_r_lims(std_number=std_number)
+            return self._metadata_r_lims(std_number=std_number, verbose=verbose)
         
     
-    def _find_r_loc(self, std_number=None):
+    def _find_r_loc(self, std_number=None, verbose=None):
         '''
         Returns mean GW lum. distance, lower and upper limits of distance, and the mean sigma.
         Based on actual skymap shape in the selected credible region, not metadata.
         '''
+        if verbose is None:
+            verbose=self.verbose
         if std_number is None:
             std_number=self.std_number
         mu = self.mu[self.selected_pixels]
@@ -484,16 +486,18 @@ class Skymap3D(object):
         meansig = np.average(sigma, weights = p)
         lower = max(np.average(mu-std_number*sigma, weights = p), 0)
         upper = np.average(mu+std_number*sigma, weights = p)
-        if self.verbose:
+        if verbose:
             print('Position: %s +%s %s'%(meanmu, upper, lower))
         
         return meanmu, lower, upper, meansig
         
     
-    def _metadata_r_lims(self, std_number=None):
+    def _metadata_r_lims(self, std_number=None, verbose=None):
         '''
         "Official" limits based on metadata - independent of selected credible region
         '''
+        if verbose is None:
+            verbose=self.verbose
         if std_number is None:
             std_number=self.std_number
         mean = np.float(dict(self.head)['DISTMEAN'])
@@ -501,7 +505,7 @@ class Skymap3D(object):
         
         lower = max(mean-std_number*std,0)
         upper=mean+std_number*std
-        if self.verbose:
+        if verbose:
             print('Position: %s +%s %s'%(mean, upper, lower))
         meanmu = map_val
         meansig = up_lim
@@ -621,7 +625,6 @@ def get_all_events_1(priorlimits, loc='data/GW/O2/',
     '''
     Returns dictionary with all skymaps in the folder loc.
     If subset=True, gives skymaps only for the event specified by subset_names
-    
     '''
 
     

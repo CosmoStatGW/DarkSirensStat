@@ -2,6 +2,7 @@ import os
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 import sys
+import healpy as hp
 
 dirName = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
@@ -275,3 +276,12 @@ class Logger(object):
     def close(self):
         self.log.close
         sys.stdout = sys.__stdout__
+        
+    def isatty(self):
+        return False
+        
+        
+def hpx_downgrade_idx(hpx_array, nside_out=1024):
+    #Computes the list of explored indices in a hpx array for the chosen nside_out
+    arr_down = hp.ud_grade(hpx_array, nside_out)
+    return np.where(arr_down>0.)[0] 

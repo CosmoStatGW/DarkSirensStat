@@ -87,7 +87,7 @@ plot_comp=True
 galRedshiftErrors = True
 
 ## Use of galaxy posteriors
-galPosterior = False
+galPosterior = True
 # Use dirac deltas to compute compleness and gaalxy posteriors
 useDirac=False
 

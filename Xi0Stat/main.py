@@ -25,8 +25,72 @@ from GWgal import GWgal
 from betaHom import BetaHom
 from betaFit import BetaFit
 from betaMC import BetaMC
+from pathlib import Path
+import json
 
 from plottingTools import plot_completeness, plot_post
+
+
+
+
+def check_footprint(allGw, observingRun, subset=False, DES=True, GWENS=True):
+    
+    get_DES = DES
+    get_GWENS=GWENS
+    
+    level=allGw[list(allGw.keys())[0]].level
+    
+    #if not subset:
+    DES_file = Path(os.path.join(dirName, 'data', 'DES', 'DES_footprint_'+observingRun+'_level'+str(level)+'.json'))
+    GWENS_file = Path(os.path.join(dirName, 'data', 'GWENS', 'GWENS_footprint_'+observingRun+'_level'+str(level)+'.json'))
+
+    #else:
+        #DES_file = Path(os.path.join(dirName, 'data', 'DES', 'DES_footprint_'+observingRun+'-'.join(list(allGw.keys()))+'.json'))
+        #GWENS_file = Path(os.path.join(dirName, 'data', 'GWENS', 'GWENS_footprint_'+observingRun+'-'.join(list(allGw.keys()))+'.json'))
+    if DES_file.is_file() and DES:
+        with open(DES_file) as f:
+            print('Reading DES coverage from %s...' %DES_file)
+            fp_DES = json.load(f)
+        get_DES=False
+    if GWENS_file.is_file() and GWENS:
+        with open(GWENS_file) as f:
+            print('Reading GWENS coverage from %s...' %GWENS_file)
+            fp_GWENS = json.load(f)
+        get_GWENS=False
+        
+    if get_DES or get_GWENS:
+        #all_fp={eventName: {} for eventName in allGw.keys()}
+        fp_DES={}
+        fp_GWENS={}
+        if get_DES:
+            DES_fp_path = os.path.join(dirName, 'data', 'DES', 'y1a1_gold_1.0.2_wide_footprint_4096.fits')
+            DES_fp = hp.read_map(DES_fp_path,field=[0],verbose=False)
+        
+        if get_GWENS:
+            GWENS_fp_path = os.path.join(dirName, 'data', 'GWENS', 'GWENS.footprint_1024.fits')
+            GWENS_fp = hp.read_map(GWENS_fp_path,field=[0],verbose=False)
+        
+        for eventName in allGw.keys():
+            sm_pxs = allGw[eventName].get_credible_region_pixels()
+            if get_DES:
+                DES_px = hpx_downgrade_idx(DES_fp, nside_out=allGw[eventName].nside)
+                fp_DES[eventName] = np.isin(sm_pxs, DES_px).sum()/sm_pxs.shape[0]
+            if get_GWENS:
+                GWENS_px = hpx_downgrade_idx(GWENS_fp, nside_out=allGw[eventName].nside)
+                fp_GWENS[eventName] = np.isin(sm_pxs, GWENS_px).sum()/sm_pxs.shape[0]
+    if get_DES and not subset:
+          with open(DES_file, 'w') as json_file:
+              print('Saving DES coverage to %s...' %DES_file)
+              json.dump(fp_DES, json_file)
+    if get_GWENS and not subset:
+          with open(GWENS_file, 'w') as json_file:
+              print('Saving GWENS coverage to %s...' %GWENS_file)
+              json.dump(fp_GWENS, json_file)
+        
+    return fp_DES, fp_GWENS
+    
+    
+    
 
 
 
@@ -132,7 +196,11 @@ def main():
                     subset=subset, subset_names=subset_names, 
                     verbose=True, level = level, std_number=std_number, )#compressed=is_compressed)
     
-    
+    fp_DES, fp_GWENS = check_footprint(allGW, observingRun, level=level)
+    print('DES coverage of GW events: fraction of %s %% credible region that falls into DES footprint' %str(100*level))
+    print(fp_DES)
+    print('GWENS coverage of GW events: fraction of %s %% credible region that falls into GWENS footprint' %str(100*level))
+    print(fp_GWENS)
     
     ###### 
     # Completeness

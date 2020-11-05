@@ -33,9 +33,10 @@ class GWgal(object):
         self.nHomSamples = nHomSamples
         self.MC=MC
         self.zR=zR
-        self._get_avgPcompl()
         self.nGals={}
         
+        
+        self._get_avgPcompl()
         
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
@@ -50,6 +51,9 @@ class GWgal(object):
         #    for event in GWevents.keys():
         #        print(event)
     
+    
+        
+        
     
     def _select_events(self, completnessThreshAvg=0.01, completnessThreshCentral=0.1, ):
         self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if ((self.PcAv[eventName] > completnessThreshAvg) | (self.PEv[eventName] > completnessThreshCentral))}
@@ -93,20 +97,25 @@ class GWgal(object):
             print('Computing <P_compl>...')
         PcAv={}
         PEv = {}
-        from scipy.integrate import quad
+        #from scipy.integrate import quad
         for eventName in self.GWevents.keys():
             #self.GWevents[eventName].adap_z_grid(H0GLOB, Xi0Glob, nGlob, zR=self.zR)
             zGrid = np.linspace(self.GWevents[eventName].zmin, self.GWevents[eventName].zmax, 100)
-            Pcomp = np.array([self.gals.total_completeness( *self.GWevents[eventName].find_theta_phi(self.GWevents[eventName].selected_pixels), z).sum() for z in zGrid])
-            vol = self.GWevents[eventName].area_rad*np.trapz(cosmoglob.differential_comoving_volume(zGrid).value, zGrid) #quad(lambda x: cosmoglob.differential_comoving_volume(x).value, self.GWevents[eventName].zmin,  self.GWevents[eventName].zmax)
-            _PcAv = np.trapz(Pcomp*cosmoglob.differential_comoving_volume(zGrid).value, zGrid)*self.GWevents[eventName].pixarea/vol
-            PcAv[eventName] = _PcAv
+            
+            if self.GWevents[eventName].selected_pixels.size==0:
+                #Pcomp=np.zeros(zGrid.shape)
+                PcAv[eventName] = 0.
+            else:
+                Pcomp = np.array([self.gals.total_completeness( *self.GWevents[eventName].find_theta_phi(self.GWevents[eventName].selected_pixels), z).sum() for z in zGrid])
+                vol = self.GWevents[eventName].area_rad*np.trapz(cosmoglob.differential_comoving_volume(zGrid).value, zGrid) #quad(lambda x: cosmoglob.differential_comoving_volume(x).value, self.GWevents[eventName].zmin,  self.GWevents[eventName].zmax)
+                _PcAv = np.trapz(Pcomp*cosmoglob.differential_comoving_volume(zGrid).value, zGrid)*self.GWevents[eventName].pixarea/vol
+                PcAv[eventName] = _PcAv
             
             
             _PEv = self.gals.total_completeness( *self.GWevents[eventName].find_event_coords(polarCoords=True), self.GWevents[eventName].zEv)
             PEv[eventName] = _PEv
             if self.verbose:
-                print('<P_compl> for %s = %s; Completeness at z_event: %s' %(eventName, np.round(_PcAv, 3), np.round(_PEv, 3)))        
+                print('<P_compl> for %s = %s; Completeness at z_event, Om_event: %s' %(eventName, np.round(_PcAv, 3), np.round(_PEv, 3)))        
         self.PcAv = PcAv
         self.PEv = PEv
         
