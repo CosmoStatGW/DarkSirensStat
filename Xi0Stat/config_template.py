@@ -56,6 +56,8 @@ H0max =    140
 ## Galaxy catalogue
 catalogue='GLADE'
 
+do_check_footprint=False
+
 
 ## Luminosity cut and band. 
 # Band should be None if we use number counts

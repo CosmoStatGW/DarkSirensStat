@@ -196,11 +196,12 @@ def main():
                     subset=subset, subset_names=subset_names, 
                     verbose=True, level = level, std_number=std_number, )#compressed=is_compressed)
     
-    fp_DES, fp_GWENS = check_footprint(allGW, observingRun, level=level)
-    print('DES coverage of GW events: fraction of %s %% credible region that falls into DES footprint' %str(100*level))
-    print(fp_DES)
-    print('GWENS coverage of GW events: fraction of %s %% credible region that falls into GWENS footprint' %str(100*level))
-    print(fp_GWENS)
+    if do_check_footprint:
+        fp_DES, fp_GWENS = check_footprint(allGW, observingRun, level=level)
+        print('DES coverage of GW events: fraction of %s %% credible region that falls into DES footprint' %str(100*level))
+        print(fp_DES)
+        print('GWENS coverage of GW events: fraction of %s %% credible region that falls into GWENS footprint' %str(100*level))
+        print(fp_GWENS)
     
     ###### 
     # Completeness
