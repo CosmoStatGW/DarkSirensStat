@@ -58,15 +58,45 @@ class BetaMC:#(Beta):
         H0s = np.atleast_1d(H0s)
         Xi0s = np.atleast_1d(Xi0s)
         
-        beta = np.ones((H0s.size, Xi0s.size))
+        nEvals = 100
         
-        for i in np.arange(H0s.size):
-            
-            for j in np.arange(Xi0s.size):
-                             
-                beta[i,j] = self.compute_at( H0=H0s[i], Xi0=Xi0s[j])
-                                
-        return np.squeeze(beta)
+        if H0s.size > 1:
+            grid = np.linspace(H0s[0]*0.9, H0s[-1]*1.1, nEvals)
+            x = H0s
+            betaarg = lambda i : grid[i], Xi0s[0]
+            assert(Xi0s.size==1)
+        else:
+            grid = np.linspace(Xi0s[0]*0.9, Xi0s[-1]*1.1, nEvals)
+            x = Xi0s
+            betaarg = lambda i : H0s[0], grid[i]
+        
+        
+        res = np.zeros(nEvals)
+        for i in range(nEvals):
+            res[i] = self.compute_at( *betaarg(i) )
+        
+        # localized cubic fit
+        from scipy.signal import savgol_filter
+        resfiltered = savgol_filter(res, 23, 3, deriv=0)
+        
+        # cubic interpolation to get requested values
+        from scipy import interpolate
+       
+    
+        interpolator = interpolate.interp1d(grid, resfiltered, kind='cubic')
+        
+        return interpolator(x)
+        
+#
+#        beta = np.ones((H0s.size, Xi0s.size))
+#
+#        for i in np.arange(H0s.size):
+#
+#            for j in np.arange(Xi0s.size):
+#
+#                beta[i,j] = self.compute_at( H0=H0s[i], Xi0=Xi0s[j])
+#
+#        return np.squeeze(beta)
     
     def compute_at(self, H0, Xi0, gamma=1.6, lamb=1, mBHmin=5, mBHmax=40):
 
@@ -147,7 +177,7 @@ class BetaMC:#(Beta):
         phisample = 2*np.pi*np.random.uniform(size=self.nSamples)
         #pdf is sin(theta), cdf is (1-cos(theta))/2, inverse cdf is arccos(1-2*x)
         # ----no, actually only need cos of these angles which are uniform as they should
-        #costhetasample = 0.1 -0.2*np.random.uniform(size=self.nSamples)
+        #TEST costhetasample = 0.1 -0.2*np.random.uniform(size=self.nSamples)
         costhetasample = 1-2*np.random.uniform(size=self.nSamples)
         tsample = np.random.uniform(size=self.nSamples)
         
@@ -188,7 +218,9 @@ class BetaMC:#(Beta):
         ## SELECTION ###############
        
         mask = (SNR > self.SNRthresh) #& (costhetasample < 0.1) & (costhetasample > -0.1)
-        mask = mask & (z_from_dLGW_fast(dist_true, H0=70, Xi0=1, n=nGlob) < 0.2) 
+        
+        ##### ADD MORE SELECTION HERE
+        #mask = mask & (z_from_dLGW_fast(dist_true, H0=70, Xi0=1, n=nGlob) < 0.2)
         
         SNR = SNR[mask]
         if self.verbose:
