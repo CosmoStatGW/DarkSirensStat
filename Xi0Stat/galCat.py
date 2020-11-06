@@ -63,6 +63,14 @@ class GalCat(ABC):
         if return_count:
             return self.selectedData.shape[0]
         
+    def select_completeness(self, EventSelector, completeness):
+        print('Cut in completeness with threshold P_complete>%s' %EventSelector.completnessThreshCentral)
+        r=dLGW(self.selectedData.z, EventSelector.H0, EventSelector.Xi0, EventSelector.n)
+        mask=EventSelector.is_good( self.selectedData.theta, self.selectedData.phi, r, completeness)
+        #print(mask)
+        self.selectedData = self.selectedData[mask]
+        print('%s galaxies kept' %self.selectedData.shape[0])
+        
     @abstractmethod
     def load(self):
         pass
@@ -230,7 +238,11 @@ class GalCompleted(object):
             counts.append(count)
         return counts
     
-
+    def select_completeness(self, EventSelector):
+        for c in self._galcats:
+            c.select_completeness(EventSelector, self.total_completeness)
+        
+        
     def get_inhom_contained(self, zGrid, nside):
         ''' return pixels : array N_galaxies
         

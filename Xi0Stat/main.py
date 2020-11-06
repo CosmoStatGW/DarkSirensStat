@@ -25,7 +25,9 @@ from GWgal import GWgal
 from betaHom import BetaHom
 from betaFit import BetaFit
 from betaMC import BetaMC
+from betaCat import BetaCat
 from pathlib import Path
+from eventSelector import EventSelector
 import json
 
 from plottingTools import plot_completeness, plot_post
@@ -120,22 +122,25 @@ def completeness_case(completeness, band, Lcut, path=None):
     return compl
 
 
-def beta_case(which_beta, allGW, lims, H0grid, Xi0grid):
+def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals):
     # 'fit', 'MC', 'hom', 'cat'
     
-    if which_beta in ('fit', 'MC'):
+    if which_beta in ('fit', 'MC', 'cat'):
         if which_beta=='fit':
             Beta = BetaFit(zR)
         elif which_beta=='MC':
             Beta = BetaMC(lims, nSamples=nMCSamplesBeta, observingRun = observingRun, SNRthresh = SNRthresh)
+        elif which_beta=='cat':
+            Beta=BetaCat(gals, galRedshiftErrors,  zR, EventSelector )
         beta = Beta.get_beta(H0grid, Xi0grid)
         betas = {event:beta for event in allGW}
-    elif which_beta in ('hom', 'cat'):
+    elif which_beta in ('hom', ):
         if which_beta=='hom':
             betas = {event: BetaHom( allGW[event].d_max(), zR).get_beta(H0grid, Xi0grid) for event in allGW.keys()}
             #Beta = BetaHom( dMax, zR)
-        elif which_beta=='cat':
-            raise NotImplementedError('Beta from catalogue is not supported for the moment. ')
+        #elif which_beta=='cat':
+            #betas = {event: BetaCat(gals, galRedshiftErrors,  EventSelector ).get_beta(allGW[event], H0grid, Xi0grid) for event in allGW.keys()}
+            #raise NotImplementedError('Beta from catalogue is not supported for the moment. ')
     else:
         raise ValueError('Enter a valid value for which_beta. Valid options are: fit, MC, hom, cat')
     return betas
@@ -155,6 +160,17 @@ def get_norm_posterior(lik_inhom,lik_hom, beta, grid):
 def main():
     
     in_time=time.time()
+    
+    # Consistency checks
+    if which_beta == 'fit' and completionType != 'add':
+        raise ValueError('Beta from fit is obtained from homogeneous completion. Using non-homogeneous completion gives non-consistent results')
+    if which_beta == 'cat' and completionType != 'mult':
+        raise ValueError('Beta from catalogue is implemented only for multiplicative completion. Use beta=fit or beta=MC for multiplicative')
+    if completnessThreshCentral>0. and ( which_beta == 'fit' or which_beta == 'hom') :
+        print('completnessThreshCentral is larger than zero but beta %s is used. This beta does not take into account completeness threshold. You may be fine with this, but be aare that the result could be inconsistent.' %which_beta)
+    if completnessThreshCentral>0. and which_beta == 'MC':
+        print('completnessThreshCentral is larger than zero, be sure that beta MC is implementing the completeness threshold.')
+    
     
     # St out path and create out directory
     out_path=os.path.join(dirName, 'results', fout)
@@ -226,7 +242,7 @@ def main():
         #if fastglade:
         #    cat = GLADE('GLADE', compl, useDirac=False, finalData='posteriorglade.csv', verbose=True, band=band, Lcut=Lcut)
         #else:
-        cat = GLADE('GLADE', compl, useDirac, band=band, Lcut=Lcut, verbose=True,
+        cat = GLADE(catalogue, compl, useDirac, band=band, Lcut=Lcut, verbose=True,
               galPosterior=galPosterior, band_weight=band_weight)
         
     elif catalogue == 'GWENS':
@@ -244,14 +260,16 @@ def main():
         plot_completeness(out_path, allGW, cat)
     
     
+    eSelector = EventSelector(completnessThreshCentral)
+    
     ###### 
     # GWgal
     ######
-    myGWgal = GWgal(gals, allGW, MC=MChom, nHomSamples=nHomSamples, verbose=True, galRedshiftErrors=galRedshiftErrors, zR=zR)
-    myGWgal._select_events(completnessThreshAvg=completnessThreshAvg, completnessThreshCentral=completnessThreshCentral)
+    myGWgal = GWgal(gals, allGW, eSelector, 
+                    MC=MChom, nHomSamples=nHomSamples, 
+                    verbose=True, galRedshiftErrors=galRedshiftErrors, zR=zR)
+    #myGWgal._select_events(completnessThreshAvg=completnessThreshAvg, completnessThreshCentral=completnessThreshCentral)
     
-    #if plot_comp:
-    #    plot_completeness(out_path, myGWgal.selectedGWevents, cat)
     
     ###### 
     # Grids
@@ -272,7 +290,7 @@ def main():
     ######
     if do_inference:
         print('\n-----  COMPUTING BETAS ....')
-        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid)
+        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, eSelector, gals) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
         for event in myGWgal.selectedGWevents:
             betaPath =os.path.join(out_path, event+'_beta'+goalParam+'.txt')
             np.savetxt(betaPath, betas[event])

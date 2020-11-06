@@ -9,7 +9,10 @@ from globals import *
 
 class BetaMC:#(Beta):
     
-    def __init__(self, priorlimits, nSamples=1000000, observingRun = 'O2', SNRthresh = 8, properAnisotropy = True, selectionFunc = None, verbose=False, **kwargs):
+    def __init__(self, priorlimits, nSamples=1000000, 
+                 observingRun = 'O2', SNRthresh = 8, 
+                 properAnisotropy = True, selectionFunc = None, 
+                 verbose=False, **kwargs):
     
         self._properAnisotropy = properAnisotropy
         self._observingRun = observingRun

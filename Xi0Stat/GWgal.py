@@ -18,11 +18,13 @@ from copy import deepcopy
 class GWgal(object):
     
     def __init__(self, GalCompleted, GWevents, 
+                 EventSelector, 
                  MC = True, nHomSamples=1000, 
                  galRedshiftErrors = True, 
                  zR=zRglob,
                  verbose=False):
         
+        self.EventSelector=EventSelector
         self.gals = GalCompleted
         self.GWevents = GWevents
         self.selectedGWevents= deepcopy(GWevents)
@@ -37,6 +39,7 @@ class GWgal(object):
         
         
         self._get_avgPcompl()
+        self._select_events()
         
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
@@ -55,9 +58,10 @@ class GWgal(object):
         
         
     
-    def _select_events(self, completnessThreshAvg=0.01, completnessThreshCentral=0.1, ):
-        self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if ((self.PcAv[eventName] > completnessThreshAvg) | (self.PEv[eventName] > completnessThreshCentral))}
-        print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(completnessThreshAvg, completnessThreshCentral, str(list(self.selectedGWevents.keys()))))
+    def _select_events(self):
+        self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if self.EventSelector.is_good_event(self.GWevents[eventName], self.gals.total_completeness) }
+        #print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(completnessThreshAvg, completnessThreshCentral, str(list(self.selectedGWevents.keys()))))
+        print('Selected GW events: %s' %( str(list(self.selectedGWevents.keys()))))
     
     
     def select_gals(self):
@@ -66,10 +70,10 @@ class GWgal(object):
             self.select_gals_event(eventName)
     
     
-    def select_gals_event(self,eventName ):
+    def select_gals_event(self,eventName):
         self.gals.select_area(self.selectedGWevents[eventName].selected_pixels, self.selectedGWevents[eventName].nside)
         self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.selectedGWevents[eventName].get_z_lims(), return_count=True)
-        
+        self.gals.select_completeness(self.EventSelector)
     
     def _get_summary(self):
         
@@ -123,13 +127,14 @@ class GWgal(object):
     
     def get_lik(self, H0s, Xi0s, n=nGlob):
         '''
-        Computes likelihood with p_cat for all events
-        Returns dictionary {event_name: L_cat }
+        Computes likelihood for all events
+        Returns dictionary {event_name: L_cat, L_comp }
         '''
         ret = {}
         H0s = np.atleast_1d(H0s)
         Xi0s = np.atleast_1d(Xi0s)
         for eventName in self.selectedGWevents.keys():
+            print('-- %s' %eventName)
             
             #self.gals.select_area(self.selectedGWevents[eventName].selected_pixels, self.selectedGWevents[eventName].nside)
             #self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.selectedGWevents[eventName].get_z_lims(), return_count=True)
@@ -156,7 +161,7 @@ class GWgal(object):
     def _inhom_lik(self, eventName, H0, Xi0, n):
         '''
         Computes likelihood with p_cat for one event
-        Output: np array of dim (N. galaxies in 99% credible region, 1)
+        Output:
         '''
         
         if self._galRedshiftErrors:
@@ -169,9 +174,9 @@ class GWgal(object):
             
             pixels, weights = self.gals.get_inhom_contained(zGrid, self.selectedGWevents[eventName].nside )
             
-            skymap = self.selectedGWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
+            my_skymap = self.selectedGWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
          
-            LL = np.sum(skymap*weights)
+            #LL = np.sum(skymap*weights)
              
         else: # use Diracs
             
@@ -181,7 +186,7 @@ class GWgal(object):
             
             my_skymap = self.selectedGWevents[eventName].likelihood_px(rs, pixels)
             
-            LL = np.sum(my_skymap*weights)
+        LL = np.sum(my_skymap*weights)
         
         return LL
     
