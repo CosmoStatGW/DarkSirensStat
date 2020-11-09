@@ -20,6 +20,10 @@ detectorPath = os.path.join(baseGWPath, 'detectors')
 # CONSTANTS
 ###########################
 
+O2BNS = ('GW170817',)
+O3BNS = ()
+
+
 d0GlobO2=123 # d_0 of eq. 2.125 for O2, in Mpc
 
 zRglob = 0.5

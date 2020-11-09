@@ -6,16 +6,58 @@ Created on Fri Nov  6 12:36:19 2020
 @author: Michi
 """
 from globals import *
+from abc import ABC, abstractmethod
+
+class Selector(ABC):
+    
+    def __init__(self, completnessThreshCentral, completnessThreshAvg=0.,
+                 select_events=True, select_gals=False,):
+        self.completnessThreshCentral=completnessThreshCentral
+        self.completnessThreshAvg=completnessThreshAvg
+        self.select_events=select_events
+        self.select_gals=select_gals
+    
+    @abstractmethod
+    def is_good(self):
+        pass
+
+    @abstractmethod
+    def is_good_event(self):
+        pass
+
+
+
+class SkipSelection(Selector):
+    
+    def __init__(self):
+        completnessThreshCentral=0.
+        completnessThreshAvg=0.
+        select_events=False
+        select_gals=False
+        Selector.__init__(self, completnessThreshCentral, completnessThreshAvg=completnessThreshAvg, select_events=select_events, select_gals=select_gals)
+        
+    def is_good(self,  theta, phi, dist_true, completeness):
+        return np.repeat(True, theta.shape)
+    
+    def is_good_event(self, GWevent, completeness):
+        return True
 
 
 class EventSelector(object):
     
     
-    def __init__(self, completnessThreshCentral, completnessThreshAvg=0.,
+    def __init__(self, completnessThreshCentral, 
+                 completnessThreshAvg=0.,
+                 select_events=True, select_gals=False,
                  H0=None, Xi0=None, n=None):
         
-        self.completnessThreshCentral=completnessThreshCentral
-        self.completnessThreshAvg=completnessThreshAvg
+        #self.completnessThreshCentral=completnessThreshCentral
+        #self.completnessThreshAvg=completnessThreshAvg
+        Selector.__init__(self, completnessThreshCentral, completnessThreshAvg=completnessThreshAvg, select_events=select_events, select_gals=select_gals)
+        #self.select_events=select_events
+        #self.select_gals=select_gals
+        
+        
         if H0 is None:
             self.H0=H0GLOB
         else: self.H0=H0

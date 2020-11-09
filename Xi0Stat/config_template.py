@@ -12,77 +12,82 @@ from globals import H0GLOB, Xi0Glob
 ####################################
 
 
-##
+# --------------------------------------------------------------
+# INFERENCE SETUP
+# --------------------------------------------------------------
 do_inference=True
 
 ## Variable H0 or Xi0
 goalParam = 'H0'
 
-## Output file name
-fout = 'O3_GW190425_test'
+## Output folder name
+fout = 'O2_run1'
+
+## Prior limits
+Xi0min =  Xi0Glob # 0.1 #Xi0Glob
+Xi0max =  Xi0Glob # 10
+H0min =   20 # H0GLOB
+H0max =    140
 
 
 ## Number of points for posterior grid
 nPointsPosterior = 50
 
+verbose=True
+
+# --------------------------------------------------------------
+# GW DATA OPTIONS
+# --------------------------------------------------------------
+
 
 ## Select dataset : O2, O3
-observingRun = 'O3'
-# True if GW data are saved in .gz
-#is_compressed=True
+observingRun = 'O2'
+
+## Select BBH or BNS
+eventType='BBH'
 
 # How to select credible region in redshift
-zLimSelection='skymap' #header
+zLimSelection='header' #skymap
 
 ## Names of events to analyse. If None, all events in the folder will be used
-subset_names = ['GW190425',]# 'GW190620_030421']
-# GW170817
-# 'GW190814'
-#['GW170608', 'GW150914', 'GW170814', 'GW151226']
-#['GW151226', 'GW170818', 'GW170608', 'GW170814', 'GW170809', 'GW151012', 'GW170729', 'GW170104', 'GW170823', 'GW150914'] 
-
-## Threshold in average probability and prob. at position of the event
-completnessThreshAvg=0.01
-completnessThreshCentral=0.1
+subset_names =  None #['GW190425',]
 
 
-## Prior limits
-Xi0min =  Xi0Glob #0.1 #Xi0Glob
-Xi0max =  Xi0Glob #10
-H0min =   40 #H0GLOB
-H0max =    140
+## Select events based on completeness at the nominal position
+select_events=True
 
+## Threshold in probability at position of the event, for event selection
+completnessThreshCentral=0.4
+
+# THIS IS NOT USED FOR THE MOMENT!
+# completnessThreshAvg=0.01
+
+## Confidence region for GW skymaps
+level = 0.99
+std_number=3 # if none, it is computed from level
+
+
+# --------------------------------------------------------------
+# GALAXY CATALOGUE OPTIONS
+# --------------------------------------------------------------
 
 ## Galaxy catalogue
 catalogue='GLADE'
 
+# Check if events fall in DES or GWENS footprint
 do_check_footprint=False
 
 
 ## Luminosity cut and band. 
 # Band should be None if we use number counts
 Lcut=0.6
-#Band for lum cut
+# Band for lum cut
 band='B' #'B' # B, K, or None . 
+# Average galaxy density in comoving volume, used if band='None'
 Nbar = 0.1
-#Band for lum weights
+# Band for lum weights
 band_weight ='B' #'B' # B, K, or None . 
 
-
-## Confidence region for GW skymaps
-level = 0.99
-std_number=3 # if none, it is computed from level
-
-## Completeness. 'load', 'pixel', 'mask', 'skip'
-completeness = 'load'
-# path of completeness file if completeness='load'
-completeness_path = 'hpx_B_zmin0p01_zmax0p25_nside32_npoints25.txt'
-# Options for SuperPixelCompleteness
-angularRes, zRes, interpolateOmega = 4, 50, False
-# nMasks for mask completeness
-nMasks = 2
-#
-plot_comp=True
 
 
 ## Use of galaxy redshift errors
@@ -90,23 +95,49 @@ galRedshiftErrors = True
 
 ## Use of galaxy posteriors
 galPosterior = True
-# Use dirac deltas to compute compleness and gaalxy posteriors
+# Use dirac deltas to compute compleness and galaxy posteriors
 useDirac=False
 
 
-## Type of completion: 'mult' , 'add' . Default is mixed
+## Select galaxies based on completeness in their pixel. 
+# Choice should be coherent with  select_events
+# The threshold in probability is completnessThreshCentral
+select_gals=False
+
+
+# --------------------------------------------------------------
+# COMPLETENESS AND COMPLETION OPTIONS
+# --------------------------------------------------------------
+
+## Completeness. 'load', 'pixel', 'mask', 'skip'
+completeness = 'load'
+# path of completeness file if completeness='load'
+completeness_path = 'hpx_B_zmin0p01_zmax0p25_nside32_npoints25.txt'
+# Options for SuperPixelCompleteness
+angularRes, zRes, interpolateOmega = 4, 50, False
+# nMasks for mask completeness. 2 for DES/GWENS, >5 for GLADE
+nMasks = 2
+#
+plot_comp=False
+
+
+## Type of completion: 'mult' , 'add' . If None, completionType is mixed
 completionType = 'add'
 # Use MC integration or not in the computation of additive completion
-MChom=False
+MChom=True
 # N. of homogeneous MC samples
 nHomSamples=10000
 
 
 
+# --------------------------------------------------------------
+# BETA OPTIONS
+# --------------------------------------------------------------
+
 ## Which beta to use. 'fit', 'MC', 'hom', 'cat'
 which_beta = 'fit'
 # Max redshift  of the region R,  if beta is 'fit'
-zR = 0.5
+zR = 10
 # n of MC samples for beta MC
 nMCSamplesBeta = 1000000
 SNRthresh=8

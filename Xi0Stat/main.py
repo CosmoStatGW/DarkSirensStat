@@ -66,11 +66,11 @@ def check_footprint(allGw, observingRun, subset=False, DES=True, GWENS=True):
         fp_GWENS={}
         if get_DES:
             DES_fp_path = os.path.join(dirName, 'data', 'DES', 'y1a1_gold_1.0.2_wide_footprint_4096.fits')
-            DES_fp = hp.read_map(DES_fp_path,field=[0],verbose=False)
+            DES_fp = hp.read_map(DES_fp_path,field=[0],verbose=verbose)
         
         if get_GWENS:
             GWENS_fp_path = os.path.join(dirName, 'data', 'GWENS', 'GWENS.footprint_1024.fits')
-            GWENS_fp = hp.read_map(GWENS_fp_path,field=[0],verbose=False)
+            GWENS_fp = hp.read_map(GWENS_fp_path,field=[0],verbose=verbose)
         
         for eventName in allGw.keys():
             sm_pxs = allGw[eventName].get_credible_region_pixels()
@@ -167,10 +167,21 @@ def main():
     if which_beta == 'cat' and completionType != 'mult':
         raise ValueError('Beta from catalogue is implemented only for multiplicative completion. Use beta=fit or beta=MC for multiplicative')
     if completnessThreshCentral>0. and ( which_beta == 'fit' or which_beta == 'hom') :
-        print('completnessThreshCentral is larger than zero but beta %s is used. This beta does not take into account completeness threshold. You may be fine with this, but be aare that the result could be inconsistent.' %which_beta)
+        print('\n!!!! completnessThreshCentral is larger than zero but beta %s is used. This beta does not take into account completeness threshold. You may be fine with this, but be aware that the result could be inconsistent.\n' %which_beta)
     if completnessThreshCentral>0. and which_beta == 'MC':
         print('completnessThreshCentral is larger than zero, be sure that beta MC is implementing the completeness threshold.')
     
+    if select_gals is True and select_events is False:
+        raise ValueError('Selecting galaxies with threshold in probability, but not selecting events. This is inconsistent.')
+        
+    if band_weight is not None:
+        if band_weight!=band:
+            raise ValueError('Band used for selection and band used for luminosity weighting should be the same ! ')
+    
+    if completeness=='load':
+        comp_band_loaded=completeness_path.split('_')[1]
+        if comp_band_loaded!=band:
+            raise ValueError('Band used for cut does not match loaded file. Got band=%s but completeness file is %s' %(band, completeness_path))
     
     # St out path and create out directory
     out_path=os.path.join(dirName, 'results', fout)
@@ -208,9 +219,10 @@ def main():
     else: subset=True
     
     allGW = get_all_events(loc=data_loc,
+                           eventType=eventType,
                     priorlimits=lims ,
                     subset=subset, subset_names=subset_names, 
-                    verbose=True, level = level, std_number=std_number, )#compressed=is_compressed)
+                    verbose=verbose, level = level, std_number=std_number, )#compressed=is_compressed)
     
     if do_check_footprint:
         fp_DES, fp_GWENS = check_footprint(allGW, observingRun, level=level)
@@ -218,6 +230,8 @@ def main():
         print(fp_DES)
         print('GWENS coverage of GW events: fraction of %s %% credible region that falls into GWENS footprint' %str(100*level))
         print(fp_GWENS)
+    
+    print('Done.')
     
     ###### 
     # Completeness
@@ -239,17 +253,14 @@ def main():
     
     if catalogue in ('GLADE', 'MINIGLADE'):
     
-        #if fastglade:
-        #    cat = GLADE('GLADE', compl, useDirac=False, finalData='posteriorglade.csv', verbose=True, band=band, Lcut=Lcut)
-        #else:
-        cat = GLADE(catalogue, compl, useDirac, band=band, Lcut=Lcut, verbose=True,
+        cat = GLADE(catalogue, compl, useDirac, band=band, Lcut=Lcut, verbose=verbose,
               galPosterior=galPosterior, band_weight=band_weight)
         
     elif catalogue == 'GWENS':
-        cat = GWENS('GWENS', compl, useDirac, verbose=True)
+        cat = GWENS('GWENS', compl, useDirac, verbose=verbose)
 
     elif catalogue == 'DES':
-        cat = DES('DES', compl, useDirac, verbose=True)
+        cat = DES('DES', compl, useDirac, verbose=verbose)
 
     else:
         raise NotImplementedError('Galaxy catalogues other than GLADE, GWENS or DES are not supported for the moment. ')
@@ -257,17 +268,18 @@ def main():
     gals.add_cat(cat)
     
     if plot_comp:
-        plot_completeness(out_path, allGW, cat)
+        plot_completeness(out_path, allGW, cat, verbose=verbose)
     
+    print('Done.')
     
-    eSelector = EventSelector(completnessThreshCentral)
+    eSelector = EventSelector(completnessThreshCentral, select_events=select_events, select_gals=select_gals)
     
     ###### 
     # GWgal
     ######
     myGWgal = GWgal(gals, allGW, eSelector, 
                     MC=MChom, nHomSamples=nHomSamples, 
-                    verbose=True, galRedshiftErrors=galRedshiftErrors, zR=zR)
+                    verbose=verbose, galRedshiftErrors=galRedshiftErrors, zR=zR)
     #myGWgal._select_events(completnessThreshAvg=completnessThreshAvg, completnessThreshCentral=completnessThreshCentral)
     
     

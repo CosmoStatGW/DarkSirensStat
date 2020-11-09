@@ -55,14 +55,16 @@ class GWgal(object):
         #        print(event)
     
     
-        
-        
-    
     def _select_events(self):
-        self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if self.EventSelector.is_good_event(self.GWevents[eventName], self.gals.total_completeness) }
+        if self.EventSelector.select_events:
+            self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if self.EventSelector.is_good_event(self.GWevents[eventName], self.gals.total_completeness) }
         #print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(completnessThreshAvg, completnessThreshCentral, str(list(self.selectedGWevents.keys()))))
-        print('Selected GW events: %s' %( str(list(self.selectedGWevents.keys()))))
-    
+            if self.verbose:
+                print('Selected GW events: %s' %( str(list(self.selectedGWevents.keys()))))
+        else:
+            if self.verbose:
+                print('No selection ion GW events.')
+            self.selectedGWevents = self.GWevents
     
     def select_gals(self):
         #self.nGals={}
@@ -119,7 +121,7 @@ class GWgal(object):
             _PEv = self.gals.total_completeness( *self.GWevents[eventName].find_event_coords(polarCoords=True), self.GWevents[eventName].zEv)
             PEv[eventName] = _PEv
             if self.verbose:
-                print('<P_compl> for %s = %s; Completeness at z_event, Om_event: %s' %(eventName, np.round(_PcAv, 3), np.round(_PEv, 3)))        
+                print('<P_compl> for %s = %s; Completeness at (z_event, Om_event): %s' %(eventName, np.round(_PcAv, 3), np.round(_PEv, 3)))        
         self.PcAv = PcAv
         self.PEv = PEv
         
@@ -134,7 +136,8 @@ class GWgal(object):
         H0s = np.atleast_1d(H0s)
         Xi0s = np.atleast_1d(Xi0s)
         for eventName in self.selectedGWevents.keys():
-            print('-- %s' %eventName)
+            if self.verbose:
+                print('-- %s' %eventName)
             
             #self.gals.select_area(self.selectedGWevents[eventName].selected_pixels, self.selectedGWevents[eventName].nside)
             #self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.selectedGWevents[eventName].get_z_lims(), return_count=True)

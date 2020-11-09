@@ -45,7 +45,8 @@ class GalCat(ABC):
         return self.selectedData
         
     def select_area(self, pixels, nside):
-        print("Restricting area of the catalogue to %s pixels with nside=%s" %(pixels.shape[0], nside))
+        if self.verbose:
+            print("Restricting area of the catalogue to %s pixels with nside=%s" %(pixels.shape[0], nside))
         pixname = "pix" + str(nside)
         
         if not pixname in self.data:
@@ -54,22 +55,31 @@ class GalCat(ABC):
         mask = self.data.isin({pixname: pixels}).any(1)
 
         self.selectedData = self.data[mask]
-        print('%s galaxies kept' %self.selectedData.shape[0])
+        if self.verbose:
+            print('%s galaxies kept' %self.selectedData.shape[0])
         
     def set_z_range_for_selection(self, zMin, zMax, return_count=False):
-        print("Setting z range of the catalogue between %s, %s" %(np.round(zMin,3), np.round(zMax,3)))
+        if self.verbose:
+            print("Setting z range of the catalogue between %s, %s" %(np.round(zMin,3), np.round(zMax,3)))
         self.selectedData = self.selectedData[(self.selectedData.z >= zMin) & (self.selectedData.z < zMax)]
-        print('%s galaxies kept' %self.selectedData.shape[0])
+        if self.verbose:
+            print('%s galaxies kept' %self.selectedData.shape[0])
         if return_count:
             return self.selectedData.shape[0]
         
     def select_completeness(self, EventSelector, completeness):
-        print('Cut in completeness with threshold P_complete>%s' %EventSelector.completnessThreshCentral)
-        r=dLGW(self.selectedData.z, EventSelector.H0, EventSelector.Xi0, EventSelector.n)
-        mask=EventSelector.is_good( self.selectedData.theta, self.selectedData.phi, r, completeness)
-        #print(mask)
-        self.selectedData = self.selectedData[mask]
-        print('%s galaxies kept' %self.selectedData.shape[0])
+        if EventSelector.select_gals:
+            if self.verbose:
+                print('Cut in completeness with threshold P_complete>%s' %EventSelector.completnessThreshCentral)
+            r=dLGW(self.selectedData.z, EventSelector.H0, EventSelector.Xi0, EventSelector.n)
+            mask=EventSelector.is_good( self.selectedData.theta, self.selectedData.phi, r, completeness)
+            #print(mask)
+            self.selectedData = self.selectedData[mask]
+            if self.verbose:
+                print('%s galaxies kept' %self.selectedData.shape[0])
+        else:
+            if self.verbose:    
+                print('No selection of galaxies based on completeness.')
         
     @abstractmethod
     def load(self):
