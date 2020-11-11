@@ -209,7 +209,7 @@ class SuperpixelCompleteness(Completeness):
         # however, if all enries are False, argmax returns 0, which would be the largest redshift, while we want 0 in that case
         self._zstar = np.where(idx == 0, 0, zFine[idx])
         if self.verbose:
-            print('Done.')
+            print('Completeness done.')
 
     # z is a number
     def get_at_z_implementation(self, theta, phi, z):
@@ -425,7 +425,10 @@ class MaskCompleteness(Completeness):
                 return np.sum(weights * batch.w[:, np.newaxis], axis=0)
                 
         coarseden = []  
-        nBatches = 4000
+        nBatches = int(30.*len(galdata)/1000000.)
+        if self.verbose:
+            print('Batch number: ' + str(nBatches))
+            
         for i in np.arange(self._nMasks):   
             coarseden.append(sum(parmap(lambda b : g(gr, maskId=i, batchId=b, nBatches=nBatches), range(nBatches))))
        
@@ -480,7 +483,7 @@ class MaskCompleteness(Completeness):
         self._zstar = np.array(self._zstar)
 
         if self.verbose:
-            print('Done.')
+            print('Completeness done.')
         
         
         
@@ -642,4 +645,4 @@ class LoadCompleteness(SuperpixelCompleteness):
         self._zstar = np.where(idx == 0, 0, zFine[idx])
         #print(self._zstar[:5])
         if self.verbose:
-            print('Done.')
+            print('Completeness done.')

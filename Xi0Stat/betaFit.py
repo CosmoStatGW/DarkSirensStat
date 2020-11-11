@@ -53,16 +53,3 @@ class BetaFit(Beta):
         return num/norm
       
     
-def BB(dL, gamma=gammaGlob, d0=d0GlobO2):
-    #print('gamma BB: %s' %gamma)
-    #print('d0 BB: %s' %d0)
-    a0, a1 = get_as(gamma)
-    Bfit = np.exp(-a0*(dL-d0)/d0-a1*((dL-d0)/d0)**2)
-        
-    return np.where(dL<=d0, 1, Bfit)
-
-
-def get_as(gamma):
-    a0= (5.21+9.55*gamma+3.47*gamma**2)*1e-02
-    a1=(7.37-0.72*gamma)*1e-02
-    return a0, a1

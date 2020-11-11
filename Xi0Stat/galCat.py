@@ -45,7 +45,8 @@ class GalCat(ABC):
         return self.selectedData
         
     def select_area(self, pixels, nside):
-        print("Restricting area of the catalogue to %s pixels with nside=%s" %(pixels.shape[0], nside))
+        if self.verbose:
+            print("Restricting area of the catalogue to %s pixels with nside=%s" %(pixels.shape[0], nside))
         pixname = "pix" + str(nside)
         
         if not pixname in self.data:
@@ -54,14 +55,18 @@ class GalCat(ABC):
         mask = self.data.isin({pixname: pixels}).any(1)
 
         self.selectedData = self.data[mask]
-        print('%s galaxies kept' %self.selectedData.shape[0])
+        if self.verbose:
+            print('%s galaxies kept' %self.selectedData.shape[0])
         
-    def set_z_range_for_selection(self, zMin, zMax, return_count=False):
-        print("Setting z range of the catalogue between %s, %s" %(np.round(zMin,3), np.round(zMax,3)))
+    def set_z_range_for_selection(self, zMin, zMax):
+        if self.verbose:
+            print("Setting z range of the catalogue between %s, %s" %(np.round(zMin,3), np.round(zMax,3)))
         self.selectedData = self.selectedData[(self.selectedData.z >= zMin) & (self.selectedData.z < zMax)]
-        print('%s galaxies kept' %self.selectedData.shape[0])
-        if return_count:
-            return self.selectedData.shape[0]
+        if self.verbose:
+            print('%s galaxies kept' %self.selectedData.shape[0])
+            
+    def count_selection(self):
+        return self.selectedData.shape[0]
         
     @abstractmethod
     def load(self):
@@ -223,13 +228,12 @@ class GalCompleted(object):
         for c in self._galcats:
             c.select_area(pixels, nside)
             
-    def set_z_range_for_selection(self, zMin, zMax, return_count=False):
-        counts=[]
+    def set_z_range_for_selection(self, zMin, zMax):
         for c in self._galcats:
-            count = c.set_z_range_for_selection(zMin, zMax, return_count=return_count)
-            counts.append(count)
-        return counts
-    
+            c.set_z_range_for_selection(zMin, zMax)
+            
+    def count_selection(self):
+        return [c.count_selection() for c in self._galcats]
 
     def get_inhom_contained(self, zGrid, nside):
         ''' return pixels : array N_galaxies

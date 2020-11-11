@@ -82,12 +82,7 @@ class Skymap3D(object):
     def _read_O3(self, fname, convert_nested=True):
         
         skymap, metadata = fits.read_sky_map(fname, nest=None, distances=True) #Read the skymap
-        if len(fname.split('/')[-1].split('_')) == 2:    #Same as before since certain names contain a "_"
-            self.event_name = fname.split('/')[-1].split('_')[0]
-        elif len(fname.split('/')[-1].split('_')) == 3:
-            self.event_name = fname.split('/')[-1].split('_')[0]+'_'+fname.split('/')[-1].split('_')[1]
-        else:
-            raise ValueError('Could not set event name. Got fname= %s'%fname)
+        self.event_name = get_ename(fname, verbose=self.verbose)
         if self.verbose:
                 print('\nEvent: %s' %self.event_name)
         if (convert_nested) & (metadata['nest']): #If one wants RING ordering (the one of O2 data afaik) just has to set "convert_nested" to True
@@ -113,17 +108,18 @@ class Skymap3D(object):
                  
         except IndexError:
             print('No parameters for 3D gaussian likelihood')
-            smap = hp.read_map(fname, nest=nest, verbose=False)
+            smap = hp.read_map(fname, nest=self.nest, verbose=False)
             header=None
         
-        try:
-            self.event_name=dict(header)['OBJECT']
-            if self.verbose:
-                print('\nEvent: %s' %self.event_name)
-        except KeyError:
-            ename = fname.split('/')[-1].split('.')[0].split('_')[0]
-            print('No event name in header for this event. Using name provided with filename %s ' %ename)
-            self.event_name = ename
+        self.event_name = get_ename(fname, verbose=self.verbose)
+        #try:
+        #    self.event_name=dict(header)['OBJECT']
+        #    if self.verbose:
+        #        print('\nEvent: %s' %self.event_name)
+        #except KeyError:
+        #    ename = fname.split('/')[-1].split('.')[0].split('_')[0]
+        #    print('No event name in header for this event. Using name provided with filename %s ' %ename)
+        #    self.event_name = ename
         
         self.p_posterior=smap[0]
         self.mu=smap[1]
@@ -462,18 +458,20 @@ class Skymap3D(object):
         if self.zLimSelection=='skymap':
             if verbose:
                 print('DL range computed from skymap')
-            return self._find_r_loc(std_number=std_number)
+            return self._find_r_loc(std_number=std_number, verbose=verbose)
         else:
             if verbose:
                 print('DL range computed from header')
-            return self._metadata_r_lims(std_number=std_number)
+            return self._metadata_r_lims(std_number=std_number, verbose=verbose)
         
     
-    def _find_r_loc(self, std_number=None):
+    def _find_r_loc(self, std_number=None, verbose=None):
         '''
         Returns mean GW lum. distance, lower and upper limits of distance, and the mean sigma.
         Based on actual skymap shape in the selected credible region, not metadata.
         '''
+        if verbose is None:
+            verbose=self.verbose
         if std_number is None:
             std_number=self.std_number
         mu = self.mu[self.selected_pixels]
@@ -484,16 +482,18 @@ class Skymap3D(object):
         meansig = np.average(sigma, weights = p)
         lower = max(np.average(mu-std_number*sigma, weights = p), 0)
         upper = np.average(mu+std_number*sigma, weights = p)
-        if self.verbose:
+        if verbose:
             print('Position: %s +%s %s'%(meanmu, upper, lower))
         
         return meanmu, lower, upper, meansig
         
     
-    def _metadata_r_lims(self, std_number=None):
+    def _metadata_r_lims(self, std_number=None, verbose=None):
         '''
         "Official" limits based on metadata - independent of selected credible region
         '''
+        if verbose is None:
+            verbose=self.verbose
         if std_number is None:
             std_number=self.std_number
         mean = np.float(dict(self.head)['DISTMEAN'])
@@ -501,7 +501,7 @@ class Skymap3D(object):
         
         lower = max(mean-std_number*std,0)
         upper=mean+std_number*std
-        if self.verbose:
+        if verbose:
             print('Position: %s +%s %s'%(mean, upper, lower))
         meanmu = map_val
         meansig = up_lim
@@ -556,18 +556,36 @@ class Skymap3D(object):
 
 def get_all_events(priorlimits, loc='data/GW/O2/', 
                    wf_model_name='PublicationSamples',
+                   eventType='BBH',
                    subset=False, 
-                   subset_names=['GW170817',],
+                   subset_names=['GW150914',],
                    verbose=False, **kwargs
                ):
+    
+    if subset_names is not None:
+        if eventType=='BBH' and 'GW170817' in subset_names:
+                raise ValueError('Selected event type is BBH but GW170817 is included in subset_names. This event is a BNS. Check your prefereneces')
     
     if 'O2' in loc.split('/'):
         run='O2'
         sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and  ('skymap' in f) )]
+        if eventType=='BBH':
+            for BNSname in O2BNS:
+                sm_files = [f for f in sm_files if BNSname not in f]
+        else:
+            for BNSname in O2BNS:
+                sm_files = [f for f in sm_files if BNSname in f]
         ev_names = [fname.split('_')[0]  for fname in sm_files]
+            
     elif 'O3' in loc.split('/'):
         run='O3'
         sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and (wf_model_name+'.fits' in f.split('_')) )]
+        if eventType=='BBH':
+            for BNSname in O3BNS:
+                sm_files = [f for f in sm_files if BNSname not in f]
+        else:
+            for BNSname in O3BNS:
+                sm_files = [f for f in sm_files if BNSname in f]
         ev_names = [] #Initialize array
         #Event names could display the time separated by a "_", for this reason the next two if are necessary
         #Maybe this is not the best way, but it works and is fast
@@ -582,6 +600,7 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
     
     if verbose:
         print('GW observing run: %s' %run)
+        print('Type of events used: %s' %eventType)
         print('Found %s skymaps: %s' %(len(sm_files), str(ev_names)))
     
     if sum([fname.endswith('.gz') for fname in sm_files])==len(sm_files):
@@ -592,6 +611,7 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
     if subset:
         ev_names = [e for e in ev_names if e in subset_names]
         if run=='O2':
+
             if compressed:
                 sm_files = [e+'_skymap.fits.gz' for e in ev_names]
             else:
@@ -601,42 +621,26 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
                 sm_files = [e+'_'+wf_model_name+'.fits.gz' for e in ev_names]
             else:
                 sm_files = [e+'_'+wf_model_name+'.fits' for e in ev_names]
+    
+    
     if verbose:
         #print('GW events:')
         #print(ev_names)
         print('Reading skymaps: %s...' %str(ev_names))
-        all_events = {fname.split('_')[0]: Skymap3D(os.path.join(dirName,loc,fname), priorlimits=priorlimits, nest=False, verbose=verbose, **kwargs) for fname in sm_files}
-
-    return all_events
-
-
-
-
-def get_all_events_1(priorlimits, loc='data/GW/O2/', 
-                   wf_model_name='PublicationSamples',
-                   subset=False, 
-                   subset_names=['GW170817',],
-                   verbose=False, **kwargs
-               ):
-    '''
-    Returns dictionary with all skymaps in the folder loc.
-    If subset=True, gives skymaps only for the event specified by subset_names
-    
-    '''
-
-    
-    sm_files, ev_names, compressed = get_file_list(loc, verbose=verbose)
-    
-    if subset:
-        ev_names = [e for e in ev_names if e in subset_names]
-        if compressed:
-            sm_files = [e+'.fits.gz' for e in ev_names]
-        else:
-            sm_files = [e+'.fits' for e in ev_names]
-    if verbose:
-        #print('GW events:')
-        #print(ev_names)
-        print('Reading skymaps: %s...' %str(sm_files))
     all_events = {fname.split('_')[0]: Skymap3D(os.path.join(dirName,loc,fname), priorlimits=priorlimits, nest=False, verbose=verbose, **kwargs) for fname in sm_files}
+
     return all_events
-    
+
+
+
+def get_ename(fname, verbose=True):
+
+        if len(fname.split('/')[-1].split('_')) <= 2:    #Same as before since certain names contain a "_"
+            event_name = fname.split('/')[-1].split('_')[0]
+        elif len(fname.split('/')[-1].split('_')) == 3:
+            event_name = fname.split('/')[-1].split('_')[0]+'_'+fname.split('/')[-1].split('_')[1]
+        else:
+            raise ValueError('Could not set event name. Got fname= %s'%fname)
+        if verbose:
+            print('-- %s' %event_name)
+        return event_name

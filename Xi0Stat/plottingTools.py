@@ -14,11 +14,13 @@ import numpy as np
 import os
 
 
-def plot_completeness(base_path, allGW, catalogue):
+def plot_completeness(base_path, allGW, catalogue, verbose=True):
     c_path = os.path.join(base_path, 'completeness')
     if not os.path.exists(c_path):
-        print('Creating directory %s' %c_path)
+        if verbose:
+            print('Creating directory %s' %c_path)
         os.makedirs(c_path)
+    #if verbose:
     print('Plotting completeness...')
     for key, ev in allGW.items():
         plt.figure(figsize=(20,10))
@@ -51,7 +53,7 @@ def plot_completeness(base_path, allGW, catalogue):
         plt.xlabel('z', fontsize=20)
         plt.ylabel(r'$P_{complete}(z)$', fontsize=20)
         plt.savefig(os.path.join(c_path, key+'_completeness.pdf'))
-    
+    #if verbose:
     print('Done.')
     #plt.show()
     
@@ -61,6 +63,7 @@ def plot_completeness(base_path, allGW, catalogue):
 def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
               band,Lcut,zR,
               myMin=20, myMax=140, 
+              yMin=0, yMax=0.025,
               varname='H0',):
     
     # post[event]:  posterior, already normalized, already divided by beta
@@ -92,21 +95,31 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
             post_compl['total']=total_post_compl/norma_compl
     
     fig, ax = plt.subplots(1, figsize=(12,6))
-    for event in event_list:
+    ax.tick_params(axis='both', which='major', labelsize=14)
+    ax.tick_params(axis='both', which='minor', labelsize=14)
+    ax.yaxis.get_offset_text().set_fontsize(14)
+    
+    #colormap = plt.cm.gist_ncar
+    #colors = [plt.cm.Set1(i) for i in np.linspace(0, 1,len(event_list))]
+    
+    
+    for i, event in enumerate(event_list):
         post_grid=post[event]
-        ax.plot(grid, post_grid, label = '{}'.format(event) ) 
+        ax.plot(grid, post_grid, label = '{}'.format(event)) #color=colors[i]) 
         if test_cat_compl:
             post_grid=post_cat[event]
-            ax.plot(grid,post_grid, linestyle='dashed', label = '{}, cat'.format(event) ) 
+            ax.plot(grid,post_grid, linestyle='--', dashes=(5,5), label = '{}, cat'.format(event), alpha=0.5, linewidth=0.9) 
             post_grid=post_compl[event]
-            ax.plot(grid,post_grid, linestyle='dashed', label = '{}, compl'.format(event) ) 
+            ax.plot(grid,post_grid, linestyle='--', dashes=(2,5), label = '{}, compl'.format(event),   alpha=0.5, linewidth=0.9) 
 
     if (len(event_list)>1):
-        ax.plot(grid,post['total'],'k', label = '{}'.format('total') )  
+        ax.plot(grid,post['total'],'k', label = '{}'.format('total'), linewidth=3 )  
     
     ax.plot(grid, np.repeat(1/(grid.max()-grid.min()),grid.shape[0] ), linestyle='dashdot',color='black', alpha=0.3,label = 'prior' )   
     ax.grid(linestyle='dotted', linewidth='0.6')
     ax.set_xlim(myMin, myMax)
+    #ax.set_ylim(yMin, yMax)
+    
     if varname=='Xi0':
         ax.set_xlabel(r'$\Xi_0$', fontsize=20);
         ax.set_ylabel(r'$p(\Xi_0)$', fontsize=20);
@@ -119,7 +132,7 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
     else:
         ax.set_title('{} band, $L/L_* > $ {}'.format(band,Lcut), fontsize=20)
     
-    fig.savefig(os.path.join(base_path, 'posterior.pdf'))
+    plt.savefig(os.path.join(base_path, 'posterior.pdf'))
     
     
     #plt.show()

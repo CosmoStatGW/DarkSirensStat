@@ -18,11 +18,13 @@ from copy import deepcopy
 class GWgal(object):
     
     def __init__(self, GalCompleted, GWevents, 
+                 eventSelector,
                  MC = True, nHomSamples=1000, 
                  galRedshiftErrors = True, 
                  zR=zRglob,
                  verbose=False):
         
+        self.eventSelector=eventSelector
         self.gals = GalCompleted
         self.GWevents = GWevents
         self.selectedGWevents= deepcopy(GWevents)
@@ -33,10 +35,15 @@ class GWgal(object):
         self.nHomSamples = nHomSamples
         self.MC=MC
         self.zR=zR
-        self._get_avgPcompl()
         self.nGals={}
         
         
+        self._get_avgPcompl()
+        self._select_events()
+        
+        for eventName in GWevents.keys():
+            self.select_gals_event(eventName)
+            self.nGals[eventName] = self.gals.count_selection()
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
         # and a dictionary {'GW event': 'name of the catalogue to use'}
@@ -51,21 +58,17 @@ class GWgal(object):
         #        print(event)
     
     
-    def _select_events(self, completnessThreshAvg=0.01, completnessThreshCentral=0.1, ):
-        self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if ((self.PcAv[eventName] > completnessThreshAvg) | (self.PEv[eventName] > completnessThreshCentral))}
-        print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(completnessThreshAvg, completnessThreshCentral, str(list(self.selectedGWevents.keys()))))
-    
-    
-    def select_gals(self):
-        #self.nGals={}
-        for eventName in self.selectedGWevents.keys(): 
-            self.select_gals_event(eventName)
-    
-    
-    def select_gals_event(self,eventName ):
-        self.gals.select_area(self.selectedGWevents[eventName].selected_pixels, self.selectedGWevents[eventName].nside)
-        self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.selectedGWevents[eventName].get_z_lims(), return_count=True)
+    def _select_events(self):
         
+            self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if self.eventSelector.is_good_event(self.GWevents[eventName]) }
+        #print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(completnessThreshAvg, completnessThreshCentral, str(list(self.selectedGWevents.keys()))))
+            if self.verbose:
+                print('Selected GW events: %s' %( str(list(self.selectedGWevents.keys()))))
+    
+    
+    def select_gals_event(self,eventName):
+        self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
+        self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims())
     
     def _get_summary(self):
         
@@ -93,20 +96,25 @@ class GWgal(object):
             print('Computing <P_compl>...')
         PcAv={}
         PEv = {}
-        from scipy.integrate import quad
+        #from scipy.integrate import quad
         for eventName in self.GWevents.keys():
             #self.GWevents[eventName].adap_z_grid(H0GLOB, Xi0Glob, nGlob, zR=self.zR)
             zGrid = np.linspace(self.GWevents[eventName].zmin, self.GWevents[eventName].zmax, 100)
-            Pcomp = np.array([self.gals.total_completeness( *self.GWevents[eventName].find_theta_phi(self.GWevents[eventName].selected_pixels), z).sum() for z in zGrid])
-            vol = self.GWevents[eventName].area_rad*np.trapz(cosmoglob.differential_comoving_volume(zGrid).value, zGrid) #quad(lambda x: cosmoglob.differential_comoving_volume(x).value, self.GWevents[eventName].zmin,  self.GWevents[eventName].zmax)
-            _PcAv = np.trapz(Pcomp*cosmoglob.differential_comoving_volume(zGrid).value, zGrid)*self.GWevents[eventName].pixarea/vol
-            PcAv[eventName] = _PcAv
+            
+            if self.GWevents[eventName].selected_pixels.size==0:
+                #Pcomp=np.zeros(zGrid.shape)
+                PcAv[eventName] = 0.
+            else:
+                Pcomp = np.array([self.gals.total_completeness( *self.GWevents[eventName].find_theta_phi(self.GWevents[eventName].selected_pixels), z).sum() for z in zGrid])
+                vol = self.GWevents[eventName].area_rad*np.trapz(cosmoglob.differential_comoving_volume(zGrid).value, zGrid) #quad(lambda x: cosmoglob.differential_comoving_volume(x).value, self.GWevents[eventName].zmin,  self.GWevents[eventName].zmax)
+                _PcAv = np.trapz(Pcomp*cosmoglob.differential_comoving_volume(zGrid).value, zGrid)*self.GWevents[eventName].pixarea/vol
+                PcAv[eventName] = _PcAv
             
             
             _PEv = self.gals.total_completeness( *self.GWevents[eventName].find_event_coords(polarCoords=True), self.GWevents[eventName].zEv)
             PEv[eventName] = _PEv
             if self.verbose:
-                print('<P_compl> for %s = %s; Completeness at z_event: %s' %(eventName, np.round(_PcAv, 3), np.round(_PEv, 3)))        
+                print('<P_compl> for %s = %s; Completeness at (z_event, Om_event): %s' %(eventName, np.round(_PcAv, 3), np.round(_PEv, 3)))        
         self.PcAv = PcAv
         self.PEv = PEv
         
@@ -114,13 +122,15 @@ class GWgal(object):
     
     def get_lik(self, H0s, Xi0s, n=nGlob):
         '''
-        Computes likelihood with p_cat for all events
-        Returns dictionary {event_name: L_cat }
+        Computes likelihood for all events
+        Returns dictionary {event_name: L_cat, L_comp }
         '''
         ret = {}
         H0s = np.atleast_1d(H0s)
         Xi0s = np.atleast_1d(Xi0s)
         for eventName in self.selectedGWevents.keys():
+            if self.verbose:
+                print('-- %s' %eventName)
             
             #self.gals.select_area(self.selectedGWevents[eventName].selected_pixels, self.selectedGWevents[eventName].nside)
             #self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.selectedGWevents[eventName].get_z_lims(), return_count=True)
@@ -147,7 +157,7 @@ class GWgal(object):
     def _inhom_lik(self, eventName, H0, Xi0, n):
         '''
         Computes likelihood with p_cat for one event
-        Output: np array of dim (N. galaxies in 99% credible region, 1)
+        Output:
         '''
         
         if self._galRedshiftErrors:
@@ -160,9 +170,9 @@ class GWgal(object):
             
             pixels, weights = self.gals.get_inhom_contained(zGrid, self.selectedGWevents[eventName].nside )
             
-            skymap = self.selectedGWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
+            my_skymap = self.selectedGWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
          
-            LL = np.sum(skymap*weights)
+            #LL = np.sum(skymap*weights)
              
         else: # use Diracs
             
@@ -172,7 +182,7 @@ class GWgal(object):
             
             my_skymap = self.selectedGWevents[eventName].likelihood_px(rs, pixels)
             
-            LL = np.sum(my_skymap*weights)
+        LL = np.sum(my_skymap*weights)
         
         return LL
     

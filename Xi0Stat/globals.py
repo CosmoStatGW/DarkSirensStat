@@ -2,6 +2,7 @@ import os
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 import sys
+import healpy as hp
 
 dirName = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
@@ -18,6 +19,10 @@ detectorPath = os.path.join(baseGWPath, 'detectors')
 ###########################
 # CONSTANTS
 ###########################
+
+O2BNS = ('GW170817',)
+O3BNS = ()
+
 
 d0GlobO2=123 # d_0 of eq. 2.125 for O2, in Mpc
 
@@ -253,6 +258,21 @@ def j(z):
     return cosmoglob.differential_comoving_volume(z).value*(cosmoglob.H0.value/clight)**3
 
 
+def BB(dL, gamma=gammaGlob, d0=d0GlobO2):
+    #print('gamma BB: %s' %gamma)
+    #print('d0 BB: %s' %d0)
+    a0, a1 = get_as(gamma)
+    Bfit = np.exp(-a0*(dL-d0)/d0-a1*((dL-d0)/d0)**2)
+        
+    return np.where(dL<=d0, 1, Bfit)
+
+
+def get_as(gamma):
+    a0= (5.21+9.55*gamma+3.47*gamma**2)*1e-02
+    a1=(7.37-0.72*gamma)*1e-02
+    return a0, a1
+
+
 class Logger(object):
     
     def __init__(self, fname):
@@ -275,3 +295,12 @@ class Logger(object):
     def close(self):
         self.log.close
         sys.stdout = sys.__stdout__
+        
+    def isatty(self):
+        return False
+        
+        
+def hpx_downgrade_idx(hpx_array, nside_out=1024):
+    #Computes the list of explored indices in a hpx array for the chosen nside_out
+    arr_down = hp.ud_grade(hpx_array, nside_out)
+    return np.where(arr_down>0.)[0] 

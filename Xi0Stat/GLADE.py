@@ -55,7 +55,8 @@ class GLADE(GalCat):
         loaded = False
         computePosterior = False
         posteriorglade = os.path.join(self._path, 'posteriorglade.csv')
-        print(posteriorglade)
+        if self.verbose:
+            print(posteriorglade)
         if galPosterior:
             from os.path import isfile
             if isfile(posteriorglade):
@@ -389,10 +390,12 @@ class GLADE(GalCat):
         if band_weight is not None:
             w_name=band+'_Lum'
             w = df.loc[:, w_name].values
-            print('Using %s for weighting' %col_name)
+            if self.verbose:
+                print('Using %s for weighting' %col_name)
         else:
             w = np.ones(df.shape[0])
-            print('Using weights =1 .')
+            if self.verbose:
+                print('Using weights =1 .')
             
         df.loc[:, 'w'] = w
         
@@ -409,7 +412,7 @@ class GLADE(GalCat):
         
         # ------
         if self.verbose:
-            print('Done.')
+            print('GLADE loaded.')
         
         
         self.data = self.data.append(df, ignore_index=True)

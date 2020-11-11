@@ -25,8 +25,74 @@ from GWgal import GWgal
 from betaHom import BetaHom
 from betaFit import BetaFit
 from betaMC import BetaMC
+from betaCat import BetaCat
+from pathlib import Path
+from eventSelector import *
+import json
 
 from plottingTools import plot_completeness, plot_post
+
+
+
+
+def check_footprint(allGw, observingRun, subset=False, DES=True, GWENS=True):
+    
+    get_DES = DES
+    get_GWENS=GWENS
+    
+    level=allGw[list(allGw.keys())[0]].level
+    
+    #if not subset:
+    DES_file = Path(os.path.join(dirName, 'data', 'DES', 'DES_footprint_'+observingRun+'_level'+str(level)+'.json'))
+    GWENS_file = Path(os.path.join(dirName, 'data', 'GWENS', 'GWENS_footprint_'+observingRun+'_level'+str(level)+'.json'))
+
+    #else:
+        #DES_file = Path(os.path.join(dirName, 'data', 'DES', 'DES_footprint_'+observingRun+'-'.join(list(allGw.keys()))+'.json'))
+        #GWENS_file = Path(os.path.join(dirName, 'data', 'GWENS', 'GWENS_footprint_'+observingRun+'-'.join(list(allGw.keys()))+'.json'))
+    if DES_file.is_file() and DES:
+        with open(DES_file) as f:
+            print('Reading DES coverage from %s...' %DES_file)
+            fp_DES = json.load(f)
+        get_DES=False
+    if GWENS_file.is_file() and GWENS:
+        with open(GWENS_file) as f:
+            print('Reading GWENS coverage from %s...' %GWENS_file)
+            fp_GWENS = json.load(f)
+        get_GWENS=False
+        
+    if get_DES or get_GWENS:
+        #all_fp={eventName: {} for eventName in allGw.keys()}
+        fp_DES={}
+        fp_GWENS={}
+        if get_DES:
+            DES_fp_path = os.path.join(dirName, 'data', 'DES', 'y1a1_gold_1.0.2_wide_footprint_4096.fits')
+            DES_fp = hp.read_map(DES_fp_path,field=[0],verbose=verbose)
+        
+        if get_GWENS:
+            GWENS_fp_path = os.path.join(dirName, 'data', 'GWENS', 'GWENS.footprint_1024.fits')
+            GWENS_fp = hp.read_map(GWENS_fp_path,field=[0],verbose=verbose)
+        
+        for eventName in allGw.keys():
+            sm_pxs = allGw[eventName].get_credible_region_pixels()
+            if get_DES:
+                DES_px = hpx_downgrade_idx(DES_fp, nside_out=allGw[eventName].nside)
+                fp_DES[eventName] = np.isin(sm_pxs, DES_px).sum()/sm_pxs.shape[0]
+            if get_GWENS:
+                GWENS_px = hpx_downgrade_idx(GWENS_fp, nside_out=allGw[eventName].nside)
+                fp_GWENS[eventName] = np.isin(sm_pxs, GWENS_px).sum()/sm_pxs.shape[0]
+    if get_DES and not subset:
+          with open(DES_file, 'w') as json_file:
+              print('Saving DES coverage to %s...' %DES_file)
+              json.dump(fp_DES, json_file)
+    if get_GWENS and not subset:
+          with open(GWENS_file, 'w') as json_file:
+              print('Saving GWENS coverage to %s...' %GWENS_file)
+              json.dump(fp_GWENS, json_file)
+        
+    return fp_DES, fp_GWENS
+    
+    
+    
 
 
 
@@ -56,22 +122,31 @@ def completeness_case(completeness, band, Lcut, path=None):
     return compl
 
 
-def beta_case(which_beta, allGW, lims, H0grid, Xi0grid):
+def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals):
     # 'fit', 'MC', 'hom', 'cat'
     
-    if which_beta in ('fit', 'MC'):
+    if which_beta in ('fit', 'MC', 'cat'):
         if which_beta=='fit':
             Beta = BetaFit(zR)
         elif which_beta=='MC':
-            Beta = BetaMC(lims, nSamples=nMCSamplesBeta, observingRun = observingRun, SNRthresh = SNRthresh)
+            galsBeta = None
+            if nUseCatalogBetaMC:
+                galsBeta = gals
+            anisotropy = False
+            if nUseCatalogBetaMC or type(eventSelector) is not SkipSelection:
+                anisotropy = True
+            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRun, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose )
+        elif which_beta=='cat':
+            Beta=BetaCat(gals, galRedshiftErrors,  zR, eventSelector )
         beta = Beta.get_beta(H0grid, Xi0grid)
         betas = {event:beta for event in allGW}
-    elif which_beta in ('hom', 'cat'):
+    elif which_beta in ('hom', ):
         if which_beta=='hom':
             betas = {event: BetaHom( allGW[event].d_max(), zR).get_beta(H0grid, Xi0grid) for event in allGW.keys()}
             #Beta = BetaHom( dMax, zR)
-        elif which_beta=='cat':
-            raise NotImplementedError('Beta from catalogue is not supported for the moment. ')
+        #elif which_beta=='cat':
+            #betas = {event: BetaCat(gals, galRedshiftErrors,  EventSelector ).get_beta(allGW[event], H0grid, Xi0grid) for event in allGW.keys()}
+            #raise NotImplementedError('Beta from catalogue is not supported for the moment. ')
     else:
         raise ValueError('Enter a valid value for which_beta. Valid options are: fit, MC, hom, cat')
     return betas
@@ -91,6 +166,27 @@ def get_norm_posterior(lik_inhom,lik_hom, beta, grid):
 def main():
     
     in_time=time.time()
+    
+    # Consistency checks
+    if which_beta == 'fit' and completionType != 'add':
+        raise ValueError('Beta from fit is obtained from homogeneous completion. Using non-homogeneous completion gives non-consistent results')
+    if which_beta == 'cat' and completionType != 'mult':
+        raise ValueError('Beta from catalogue is implemented only for multiplicative completion. Use beta=fit or beta=MC')
+    if completnessThreshCentral>0. and ( which_beta == 'fit' or which_beta == 'hom') :
+        print('\n!!!! completnessThreshCentral is larger than zero but beta %s is used. This beta does not take into account completeness threshold. You may be fine with this, but be aware that the result could be inconsistent.\n' %which_beta)
+    if completnessThreshCentral>0. and which_beta == 'MC':
+        print('completnessThreshCentral is larger than zero, be sure that beta MC is implementing the completeness threshold.')
+        
+    if band_weight is not None:
+        if band_weight!=band:
+            raise ValueError('Band used for selection and band used for luminosity weighting should be the same ! ')
+    
+    if completeness=='load':
+        comp_band_loaded=completeness_path.split('_')[1]
+        if comp_band_loaded!=band:
+            raise ValueError('Band used for cut does not match loaded file. Got band=%s but completeness file is %s' %(band, completeness_path))
+        if galPosterior == True:
+            raise ValueError('Load completeness can only be used with no galaxy posteriors')
     
     # St out path and create out directory
     out_path=os.path.join(dirName, 'results', fout)
@@ -128,11 +224,19 @@ def main():
     else: subset=True
     
     allGW = get_all_events(loc=data_loc,
+                           eventType=eventType,
                     priorlimits=lims ,
                     subset=subset, subset_names=subset_names, 
-                    verbose=True, level = level, std_number=std_number, )#compressed=is_compressed)
+                    verbose=verbose, level = level, std_number=std_number, )#compressed=is_compressed)
     
+    if do_check_footprint:
+        fp_DES, fp_GWENS = check_footprint(allGW, observingRun, level=level)
+        print('DES coverage of GW events: fraction of %s %% credible region that falls into DES footprint' %str(100*level))
+        print(fp_DES)
+        print('GWENS coverage of GW events: fraction of %s %% credible region that falls into GWENS footprint' %str(100*level))
+        print(fp_GWENS)
     
+    print('Done.')
     
     ###### 
     # Completeness
@@ -154,17 +258,14 @@ def main():
     
     if catalogue in ('GLADE', 'MINIGLADE'):
     
-        #if fastglade:
-        #    cat = GLADE('GLADE', compl, useDirac=False, finalData='posteriorglade.csv', verbose=True, band=band, Lcut=Lcut)
-        #else:
-        cat = GLADE('GLADE', compl, useDirac, band=band, Lcut=Lcut, verbose=True,
+        cat = GLADE(catalogue, compl, useDirac, band=band, Lcut=Lcut, verbose=verbose,
               galPosterior=galPosterior, band_weight=band_weight)
         
     elif catalogue == 'GWENS':
-        cat = GWENS('GWENS', compl, useDirac, verbose=True)
+        cat = GWENS('GWENS', compl, useDirac, verbose=verbose)
 
     elif catalogue == 'DES':
-        cat = DES('DES', compl, useDirac, verbose=True)
+        cat = DES('DES', compl, useDirac, verbose=verbose)
 
     else:
         raise NotImplementedError('Galaxy catalogues other than GLADE, GWENS or DES are not supported for the moment. ')
@@ -172,17 +273,26 @@ def main():
     gals.add_cat(cat)
     
     if plot_comp:
-        plot_completeness(out_path, allGW, cat)
+        plot_completeness(out_path, allGW, cat, verbose=verbose)
     
+    print('Done.')
+    
+    if select_events:
+    
+        evSelector = EventSelector(gals, completnessThreshCentral)
+        
+    else:
+    
+        evSelector = SkipSelection()
     
     ###### 
     # GWgal
     ######
-    myGWgal = GWgal(gals, allGW, MC=MChom, nHomSamples=nHomSamples, verbose=True, galRedshiftErrors=galRedshiftErrors, zR=zR)
-    myGWgal._select_events(completnessThreshAvg=completnessThreshAvg, completnessThreshCentral=completnessThreshCentral)
+    myGWgal = GWgal(gals, allGW, evSelector,
+                    MC=MChom, nHomSamples=nHomSamples, 
+                    verbose=verbose, galRedshiftErrors=galRedshiftErrors, zR=zR)
+    #myGWgal._select_events(completnessThreshAvg=completnessThreshAvg, completnessThreshCentral=completnessThreshCentral)
     
-    #if plot_comp:
-    #    plot_completeness(out_path, myGWgal.selectedGWevents, cat)
     
     ###### 
     # Grids
@@ -203,7 +313,7 @@ def main():
     ######
     if do_inference:
         print('\n-----  COMPUTING BETAS ....')
-        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid)
+        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, evSelector, gals) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
         for event in myGWgal.selectedGWevents:
             betaPath =os.path.join(out_path, event+'_beta'+goalParam+'.txt')
             np.savetxt(betaPath, betas[event])
