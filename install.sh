@@ -103,19 +103,19 @@ then
 else
     echo "Processing GLADE for r^2 corrected galaxy posteriors"
 
-    cat << 'ENDOF' > Xi0Stat/Xi0Stat/compGLADEpost.py
+    cat << 'ENDOF' > Xi0Stat/compGLADEpost.py
 from completeness import *
 from GLADE import GLADE
 
 skipcompl = SkipCompleteness()
 
-glade = GLADE('GLADE', skipcompl, useDirac=False, computePosterior=True, verbose=True, colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w', 'K', 'B_Abs'])
+glade = GLADE('GLADE', skipcompl, useDirac=False, galPosterior=True, verbose=True, colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w', 'K', 'B_Abs'])
 
 glade.data.to_csv('posteriorglade.csv', index=False)
 
 ENDOF
-    python Xi0Stat/Xi0Stat/compGLADEpost.py
+    python Xi0Stat/compGLADEpost.py
     mv posteriorglade.csv $P/GLADE/.
-    rm Xi0Stat/Xi0Stat/compGLADEpost.py
+    rm Xi0Stat/compGLADEpost.py
 fi
 
