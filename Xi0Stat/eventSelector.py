@@ -10,13 +10,10 @@ from abc import ABC, abstractmethod
 
 class Selector(ABC):
     
-    def __init__(self, completnessThreshCentral, completnessThreshAvg=0.,
-                 select_events=True, select_gals=False,):
-        self.completnessThreshCentral=completnessThreshCentral
-        self.completnessThreshAvg=completnessThreshAvg
-        self.select_events=select_events
-        self.select_gals=select_gals
-    
+
+    def __init__(self):
+        pass
+
     @abstractmethod
     def is_good(self):
         pass
@@ -30,33 +27,29 @@ class Selector(ABC):
 class SkipSelection(Selector):
     
     def __init__(self):
-        completnessThreshCentral=0.
-        completnessThreshAvg=0.
-        select_events=False
-        select_gals=False
-        Selector.__init__(self, completnessThreshCentral, completnessThreshAvg=completnessThreshAvg, select_events=select_events, select_gals=select_gals)
+        pass
         
-    def is_good(self,  theta, phi, dist_true, completeness):
+    def is_good(self,  theta, phi, dist_true):
         return np.repeat(True, theta.shape)
     
-    def is_good_event(self, GWevent, completeness):
+    def is_good_event(self, GWevent):
         return True
 
 
-class EventSelector(object):
+class EventSelector(Selector):
     
     
-    def __init__(self, completnessThreshCentral, 
+    def __init__(self, gals, completnessThreshCentral,
                  completnessThreshAvg=0.,
                  select_events=True, select_gals=False,
                  H0=None, Xi0=None, n=None):
-        
-        #self.completnessThreshCentral=completnessThreshCentral
-        #self.completnessThreshAvg=completnessThreshAvg
-        Selector.__init__(self, completnessThreshCentral, completnessThreshAvg=completnessThreshAvg, select_events=select_events, select_gals=select_gals)
-        #self.select_events=select_events
-        #self.select_gals=select_gals
-        
+                 
+        self.completnessThreshCentral=completnessThreshCentral
+        self.completnessThreshAvg=completnessThreshAvg
+        self.select_events=select_events
+        self.select_gals=select_gals
+       
+        self.completenessFunc = gals.total_completeness
         
         if H0 is None:
             self.H0=H0GLOB
@@ -70,7 +63,7 @@ class EventSelector(object):
             self.n=n
         
     
-    def is_good(self, theta, phi, dist_true, completeness):
+    def is_good(self, theta, phi, dist_true):
         '''
         Returns mask (  nSamples x  1) 
         
@@ -79,16 +72,19 @@ class EventSelector(object):
         '''
         
         zz = z_from_dLGW_fast(dist_true, H0=self.H0, Xi0=self.Xi0, n=self.n)
-        
-        Pc = completeness(theta, phi, zz, oneZPerAngle=True) #gals.total_completeness(theta, phi, zz)
+
+        if np.isscalar(theta):
+            Pc = self.completenessFunc(theta, phi, zz.item())
+        else:
+            Pc = self.completenessFunc(theta, phi, zz, oneZPerAngle=True)
         
         return Pc>self.completnessThreshCentral
     
     
-    def is_good_event(self, GWevent, completeness):
+    def is_good_event(self, GWevent):
         
-        PcEv = completeness( *GWevent.find_event_coords(polarCoords=True), GWevent.zEv, oneZPerAngle=True) #gals.total_completeness( *GWevent.find_event_coords(polarCoords=True), GWevent.zEv)
+        dL, _, _, _ = GWevent.find_r_loc(verbose=False)
         
-        return PcEv > self.completnessThreshCentral
+        return self.is_good(*GWevent.find_event_coords(polarCoords=True), dL)
         
         

@@ -18,13 +18,13 @@ from copy import deepcopy
 class GWgal(object):
     
     def __init__(self, GalCompleted, GWevents, 
-                 EventSelector, 
+                 eventSelector,
                  MC = True, nHomSamples=1000, 
                  galRedshiftErrors = True, 
                  zR=zRglob,
                  verbose=False):
         
-        self.EventSelector=EventSelector
+        self.eventSelector=eventSelector
         self.gals = GalCompleted
         self.GWevents = GWevents
         self.selectedGWevents= deepcopy(GWevents)
@@ -41,6 +41,9 @@ class GWgal(object):
         self._get_avgPcompl()
         self._select_events()
         
+        for eventName in GWevents.keys():
+            self.select_gals_event(eventName)
+            self.nGals[eventName] = self.gals.count_selection()
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
         # and a dictionary {'GW event': 'name of the catalogue to use'}
@@ -56,26 +59,16 @@ class GWgal(object):
     
     
     def _select_events(self):
-        if self.EventSelector.select_events:
-            self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if self.EventSelector.is_good_event(self.GWevents[eventName], self.gals.total_completeness) }
+        
+            self.selectedGWevents = { eventName:self.GWevents[eventName] for eventName in self.GWevents.keys() if self.eventSelector.is_good_event(self.GWevents[eventName]) }
         #print('Selected GW events with Pc_Av>%s or Pc_event>%s. Events: %s' %(completnessThreshAvg, completnessThreshCentral, str(list(self.selectedGWevents.keys()))))
             if self.verbose:
                 print('Selected GW events: %s' %( str(list(self.selectedGWevents.keys()))))
-        else:
-            if self.verbose:
-                print('No selection ion GW events.')
-            self.selectedGWevents = self.GWevents
-    
-    def select_gals(self):
-        #self.nGals={}
-        for eventName in self.selectedGWevents.keys(): 
-            self.select_gals_event(eventName)
     
     
     def select_gals_event(self,eventName):
-        self.gals.select_area(self.selectedGWevents[eventName].selected_pixels, self.selectedGWevents[eventName].nside)
-        self.nGals[eventName] = self.gals.set_z_range_for_selection( *self.selectedGWevents[eventName].get_z_lims(), return_count=True)
-        self.gals.select_completeness(self.EventSelector)
+        self.gals.select_area(self.GWevents[eventName].selected_pixels, self.GWevents[eventName].nside)
+        self.gals.set_z_range_for_selection( *self.GWevents[eventName].get_z_lims())
     
     def _get_summary(self):
         

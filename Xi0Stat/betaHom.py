@@ -17,17 +17,13 @@ from scipy.integrate import quad
 
 class BetaHom(Beta):
     
-    def __init__(self, dMax, zR, **kwargs):
+    def __init__(self, dMax, zR=10, **kwargs):
         Beta.__init__(self, **kwargs)
         self.dMax=dMax
-        self.zR=zR
+       # self.zR=zR
         
     
     def get_beta(self, H0s, Xi0s, n=nGlob, **kwargs):
-        '''
-        Computes beta 
-        from eq. 2.134
-        '''
         
         H0s = np.atleast_1d(H0s)
         Xi0s = np.atleast_1d(Xi0s)
@@ -39,11 +35,18 @@ class BetaHom(Beta):
             
             for j in np.arange(Xi0s.size):
                              
-                beta[i,j] = self._get_beta( H0=H0s[i], Xi0=Xi0s[j], n=n, **kwargs)
+                beta[i,j] = self._get_beta( H0=H0s[i], Xi0=Xi0s[j], n=n)
                                 
         return np.squeeze(beta) 
         
-    def _get_beta(self, H0, Xi0,  n=1.91, ):
+    def _get_beta(self, H0, Xi0,  n=1.91 ):
+    
+        # exact forumla without integrals, but beware the normalization being different
+        z = z_from_dLGW(self.dMax, Xi0=Xi0, n=nGlob, H0 = H0)
+        return (H0/70)**3 / ( Xi(z, Xi0, n=nGlob)*(1+z) )**3
+        
+    
+    
         '''
         Homogeneous beta -  Eq. 2.81 
         '''

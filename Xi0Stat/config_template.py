@@ -57,14 +57,14 @@ subset_names =  None #['GW190425',]
 select_events=True
 
 ## Threshold in probability at position of the event, for event selection
-completnessThreshCentral=0.4
+completnessThreshCentral=0.1
 
 # THIS IS NOT USED FOR THE MOMENT!
 # completnessThreshAvg=0.01
 
 ## Confidence region for GW skymaps
-level = 0.99
-std_number=3 # if none, it is computed from level
+level = 0.97
+std_number=None # if none, it is computed from level
 
 
 # --------------------------------------------------------------
@@ -99,30 +99,25 @@ galPosterior = True
 useDirac=False
 
 
-## Select galaxies based on completeness in their pixel. 
-# Choice should be coherent with  select_events
-# The threshold in probability is completnessThreshCentral
-select_gals=False
-
-
 # --------------------------------------------------------------
 # COMPLETENESS AND COMPLETION OPTIONS
 # --------------------------------------------------------------
 
 ## Completeness. 'load', 'pixel', 'mask', 'skip'
-completeness = 'load'
+completeness = 'mask'
 # path of completeness file if completeness='load'
 completeness_path = 'hpx_B_zmin0p01_zmax0p25_nside32_npoints25.txt'
 # Options for SuperPixelCompleteness
-angularRes, zRes, interpolateOmega = 4, 50, False
+angularRes, interpolateOmega = 4, False
+zRes = 30
 # nMasks for mask completeness. 2 for DES/GWENS, >5 for GLADE
-nMasks = 2
+nMasks = 9
 #
 plot_comp=False
 
 
 ## Type of completion: 'mult' , 'add' . If None, completionType is mixed
-completionType = 'add'
+completionType = None
 # Use MC integration or not in the computation of additive completion
 MChom=True
 # N. of homogeneous MC samples
@@ -135,9 +130,10 @@ nHomSamples=10000
 # --------------------------------------------------------------
 
 ## Which beta to use. 'fit', 'MC', 'hom', 'cat'
-which_beta = 'fit'
+which_beta = 'MC'
 # Max redshift  of the region R,  if beta is 'fit'
 zR = 10
 # n of MC samples for beta MC
-nMCSamplesBeta = 1000000
+nSamplesBetaMC= 100000
+nUseCatalogBetaMC = False
 SNRthresh=8

@@ -27,7 +27,7 @@ from betaFit import BetaFit
 from betaMC import BetaMC
 from betaCat import BetaCat
 from pathlib import Path
-from eventSelector import EventSelector
+from eventSelector import *
 import json
 
 from plottingTools import plot_completeness, plot_post
@@ -122,16 +122,22 @@ def completeness_case(completeness, band, Lcut, path=None):
     return compl
 
 
-def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals):
+def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals):
     # 'fit', 'MC', 'hom', 'cat'
     
     if which_beta in ('fit', 'MC', 'cat'):
         if which_beta=='fit':
             Beta = BetaFit(zR)
         elif which_beta=='MC':
-            Beta = BetaMC(lims, nSamples=nMCSamplesBeta, observingRun = observingRun, SNRthresh = SNRthresh)
+            galsBeta = None
+            if nUseCatalogBetaMC:
+                galsBeta = gals
+            anisotropy = False
+            if nUseCatalogBetaMC or type(eventSelector) is not SkipSelection:
+                anisotropy = True
+            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRun, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose )
         elif which_beta=='cat':
-            Beta=BetaCat(gals, galRedshiftErrors,  zR, EventSelector )
+            Beta=BetaCat(gals, galRedshiftErrors,  zR, eventSelector )
         beta = Beta.get_beta(H0grid, Xi0grid)
         betas = {event:beta for event in allGW}
     elif which_beta in ('hom', ):
@@ -165,14 +171,11 @@ def main():
     if which_beta == 'fit' and completionType != 'add':
         raise ValueError('Beta from fit is obtained from homogeneous completion. Using non-homogeneous completion gives non-consistent results')
     if which_beta == 'cat' and completionType != 'mult':
-        raise ValueError('Beta from catalogue is implemented only for multiplicative completion. Use beta=fit or beta=MC for multiplicative')
+        raise ValueError('Beta from catalogue is implemented only for multiplicative completion. Use beta=fit or beta=MC')
     if completnessThreshCentral>0. and ( which_beta == 'fit' or which_beta == 'hom') :
         print('\n!!!! completnessThreshCentral is larger than zero but beta %s is used. This beta does not take into account completeness threshold. You may be fine with this, but be aware that the result could be inconsistent.\n' %which_beta)
     if completnessThreshCentral>0. and which_beta == 'MC':
         print('completnessThreshCentral is larger than zero, be sure that beta MC is implementing the completeness threshold.')
-    
-    if select_gals is True and select_events is False:
-        raise ValueError('Selecting galaxies with threshold in probability, but not selecting events. This is inconsistent.')
         
     if band_weight is not None:
         if band_weight!=band:
@@ -182,6 +185,8 @@ def main():
         comp_band_loaded=completeness_path.split('_')[1]
         if comp_band_loaded!=band:
             raise ValueError('Band used for cut does not match loaded file. Got band=%s but completeness file is %s' %(band, completeness_path))
+        if galPosterior == True:
+            raise ValueError('Load completeness can only be used with no galaxy posteriors')
     
     # St out path and create out directory
     out_path=os.path.join(dirName, 'results', fout)
@@ -272,12 +277,18 @@ def main():
     
     print('Done.')
     
-    eSelector = EventSelector(completnessThreshCentral, select_events=select_events, select_gals=select_gals)
+    if select_events:
+    
+        evSelector = EventSelector(gals, completnessThreshCentral)
+        
+    else:
+    
+        evSelector = SkipSelection()
     
     ###### 
     # GWgal
     ######
-    myGWgal = GWgal(gals, allGW, eSelector, 
+    myGWgal = GWgal(gals, allGW, evSelector,
                     MC=MChom, nHomSamples=nHomSamples, 
                     verbose=verbose, galRedshiftErrors=galRedshiftErrors, zR=zR)
     #myGWgal._select_events(completnessThreshAvg=completnessThreshAvg, completnessThreshCentral=completnessThreshCentral)
@@ -302,7 +313,7 @@ def main():
     ######
     if do_inference:
         print('\n-----  COMPUTING BETAS ....')
-        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, eSelector, gals) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
+        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, evSelector, gals) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
         for event in myGWgal.selectedGWevents:
             betaPath =os.path.join(out_path, event+'_beta'+goalParam+'.txt')
             np.savetxt(betaPath, betas[event])

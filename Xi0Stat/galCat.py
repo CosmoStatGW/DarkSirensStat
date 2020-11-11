@@ -58,28 +58,15 @@ class GalCat(ABC):
         if self.verbose:
             print('%s galaxies kept' %self.selectedData.shape[0])
         
-    def set_z_range_for_selection(self, zMin, zMax, return_count=False):
+    def set_z_range_for_selection(self, zMin, zMax):
         if self.verbose:
             print("Setting z range of the catalogue between %s, %s" %(np.round(zMin,3), np.round(zMax,3)))
         self.selectedData = self.selectedData[(self.selectedData.z >= zMin) & (self.selectedData.z < zMax)]
         if self.verbose:
             print('%s galaxies kept' %self.selectedData.shape[0])
-        if return_count:
-            return self.selectedData.shape[0]
-        
-    def select_completeness(self, EventSelector, completeness):
-        if EventSelector.select_gals:
-            if self.verbose:
-                print('Cut in completeness with threshold P_complete>%s' %EventSelector.completnessThreshCentral)
-            r=dLGW(self.selectedData.z, EventSelector.H0, EventSelector.Xi0, EventSelector.n)
-            mask=EventSelector.is_good( self.selectedData.theta, self.selectedData.phi, r, completeness)
-            #print(mask)
-            self.selectedData = self.selectedData[mask]
-            if self.verbose:
-                print('%s galaxies kept' %self.selectedData.shape[0])
-        else:
-            if self.verbose:    
-                print('No selection of galaxies based on completeness.')
+            
+    def count_selection(self):
+        return self.selectedData.shape[0]
         
     @abstractmethod
     def load(self):
@@ -241,18 +228,13 @@ class GalCompleted(object):
         for c in self._galcats:
             c.select_area(pixels, nside)
             
-    def set_z_range_for_selection(self, zMin, zMax, return_count=False):
-        counts=[]
+    def set_z_range_for_selection(self, zMin, zMax):
         for c in self._galcats:
-            count = c.set_z_range_for_selection(zMin, zMax, return_count=return_count)
-            counts.append(count)
-        return counts
-    
-    def select_completeness(self, EventSelector):
-        for c in self._galcats:
-            c.select_completeness(EventSelector, self.total_completeness)
-        
-        
+            c.set_z_range_for_selection(zMin, zMax)
+            
+    def count_selection(self):
+        return [c.count_selection() for c in self._galcats]
+
     def get_inhom_contained(self, zGrid, nside):
         ''' return pixels : array N_galaxies
         

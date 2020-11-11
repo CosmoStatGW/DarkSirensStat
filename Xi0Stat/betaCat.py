@@ -16,9 +16,9 @@ from beta import Beta
 
 class BetaCat(Beta):
     
-    def __init__(self, gals, galRedshiftErrors,  zR, EventSelector, **kwargs):
+    def __init__(self, gals, galRedshiftErrors,  zR, eventSelector, **kwargs):
         Beta.__init__(self, **kwargs)
-        self.EventSelector=EventSelector
+        self.eventSelector=eventSelector
         self.gals=gals
         self.zR=zR
         self._galRedshiftErrors=galRedshiftErrors
@@ -36,7 +36,7 @@ class BetaCat(Beta):
         
         #self.gals.select_area(GWevent.selected_pixels, GWevent.nside)
         #self.gals.set_z_range_for_selection( *GWevent.get_z_lims(), return_count=False)
-        self.gals.select_completeness(self.EventSelector)
+        self.gals.select_completeness(self.eventSelector)
         
         beta_cat = np.ones((H0s.size, Xi0s.size))
         beta_hom = np.ones((H0s.size, Xi0s.size))

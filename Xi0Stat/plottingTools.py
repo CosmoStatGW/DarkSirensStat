@@ -132,7 +132,7 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
     else:
         ax.set_title('{} band, $L/L_* > $ {}'.format(band,Lcut), fontsize=20)
     
-    fig.savefig(os.path.join(base_path, 'posterior.pdf'))
+    plt.savefig(os.path.join(base_path, 'posterior.pdf'))
     
     
     #plt.show()

@@ -425,7 +425,10 @@ class MaskCompleteness(Completeness):
                 return np.sum(weights * batch.w[:, np.newaxis], axis=0)
                 
         coarseden = []  
-        nBatches = 4000
+        nBatches = int(30.*len(galdata)/1000000.)
+        if self.verbose:
+            print('Batch number: ' + str(nBatches))
+            
         for i in np.arange(self._nMasks):   
             coarseden.append(sum(parmap(lambda b : g(gr, maskId=i, batchId=b, nBatches=nBatches), range(nBatches))))
        
