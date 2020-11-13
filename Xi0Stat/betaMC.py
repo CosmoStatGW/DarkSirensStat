@@ -34,9 +34,9 @@ class BetaMC:#(Beta):
         self.zmax = z_from_dLGW(3000, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)
         
         # number of evaluations that will be interpolated
-        self.nEvals = 1000
+        self.nEvals = 2000
         # wrt these, window length for filtering
-        self.nWindow = 201 # must be odd
+        self.nWindow = 101 # must be odd
                
         self.load_strain_sensitivity()
         
@@ -98,15 +98,15 @@ class BetaMC:#(Beta):
         
         isH0 = False
         if H0s.size > 1:
-            outside = self.nWindow/self.nEvals * (H0s[-1]-H0s[0])
+            outside = self.nWindow/(self.nEvals-2*self.nWindow) * (H0s[-1]-H0s[0])
             isH0 = True
             grid = np.linspace(np.max([5.0, H0s[0]-outside]), H0s[-1]+outside, self.nEvals)
             x = H0s
             betaarg = lambda i : (grid[i], Xi0s[0])
             assert(Xi0s.size==1)
         else:
-            outside = self.nWindow/self.nEvals * (Xi0s[-1]-Xi0s[0])
-            grid = np.linspace(np.max([0.1, Xi0s[0]-outside]), Xi0s[-1]+outside, self.nEvals)
+            outside = self.nWindow/(self.nEvals-2*self.nWindow) * (Xi0s[-1]-Xi0s[0])
+            grid = np.linspace(np.max([0.1, Xi0s[0]]), Xi0s[-1]+outside, self.nEvals)
             x = Xi0s
             betaarg = lambda i : (H0s[0], grid[i])
         
