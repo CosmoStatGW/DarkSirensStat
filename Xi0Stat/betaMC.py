@@ -132,8 +132,11 @@ class BetaMC:#(Beta):
             dg  = cat.data
             wGal = dg.w.to_numpy()
             # sample true redshift from gal posteriors. This could be repeated for each H0, or we could even sample multiple times for one H0, as a MC strategy to include galaxy redshift errors. Once should be accurate enough given the large number of galaxies (especially in catalogs with large errors) and is quicker
-            
-            zGal = sample_bounded_keelin_3(0.16, dg.z_lower, dg.z, dg.z_upper, dg.z_lowerbound, dg.z_upperbound, N=1)
+           
+            if self._gals._useDirac == False:  
+                zGal = sample_bounded_keelin_3(0.16, dg.z_lower, dg.z, dg.z_upper, dg.z_lowerbound, dg.z_upperbound, N=1)
+            else: 
+                zGal = dg.z
             inside = zGal < self.zmax
             zGal = zGal[inside]
             wGal = wGal[inside]

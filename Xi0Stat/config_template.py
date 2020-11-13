@@ -24,7 +24,7 @@ goalParam = 'H0'
 fout = 'O2_run1'
 
 ## Prior limits
-Xi0min =  Xi0Glob # 0.1 #Xi0Glob
+Xi0min =  Xi0Glob # 0.3 #Xi0Glob
 Xi0max =  Xi0Glob # 10
 H0min =   20 # H0GLOB
 H0max =    140
@@ -95,8 +95,6 @@ galRedshiftErrors = True
 
 ## Use of galaxy posteriors
 galPosterior = True
-# Use dirac deltas to compute compleness and galaxy posteriors
-useDirac=False
 
 
 # --------------------------------------------------------------

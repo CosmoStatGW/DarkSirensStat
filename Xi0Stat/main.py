@@ -169,7 +169,8 @@ def main():
     
     # Consistency checks
     if which_beta == 'fit' and completionType != 'add':
-        raise ValueError('Beta from fit is obtained from homogeneous completion. Using non-homogeneous completion gives non-consistent results')
+        pass
+        #raise ValueError('Beta from fit is obtained from homogeneous completion. Using non-homogeneous completion gives non-consistent results')
     if which_beta == 'cat' and completionType != 'mult':
         raise ValueError('Beta from catalogue is implemented only for multiplicative completion. Use beta=fit or beta=MC')
     if completnessThreshCentral>0. and ( which_beta == 'fit' or which_beta == 'hom') :
@@ -258,14 +259,14 @@ def main():
     
     if catalogue in ('GLADE', 'MINIGLADE'):
     
-        cat = GLADE(catalogue, compl, useDirac, band=band, Lcut=Lcut, verbose=verbose,
+        cat = GLADE(catalogue, compl, useDirac = not galRedshiftErrors, band=band, Lcut=Lcut, verbose=verbose,
               galPosterior=galPosterior, band_weight=band_weight)
         
     elif catalogue == 'GWENS':
-        cat = GWENS('GWENS', compl, useDirac, verbose=verbose)
+        cat = GWENS('GWENS', compl, useDirac= not galRedshiftErrors, verbose=verbose)
 
     elif catalogue == 'DES':
-        cat = DES('DES', compl, useDirac, verbose=verbose)
+        cat = DES('DES', compl, useDirac= not galRedshiftErrors, verbose=verbose)
 
     else:
         raise NotImplementedError('Galaxy catalogues other than GLADE, GWENS or DES are not supported for the moment. ')
