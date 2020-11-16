@@ -136,7 +136,7 @@ class BetaMC:#(Beta):
             if cat._useDirac == False:
                 zGal = sample_bounded_keelin_3(0.16, dg.z_lower, dg.z, dg.z_upper, dg.z_lowerbound, dg.z_upperbound, N=1)
             else: 
-                zGal = dg.z
+                zGal = dg.z.to_numpy()
             inside = zGal < self.zmax
             zGal = zGal[inside]
             wGal = wGal[inside]
