@@ -46,8 +46,8 @@ observingRun = 'O2'
 ## Select BBH or BNS
 eventType='BBH'
 
-# How to select credible region in redshift
-zLimSelection='header' #skymap
+# How to select credible region in redshift, 'skymap' or 'header'
+zLimSelection='skymap'
 
 ## Names of events to analyse. If None, all events in the folder will be used
 subset_names =  None #['GW190425',]
@@ -86,7 +86,7 @@ band='B' #'B' # B, K, or None .
 # Average galaxy density in comoving volume, used if band='None'
 Nbar = 0.1
 # Band for lum weights
-band_weight ='B' #'B' # B, K, or None . 
+band_weight = band #'B' # B, K, or None . 
 
 
 
@@ -114,8 +114,8 @@ nMasks = 9
 plot_comp=False
 
 
-## Type of completion: 'mult' , 'add' . If None, completionType is mixed
-completionType = None
+## Type of completion: 'mult' , 'add' or 'mix' 
+completionType = 'mix'
 # Use MC integration or not in the computation of additive completion
 MChom=True
 # N. of homogeneous MC samples
@@ -129,6 +129,8 @@ nHomSamples=10000
 
 ## Which beta to use. 'fit', 'MC', 'hom', 'cat'
 which_beta = 'MC'
+# only used when which_beta='hom'. If 'scale', use individually SNR rescaled dmax estimate. If 'flat' use d of event. If a number use that for all events. 
+betaHomdMax = 425.7 
 # Max redshift  of the region R,  if beta is 'fit'
 zR = 10
 # n of MC samples for beta MC

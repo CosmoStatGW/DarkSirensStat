@@ -14,7 +14,7 @@ import numpy as np
 import os
 
 
-def plot_completeness(base_path, allGW, catalogue, verbose=True):
+def plot_completeness(base_path, allGW, catalogue, lims, verbose=True):
     c_path = os.path.join(base_path, 'completeness')
     if not os.path.exists(c_path):
         if verbose:
@@ -25,31 +25,31 @@ def plot_completeness(base_path, allGW, catalogue, verbose=True):
     for key, ev in allGW.items():
         plt.figure(figsize=(20,10))
         #print(ev.find_r_loc())
-        zmin, zmax = ev.get_z_lims()
-        mu, l, u, sig = ev.find_r_loc(std_number=2, verbose=False)
-        zl = z_from_dLGW(l, H0=70, Xi0=1, n=nGlob)
-        zu = z_from_dLGW(u, H0=70, Xi0=1, n=nGlob)
+        zmin, zmax = 0, 1
+        mu, l, _,_ = ev.find_r_loc(std_number=2, verbose=False)
+        zl = z_from_dLGW(l, H0=lims.H0min, Xi0=lims.Xi0max, n=nGlob)
+        zu = z_from_dLGW(u, H0=lims.H0min, Xi0=lims.Xi0max, n=nGlob)
     
-        z = np.linspace(zmin, zmax, 10000)
+        z = np.linspace(zmin, zmax, 1000)
     
         c = catalogue.completeness(*ev.find_event_coords(polarCoords=True), z) 
-        plt.plot(z, c, linewidth=4)
+        plt.plot(z, c.T, linewidth=4)
         #plt.show()
-        np.savetxt( os.path.join(c_path, key+'_base.txt'), c)
+        np.savetxt( os.path.join(c_path, key+'_compl_central.txt'), np.array([z, np.squeeze(c)]))
    
         nSamples = 80
         theta, phi, _ = ev.sample_posterior(nSamples=nSamples)
         c = catalogue.completeness(theta, phi, z)
         plt.plot(z, c.T, c='k', alpha=0.1)
-        np.savetxt( os.path.join(c_path, key+'_random.txt'), c)
+        np.savetxt( os.path.join(c_path, key+'_compl_random.txt'), c)
     
         z = np.linspace(zl, zu, 100)
         c = catalogue.completeness(*ev.find_event_coords(polarCoords=True), z)
-        plt.plot(z, c, linewidth=4, c='r')
+        plt.plot(z, c.T, linewidth=4, c='r')
         plt.title('Completness for ' + key, fontsize=20)
         #plt.legend(['on central event location and in limits of prior range'] + nSamples*['on randomly sampled event locations'] + ['event size for default fiducial cosmology'])
-        #plt.ylim([0,1])
-        plt.xlim([0,0.25])
+        plt.ylim([0,1.2])
+        plt.xlim([zmin, zmax])
         plt.xlabel('z', fontsize=20)
         plt.ylabel(r'$P_{complete}(z)$', fontsize=20)
         plt.savefig(os.path.join(c_path, key+'_completeness.pdf'))

@@ -142,7 +142,12 @@ def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals):
         betas = {event:beta for event in allGW}
     elif which_beta in ('hom', ):
         if which_beta=='hom':
-            betas = {event: BetaHom( allGW[event].d_max(), zR).get_beta(H0grid, Xi0grid) for event in allGW.keys()}
+            if betaHomdMax == 'scale':
+                betas = {event: BetaHom( allGW[event].d_max(), zR).get_beta(H0grid, Xi0grid) for event in allGW.keys()}
+            elif betaHomdMax == 'flat':
+                betas = {event: BetaHom( allGW[event].dL, zR).get_beta(H0grid, Xi0grid) for event in allGW.keys()}
+            else:
+                betas = {event: BetaHom(betaHomdMax, zR).get_beta(H0grid, Xi0grid) for event in allGW.keys()}
             #Beta = BetaHom( dMax, zR)
         #elif which_beta=='cat':
             #betas = {event: BetaCat(gals, galRedshiftErrors,  EventSelector ).get_beta(allGW[event], H0grid, Xi0grid) for event in allGW.keys()}
@@ -178,10 +183,12 @@ def main():
     if completnessThreshCentral>0. and which_beta == 'MC':
         print('completnessThreshCentral is larger than zero, be sure that beta MC is implementing the completeness threshold.')
         
-    if band_weight is not None:
-        if band_weight!=band:
-            raise ValueError('Band used for selection and band used for luminosity weighting should be the same ! ')
-    
+    #if band_weight is not None:
+    #    if band_weight!=band:
+    #        raise ValueError('Band used for selection and band used for luminosity weighting should be the same ! ')
+   # Andreas: I think this is not necessary. Either we fix from the beginning that they are the same or we allow for them to be different. One may want to use Lum weights but no cut. Instead of setting Lcut to 0 we should allow to set band to None to achieve this. 
+  
+
     if completeness=='load':
         comp_band_loaded=completeness_path.split('_')[1]
         if comp_band_loaded!=band:
@@ -274,7 +281,7 @@ def main():
     gals.add_cat(cat)
     
     if plot_comp:
-        plot_completeness(out_path, allGW, cat, verbose=verbose)
+        plot_completeness(out_path, allGW, cat, lims, verbose=verbose)
     
     print('Done.')
     

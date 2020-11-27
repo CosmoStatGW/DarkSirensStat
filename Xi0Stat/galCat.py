@@ -193,7 +193,7 @@ def gal_to_eq(l, b):
     
 class GalCompleted(object):
     
-    def __init__(self, completionType = None, **kwargs):
+    def __init__(self, completionType = 'mix', **kwargs):
     
         self._galcats = []
         self._catweights = []
