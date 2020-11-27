@@ -35,7 +35,7 @@ class Skymap3D(object):
         self.nest=nest
         self.verbose = verbose
         self.priorlimits = priorlimits
-        self.level=level
+  
         if zLimSelection not in ('skymap, header'):
             raise ValueError('Please set a valid option for zLimSelection. Valid entries are: skymap, header')
         self.zLimSelection=zLimSelection
@@ -43,6 +43,7 @@ class Skymap3D(object):
             self.std_number = np.sqrt(2)*erfinv(level)
         else:
             self.std_number=std_number
+        
         
         
         self.read_map(fname) # sets p, mu, sigma, norm
@@ -68,7 +69,10 @@ class Skymap3D(object):
         # for each pixel it drops after doing the ddLGW integral.
         # The angular integral gives sum pixarea * p_posterior_i which needs to be 1.
         self.p_likelihood /= (np.sum(self.p_posterior)*self.pixarea)
-        self.set_credible_region()
+        
+        self.set_credible_region(level)
+        
+        
     
     
     def read_map(self, fname):
@@ -128,31 +132,34 @@ class Skymap3D(object):
         self.head = header
         
         
+    def set_credible_region(self, level):
         
-    
-    
-    def set_credible_region(self, level=None):
-        if level is None:
-            level=self.level    
+        self.level = level
+        
         px = self.get_credible_region_pixels(level=level)
+        
+        # further remove bad pixels where no skymap is available
+        
         pxmask = np.isfinite(self.mu[px]) & (self.mu[px] >= 0)
         self.selected_pixels = px[pxmask]
         self.p_posterior_selected = np.zeros(self.npix)
         self.p_posterior_selected[self.selected_pixels] = self.p_posterior[self.selected_pixels]
         self.p_likelihood_selected = self.p_posterior_selected*self.posteriorNorm
-        self.p_likelihood_selected /= (np.sum(self.p_posterior_selected)*self.pixarea)        
+        self.p_likelihood_selected /= (np.sum(self.p_posterior_selected)*self.pixarea)
+        
+        self.dL, self.dLmin, self.dLmax, self.sigmadL = self.find_r_loc(std_number=self.std_number)
         
         self.compute_z_lims()
         
-        self.area , self.area_rad,  self.vol  = self._get_credible_region_info()
-            
+        self.areaDeg, self.areaRad, self.volCom = self._get_credible_region_fiducial_info()
+        
         if self.verbose:
             print('Credible region set to %s %%' %(self.level*100))
             print('Number of std in dL: %s' %self.std_number)
             # Print size of the credible region
-            vol="{:.2e}".format(self.vol)
-            print('%s credible region for %s: area=%s deg^2 (%s rad^2), volume= %s Mpc^3 (with H0=%s)' %(self.level, self.event_name, np.round(self.area), np.round(self.area_rad, 3), vol, cosmoglob.H0))
-        # further remove bad pixels where no skymap is available
+            vol="{:.2e}".format(self.volCom)
+            print('%s credible region for %s: area=%s deg^2 (%s rad^2), com. volume= %s Mpc^3 (with H0=%s)' %(self.level, self.event_name, np.round(self.areaDeg), np.round(self.areaRad, 3), vol, H0GLOB))
+        
         
     def _get_metadata(self):
         O2metaPath = os.path.join(metaPath, 'GWTC-1-confident.csv')     
@@ -348,7 +355,6 @@ class Skymap3D(object):
             return self.get_credible_region_pixels(level=level).size*self.pixarea*(180/np.pi)**2
             
         
-    
     def _get_credible_region_pth(self, level=None):
         '''
         Finds value minskypdf of rho_i that bouds the x% credible region , with x=level
@@ -356,6 +362,7 @@ class Skymap3D(object):
         '''
         if level is None:
             level=self.level
+            
         prob_sorted = np.sort(self.p_posterior)[::-1]
         prob_sorted_cum = np.cumsum(prob_sorted)
         # find index of array which bounds the self.area confidence interval
@@ -393,13 +400,11 @@ class Skymap3D(object):
     
         '''
         
-        d_obs, _, _, _ = self.find_r_loc()
-        
         try:
             #d_obs = self.metadata['luminosity_distance'].values[0]
             
             SNR = self.metadata['network_matched_filter_snr'].values[0]
-            return d_obs*SNR/SNR_ref
+            return self.dL*SNR/SNR_ref
             #print('using d_obs and SNR from metadata')
             
         except IndexError:
@@ -407,42 +412,22 @@ class Skymap3D(object):
             return 1.5*d_obs
           
       
-#
-#    def compute_z_lims(self, H0max=220, H0min=20, Xi0max=3, Xi0min=0.2, n=1.91, verbose=False):
-#        '''
-#        Computes the possible range in redshift for the event given the prior range for H0 and XI0
-#        '''
-#
-#        if verbose:
-#            print('Computing range in redshift for all priors...')
-#        grid=[]
-#        for H0i in [H0min, H0max]:
-#            for Xi0i in [Xi0min, Xi0max]:
-#                grid.append([H0i, Xi0i])
-#        zs = np.array([self._get_minmax_z(*vals,n=n, verbose=verbose) for vals in grid ])
-#
-#        self.zmin = zs.min()
-#        self.zmax = zs.max()
-#        return self.zmin, self.zmax
-#
 
-    def compute_z_lims(self, std_number=None, n=1.91):
+    def compute_z_lims(self):
         '''
         Computes and stores z range of events given H0 and Xi0 ranges.
         Based on actual skymap shape in the previously selected credible region, not on metadata
         '''
-        if std_number is None:
-            std_number=self.std_number
+      
         if self.verbose:
             print('Computing range in redshift for parameter range H0=[{}, {}], Xi0=[{}, {}]...'.format(self.priorlimits.H0min, self.priorlimits.H0max, self.priorlimits.Xi0min, self.priorlimits.Xi0max))
         
-        self.dL, self.dmin, self.dmax, self.sigmadL = self.find_r_loc(std_number=std_number)
         
-        self.zmin = z_from_dLGW(self.dmin, self.priorlimits.H0min, self.priorlimits.Xi0max, n=n)
-        self.zmax = z_from_dLGW(self.dmax, self.priorlimits.H0max, self.priorlimits.Xi0min, n=n)
-        self.zEv = z_from_dLGW(self.dL, H0GLOB, Xi0Glob, n=n)
+        self.zmin = z_from_dLGW(self.dLmin, self.priorlimits.H0min, self.priorlimits.Xi0max, n=nGlob)
+        self.zmax = z_from_dLGW(self.dLmax, self.priorlimits.H0max, self.priorlimits.Xi0min, n=nGlob)
+        self.zfiducial = z_from_dLGW(self.dL, H0GLOB, Xi0Glob, n=nGlob)
 
-        return self.zmin, self.zmax, self.dmin, self.dmax
+        return self.zmin, self.zmax
         
     def get_z_lims(self):
         '''
@@ -509,15 +494,20 @@ class Skymap3D(object):
         return mean, lower, upper, std #map_val, up_lim, low_lim
         
 #    
-    def _get_credible_region_info(self):
-        area_deg = self.area()
-        area_rad = area_deg/((180/np.pi)**2)
-        #_, dmin, dmax, _ = self.find_r_loc()
-        zmin = z_from_dLGW(self.dmin, cosmoglob.H0.value, 1,n=1.91)
-        zmax = z_from_dLGW(self.dmax, cosmoglob.H0.value, 1, n=1.91)
-        com_vol = quad(lambda x: cosmoglob.differential_comoving_volume(x).value, zmin, zmax )[0]
-        vol=area_rad*com_vol
-        return area_deg, area_rad, vol
+    def _get_credible_region_fiducial_info(self):
+        areaDeg = self.area()
+        areaRad = areaDeg/((180/np.pi)**2)
+
+        zmin = z_from_dLGW(self.dLmin, H0GLOB, 1,n=1.91)
+        zmax = z_from_dLGW(self.dLmax, H0GLOB, 1, n=1.91)
+        
+        dcommin = dLmin/(1+zmin)
+        dcommax = dLmax/(1+zmax)
+        
+        volCom = areaRad*(dcommax**3-dcommin**3)/3
+        
+        return areaDeg, areaRad, volCom
+        
     
     #def _get_minmax_z(self, H0, Xi0, n=1.91, std_number=3):
 #        '''

@@ -20,7 +20,7 @@ class DES(GalCat):
             
         GalCat.__init__(self, foldername, compl, useDirac, verbose, **kwargs)
 
-    def load(self, remove_unreliable=True, add_distrib_redshifts=True):
+    def load(self, remove_unreliable=True, add_distrib_redshifts=True, galPosterior = True):
         from astropy.io import fits
         filepath = os.path.join(self._path, 'y1a1.fits')
         f = fits.open(filepath)
@@ -69,6 +69,9 @@ class DES(GalCat):
             dg.loc[dg.z_lower < 0.5*dg.z, 'z_lower'] = 0.5*dg.z
             dg.loc[:, 'z_upper'] = dg.z + dg.z_err
             dg.loc[:, 'z_upperbound'] = dg.z + 3*dg.z_err
+            
+            if galPosterior:
+                self.include_vol_prior(dg) 
 
         dg.loc[:, "w"] = np.ones(dg.shape[0])
         dg.loc[:,"pix" + str(self._nside)]   = hp.ang2pix(self._nside, dg.theta, dg.phi)

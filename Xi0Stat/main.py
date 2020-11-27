@@ -273,7 +273,7 @@ def main():
         cat = GWENS('GWENS', compl, useDirac= not galRedshiftErrors, verbose=verbose)
 
     elif catalogue == 'DES':
-        cat = DES('DES', compl, useDirac= not galRedshiftErrors, verbose=verbose)
+        cat = DES('DES', compl, useDirac= not galRedshiftErrors, verbose=verbose, galPosterior=galPosterior)
 
     else:
         raise NotImplementedError('Galaxy catalogues other than GLADE, GWENS or DES are not supported for the moment. ')

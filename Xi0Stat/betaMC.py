@@ -61,6 +61,40 @@ class BetaMC:#(Beta):
         else:
             raise ValueError
             
+        from scipy.optimize import minimize_scalar
+
+        # m is the detector frame mass of each of the BH
+        def goal(m):
+            # for fixed total mass (that should be as small as possible, entering the integral cutoff in inverse)
+            # one can analytically optimize the mass ratio for maximizing the chirp mass, and finds 1
+            # thus the masses are equal in the optimal case, in which the angles are such that Qsq = 1
+            # furthermore, for z fixed, dL(z) is fixed anyway, and the SNR expression is maximal if the mass-dependent rest is maximal.
+            # the redshift enters into the rest in redshifting the chirp mass and the total mass only, and the masses enter only where the redshift enters - the rest is a  function of redshifted, detector frame, masses only. If the optimal source frame mass is known for a particular redshift, the rest is maxized by definition. For any other redshift, we only need to absorb this change into a change of (intrinsic) mass to keep the detector frame masses constant, which is possible as chirp mass and total mass scale the same when the mass is scaled.
+            # Thus, we need to find the best mass for any fixed H0, Xi0 (which do not enter in the rest) and fixed z only once. For example we can consider z->0 where dL->z/H0 and maximize rest=SNR*dL \approx SNR*z/H0 (which remains well-defined) to find this optimal detector frame mass directly; numerically, we use a finite but small z but express SNR using the detector frame mass for increased precision.
+            # Furthermore, the optimal SNRmax is then simply given by dividing this rest by whatever dL in question, and finding the maximum redshift is simply solving SNR=rest/dL(z)=SNRthresh for z, z=z(dL)=z(rest/SNRthresh). The quantity dL=rest/SNRthresh is clearly the maximum luminosity distance of the detector, self.dMax defined below. All what was said is summarized in saying that this distance is independent of H0, Xi0.
+
+            # Caveat: This works only if the redshift is not so large to break through the lower mass bound. For Ligo/Virgo, this is z=O(10) though. Otherwise it maximum is probably obtained at the boundary but this would require some checks.
+            zPiv = 0.001
+            return -self._SNR(m/(1+zPiv), m/(1+zPiv), zPiv, H0=70, Xi0=1, Qsq=1)*dL70fast(zPiv) #Independent of zPiv, H0, Xi0
+            
+        res = minimize_scalar(goal, bounds = (self.mMin, self.mMax), method='bounded')
+        
+        if res.success == False:
+            print(res.message, res.x)
+            raise
+        else:
+            self.optimalDetectorFrameMass = res.x
+            if self.verbose == True:
+                print("Optimal detector frame mass for {} is {:.2f}".format(observingRun, res.x))
+            # what was called "rest" in the comment above
+            self.SNRmaxNumerator = -res.fun
+            
+            #
+            self.dMax = self.SNRmaxNumerator/self.SNRthresh
+            
+            if self.verbose == True:
+                print("Maximal detector reach for {} is {:.1f} Mpc, corresponding to z = {:.2}, ({:.2} - {:.2})".format(observingRun, self.dMax, z_from_dLGW_fast(self.dMax, H0=70, Xi0=1, n=nGlob),  z_from_dLGW_fast(self.dMax, H0=priorlimits.H0min, Xi0=priorlimits.Xi0max, n=nGlob),  z_from_dLGW_fast(self.dMax, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)))
+          
 
     def load_strain_sensitivity(self):
         import os
@@ -135,6 +169,7 @@ class BetaMC:#(Beta):
            
             if cat._useDirac == False:
                 zGal = sample_bounded_keelin_3(0.16, dg.z_lower, dg.z, dg.z_upper, dg.z_lowerbound, dg.z_upperbound, N=1)
+                print(zGal)
             else: 
                 zGal = dg.z.to_numpy()
             inside = zGal < self.zmax
@@ -183,6 +218,8 @@ class BetaMC:#(Beta):
                 # for the catalog term, we sample from the galaxies so restricted
                 # compute total galaxy catalog prior mass
                 inhomMass = np.sum(wGalInside)
+               
+                #return
                 # after division by nbar (for h7=1), the sum of weights - the integral over the catalog term for all completion schemes - becomes an effective comoving volume (which we have normalized by the pivot volume, which is an overall normalization of beta and which we ignore in the following explanations). In the additive case, this is equal to the volume integral of Pcompl (unless the catalog is overcomplete and Pcompl is cut to 1)
                 
                 # therefore in the additive case the integral of the hom term 1-Pcompl, that we call homMass, is, Vcom - sum of weights,
@@ -229,15 +266,15 @@ class BetaMC:#(Beta):
                 # = 1 - cdf(8, snr) = 1 - 1/2 [1 + erf((8-snr)/sqrt(2))] = 1/2 [1 + erf((snr-8)/sqrt(2))] = cdf(snr, 8)
                 contrib = 0.5*(1+erf((SNR-8)/np.sqrt(2)/self._sigmaSNR))
                 
-                mask = contrib > 0.01
+                mask = contrib > 0.001
                 contrib = contrib[mask]
                 
-                # only the samples inside enough are relevant
+                # only continue computing for those that are not anyway nearly irrelevant. Note that nSamplesHom is staying large!
                 thetas = np.arccos( costhetasample[mask] )
                 phis = phisample[mask]
                 zs = zsample[mask]
                 
-                # evaluating completeness is probably the slow part
+                # evaluating completeness is probably the slow part, in the following two lines
                 contrib[ ~ self.selector.is_good(thetas, phis, zs)] = 0
                 homweights = 1-self._gals.confidence(cat.completeness(thetas, phis, zs, oneZPerAngle = True))
                 # inserting the 1/VcomMax to get a pdf of the sample draws generated a VcomMax here. Also let's not forget that a fraction of the evaluations
@@ -246,9 +283,13 @@ class BetaMC:#(Beta):
                 resHom[i] = res[i]
                 
                 # sample the gal term. This means sampling from the wGal directly. The normalized pdf contains a 1/np.sum(wGal).
-                # Like before, we multiply (keep) and divide (absorbed by sampling) by inhomMass
+                # Like before, we multiply (keep) and divide (absorbed by sampling) by this sum
+                # However, we can even include the selection from selector into the proposal distribution first, by changing the weights accordingly.
+                
+                wGalInside[ ~ self.selector.is_good(thetaGalInside, phiGalInside, zGalInside)] = 0
                 
                 galsample = self._sample_discrete(nSamplesCat, wGalInside)
+                
                 costhetasample = np.cos(thetaGalInside[galsample])
                 phisample = phiGalInside[galsample]
                 zsample = zGalInside[galsample]
@@ -262,8 +303,8 @@ class BetaMC:#(Beta):
                               
                 contrib = 0.5*(1+erf((SNR-8)/np.sqrt(2)/self._sigmaSNR))
                 
-                
-                contrib[ ~ self.selector.is_good(thetaGalInside[galsample], phisample, zsample)] = 0
+                #not necessary anymore, included in weights.
+                #contrib[ ~ self.selector.is_good(thetaGalInside[galsample], phisample, zsample)] = 0
               
                     
                 res[i] += (np.sum(wGalInside)/nSamplesCat)*np.sum(contrib)
@@ -290,7 +331,7 @@ class BetaMC:#(Beta):
                 contrib = 0.5*(1+erf((SNR-8)/np.sqrt(2)/self._sigmaSNR))
                 
                 
-                mask = contrib > 0.01
+                mask = contrib > 0.001
                 contrib = contrib[mask]
                 
                 # only the samples inside enough are relevant
@@ -340,12 +381,12 @@ class BetaMC:#(Beta):
         #reshomfit2 = betahom(grid, *popt2)
         self.chisq = np.sum( (res-reshomfit)**2 / (sigma**2) ) / self.nEvals
         #self.chisq2 = np.sum( (res-reshomfit2)**2 / (sigma2**2) ) / self.nEvals
-        self.dMax = popt[0]
-        self.dMaxErr = np.sqrt(pcov[0][0])
+        self.dMaxEff = popt[0]
+        self.dMaxEffErr = np.sqrt(pcov[0][0])
         #self.dMax2 = popt2[0]
         #self.dMaxErr2 = np.sqrt(pcov2[0][0])
     
-        print("Fit assuming it works well: Fitted BetaMC with BetaHom with dMax = {:.2f} +- {:.2f}. Chisq = {:.2f}".format(self.dMax, self.dMaxErr, self.chisq))
+        print("Fit assuming it works well: Fitted BetaMC with BetaHom with dMax = {:.2f} +- {:.2f}. Chisq = {:.2f}".format(self.dMaxEff, self.dMaxEffErr, self.chisq))
         
         #print("Otherwise, if the fit were not to work well, a more general error estimate yields a more reliable Chisq: dMax = {:.2f} +- {:.2f}. Chisq = {:.2f}".format(self.dMax2, self.dMaxErr2, self.chisq2))
       
@@ -354,10 +395,8 @@ class BetaMC:#(Beta):
     
         interpolator = interpolate.interp1d(grid, resfiltered, kind='cubic')
         
-        #return grid, res, resCat, resHom, sigma, resfiltered, reshomfit, interpolator(x)
+        return grid, res, resCat, resHom, sigma, resfiltered, reshomfit, interpolator(x)
         return interpolator(x)
-
-
 
 
     def _sample(self, nSamples, pdf, lower, upper):
@@ -402,8 +441,6 @@ class BetaMC:#(Beta):
     def sample_event(self, costhetasample, phisample, zsample, H0, Xi0):
     
         nSamples = zsample.size
-        
-        h7 = H0/70
                
 #        flatMasses = False
 #
@@ -458,17 +495,48 @@ class BetaMC:#(Beta):
             m1 = self._sample(nSamples, pm1, self.mMin, self.mMax)
             m2 = self._sample_vector_upper(pm2, self.mMin, m1)
             
-        # never seeems to happen, but let's be sure
+        # never seems to happen, but let's be sure (not that it would matter...)
         m2[m2>m1] = m1[m2>m1]
-            
+      
+        tsample = np.random.uniform(size=nSamples)
+       
+        costhetaL, phiL = self._equat2detector('livingston', costhetasample, phisample, tsample)
+        costhetaH, phiH = self._equat2detector('hanford', costhetasample, phisample, tsample)
+       
+        cosinclsample = 1-2*np.random.uniform(size=nSamples)
+       
+        cosiota = cosinclsample
+       
+        # (9.136) note that the additional rotation of psi of u and v definitng the
+        # polarization in plane perpendicular to propagagion
+        # from matching detector polarization reference and source (aligned to major and minor axis)
+        # drops out in sum of squares (7.271) (ok: is also mentioned in a side note)
+       
+        def Qsq(costh, phi, cosincl):
+       
+            Fp = 0.5*(1+costh**2)*np.cos(2*phi)
+            Qp = Fp*0.5*(1+cosincl**2)
+            Fc = costh*np.sin(2*phi)
+            Qc = Fc*cosincl
+            # (7.178f)
+            return Qp**2 + Qc**2
+           
+        QsqL = Qsq(costhetaL, phiL, cosinclsample)
+        QsqH = Qsq(costhetaH, phiH, cosinclsample)
+       
+        Qsq = np.minimum(QsqL, QsqH)
+       
+        return self._SNR(m1, m2, zsample, H0, Xi0, Qsq)
+         
+
+    def _SNR(self, m1, m2, z, H0, Xi0, Qsq):
         mtot = m1 + m2
         Mc = (m1*m2)**(0.6)/mtot**(0.2)
+        h7 = H0/70
+        dist_true = Xi(z=z, Xi0=Xi0,n=nGlob)*dL70fast(z)/h7
        
-        dist_true = Xi(z=zsample, Xi0=Xi0,n=nGlob)*dL70fast(zsample)/h7
-       
-      
-        Mc *= (1+zsample)
-        mtot *= (1+zsample)
+        Mc *= (1+z)
+        mtot *= (1+z)
                  
         ## COMPUTE SNR - all references point to M. Maggiore, Gravitational Waves (OUP) ##
        
@@ -477,60 +545,74 @@ class BetaMC:#(Beta):
         # this is for the orbit, not the GW - see (4.1 and below). Then,
         fGW = 2*fISCO
 
-        if costhetasample is not None:
-            tsample = np.random.uniform(size=nSamples)
-           
-            costhetaL, phiL = self._equat2detector('livingston', costhetasample, phisample, tsample)
-            costhetaH, phiH = self._equat2detector('hanford', costhetasample, phisample, tsample)
-           
-            cosinclsample = 1-2*np.random.uniform(size=nSamples)
-           
-            cosiota = cosinclsample
-           
-            # (9.136) note that the additional rotation of psi of u and v definitng the
-            # polarization in plane perpendicular to propagagion
-            # from matching detector polarization reference and source (aligned to major and minor axis)
-            # drops out in sum of squares (7.271) (ok: is also mentioned in a side note)
-           
-            def Qsq(costh, phi, cosincl):
-           
-                Fp = 0.5*(1+costh**2)*np.cos(2*phi)
-                Qp = Fp*0.5*(1+cosincl**2)
-                Fc = costh*np.sin(2*phi)
-                Qc = Fc*cosincl
-                # (7.178f)
-                return Qp**2 + Qc**2
-               
-            QsqL = Qsq(costhetaL, phiL, cosinclsample)
-            QsqH = Qsq(costhetaH, phiH, cosinclsample)
-           
-            Qsq = np.minimum(QsqL, QsqH)
-        
-        else:
-            Qsq = 1
-       
         GMsun_over_c3 = 4.927e-6# seconds
         clightMpc = clight/3.086e+19 #km/s -> Mpc/s
-
        
         # don't compute square - dynamic range of terms is already difficult enough
         SNR = 1/np.pi**(2/3)*(GMsun_over_c3*Mc)**(2.5/3)*(clightMpc/dist_true)*np.sqrt(5/6*Qsq*np.interp(fGW, self.freq, self.integr))
        
         return SNR
-         
-
-
+        
     # searches for the redshift after which no more events will be detected, depending on H0 and Xi0.
     # search is carried out until self.zmax
     def _find_zmax_SNRthresh(self, H0, Xi0):
-        zgrid = np.linspace(self.zmax, 0.00001, 100000)
-        # asssumes perfect orientation and inclination, randomizes masses as usual (not clear if heaviest are always the best visible since
-        # their cutoff frequency is lower!)
-        snrgrid = self.sample_event(None, None, zgrid, H0, Xi0)
-        # find max z after which no more SNR is ever larger than threshold, by finding first True value (argmax returns first maximum) starting from large z
-        idx = np.argmax(snrgrid >= self.SNRthresh)
-        # fudge factor to be generous, tests show the accuracy is about 1 or 2 percent so we increase by 5%
-        return 1.05*zgrid[idx]
+
+        res = z_from_dLGW_fast(self.dMax, H0=H0, Xi0=Xi0, n=nGlob)
+        
+        # this should normally be true - the optimal detector frame mass is about 40, while mMin is about 4...
+        if self.optimalDetectorFrameMass/(1+res) >= self.mMin:
+            return res
+            
+        # else, solve afresh with bounds
+        from scipy.optimize import minimize_scalar
+
+        def SNRmax(z):
+            def goal(m):
+                return -self._SNR(m, m, z, H0, Xi0, Qsq=1)
+            res = minimize_scalar(goal, bounds = (self.mMin, self.mMax), method='bounded')
+            if res.success == False:
+                print(res.message, res.x)
+            else:
+                return self._SNR(res.x, res.x, z, H0, Xi0, Qsq=1) - self.SNRthresh
+
+        from scipy.optimize import brentq
+        res = brentq(SNRmax, a=0.001, b=self.zmax)
+        
+        return res2
+        
+ # old randomized algorithm (using that sample_event used to set Qsq = 1 for angles being None)
+#        zl = 0.00001
+#        zr = self.zmax
+#        fudge = 0.1
+#        for i in range(20):
+#            zgrid = np.linspace(zr, zl, 10000)
+#            # asssumes perfect orientation and inclination, randomizes masses as usual (not clear if heaviest are always the best visible since
+#            # their cutoff frequency is lower!)
+#            snrgrid = self.sample_event(None, None, zgrid, H0, Xi0)
+#            # find max z after which no more SNR is ever larger than threshold, by finding first True value (argmax returns first maximum) starting from large z
+#            idx = np.argmax(snrgrid >= self.SNRthresh)
+#
+#            if idx != 0:
+#                print(idx)
+#                # this z is for sure still visible
+#                zl = zgrid[idx]
+#            else:
+#                pass
+#
+#            # close in from the right
+#            zr = zl*(1+fudge)
+#            fudge *= 0.8
+#
+#            print(i, zl, zr)
+#        return zl
+#
+# as before, without the loop: fast but approximate
+#        zgrid = np.linspace(zgrid[idx]*1.03, zgrid[idx]*0.97, 10000)
+#
+#        snrgrid = self.sample_event(None, None, zgrid, H0, Xi0)
+#        idx = np.argmax(snrgrid >= self.SNRthresh)
+#        # fudge factor to be generous, tests show the accuracy is about 1 or 2 percent so we increase by 5%
+#        return 1.005*zgrid[idx]
         
     def _equat2detector(self, detector, costheta, phi, t):
         

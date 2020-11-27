@@ -77,7 +77,7 @@ class GWgal(object):
          'dL_Mpc': [self.GWevents[eventName].dL for eventName in self.GWevents.keys()],
         'dLlow_Mpc':[self.GWevents[eventName].dmin for eventName in self.GWevents.keys()],
         'dLup_Mpc':[self.GWevents[eventName].dmax for eventName in self.GWevents.keys()],
-        'z_event':[self.GWevents[eventName].zEv for eventName in self.GWevents.keys()], 
+        'z_event':[self.GWevents[eventName].zfiducial for eventName in self.GWevents.keys()],
         'zLow':[self.GWevents[eventName].zmin for eventName in self.GWevents.keys()],
         'zUp':[self.GWevents[eventName].zmax for eventName in self.GWevents.keys()],
          'Vol_mpc3':[self.GWevents[eventName].vol for eventName in self.GWevents.keys()],
@@ -236,13 +236,11 @@ class GWgal(object):
         return LL
     
     
-    def _get_rGrid(self, eventName, nsigma=3, minPoints=50):
+    def _get_rGrid(self, eventName, minPoints=50):
     
-        meanmu, lower, upper, meansig = self.selectedGWevents[eventName].dL ,self.selectedGWevents[eventName].dmin, self.selectedGWevents[eventName].dmax, self.selectedGWevents[eventName].sigmadL#self.selectedGWevents[eventName].find_r_loc(std_number = nsigma)
+       lower, upper = self.selectedGWevents[eventName].dLmin, self.selectedGWevents[eventName].dLmax,
         
-        #cred_pixels = self.selectedGWevents[eventName].selected_pixels
-        
-        nPoints = np.int(minPoints*(upper-lower)/meansig)
+        nPoints = np.int(minPoints*(upper-lower)/self.selectedGWevents[eventName].sigmadL)
         
         return np.linspace(lower, upper, nPoints)
     

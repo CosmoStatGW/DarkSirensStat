@@ -27,8 +27,6 @@ def plot_completeness(base_path, allGW, catalogue, lims, verbose=True):
         #print(ev.find_r_loc())
         zmin, zmax = 0, 1
         mu, l, _,_ = ev.find_r_loc(std_number=2, verbose=False)
-        zl = z_from_dLGW(l, H0=lims.H0min, Xi0=lims.Xi0max, n=nGlob)
-        zu = z_from_dLGW(u, H0=lims.H0min, Xi0=lims.Xi0max, n=nGlob)
     
         z = np.linspace(zmin, zmax, 1000)
     
@@ -43,7 +41,7 @@ def plot_completeness(base_path, allGW, catalogue, lims, verbose=True):
         plt.plot(z, c.T, c='k', alpha=0.1)
         np.savetxt( os.path.join(c_path, key+'_compl_random.txt'), c)
     
-        z = np.linspace(zl, zu, 100)
+        z = np.linspace(ev.zmin, ev.zmax, 100)
         c = catalogue.completeness(*ev.find_event_coords(polarCoords=True), z)
         plt.plot(z, c.T, linewidth=4, c='r')
         plt.title('Completness for ' + key, fontsize=20)
