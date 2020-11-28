@@ -13,8 +13,10 @@ plt.rcParams["mathtext.fontset"] = "cm"
 import numpy as np
 import os
 
+import healpy as ho
 
-def plot_completeness(base_path, allGW, catalogue, lims, verbose=True):
+
+def plot_completeness(base_path, allGW, catalogue, lims, mask = None, verbose=True):
     c_path = os.path.join(base_path, 'completeness')
     if not os.path.exists(c_path):
         if verbose:
@@ -22,6 +24,12 @@ def plot_completeness(base_path, allGW, catalogue, lims, verbose=True):
         os.makedirs(c_path)
     #if verbose:
     print('Plotting completeness...')
+    
+    if mask is not None:
+        plt.figure(figsize=(20,10))
+        hp.mollview(mask)
+        plt.savefig(os.path.join(c_path, key+'mask.pdf'))
+        
     for key, ev in allGW.items():
         plt.figure(figsize=(20,10))
         #print(ev.find_r_loc())

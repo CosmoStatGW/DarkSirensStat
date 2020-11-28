@@ -281,7 +281,12 @@ def main():
     gals.add_cat(cat)
     
     if plot_comp:
-        plot_completeness(out_path, allGW, cat, lims, verbose=verbose)
+    
+        mymask = None
+        if completeness == 'mask':
+            mymask = compl._mask
+        
+        plot_completeness(out_path, allGW, cat, lims, mask=mymask, verbose=verbose)
     
     print('Done.')
     
