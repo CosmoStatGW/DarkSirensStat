@@ -501,8 +501,8 @@ class Skymap3D(object):
         zmin = z_from_dLGW(self.dLmin, H0GLOB, 1,n=1.91)
         zmax = z_from_dLGW(self.dLmax, H0GLOB, 1, n=1.91)
         
-        dcommin = dLmin/(1+zmin)
-        dcommax = dLmax/(1+zmax)
+        dcommin = self.dLmin/(1+zmin)
+        dcommax = self.dLmax/(1+zmax)
         
         volCom = areaRad*(dcommax**3-dcommin**3)/3
         

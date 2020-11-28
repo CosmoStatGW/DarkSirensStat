@@ -75,12 +75,12 @@ class GWgal(object):
         self.summary = pd.DataFrame.from_dict({'name': [self.GWevents[eventName].event_name for eventName in self.GWevents.keys()],
          'Omega_degSq': [self.GWevents[eventName].area for eventName in self.GWevents.keys()],
          'dL_Mpc': [self.GWevents[eventName].dL for eventName in self.GWevents.keys()],
-        'dLlow_Mpc':[self.GWevents[eventName].dmin for eventName in self.GWevents.keys()],
-        'dLup_Mpc':[self.GWevents[eventName].dmax for eventName in self.GWevents.keys()],
+        'dLlow_Mpc':[self.GWevents[eventName].dLmin for eventName in self.GWevents.keys()],
+        'dLup_Mpc':[self.GWevents[eventName].dLmax for eventName in self.GWevents.keys()],
         'z_event':[self.GWevents[eventName].zfiducial for eventName in self.GWevents.keys()],
         'zLow':[self.GWevents[eventName].zmin for eventName in self.GWevents.keys()],
         'zUp':[self.GWevents[eventName].zmax for eventName in self.GWevents.keys()],
-         'Vol_mpc3':[self.GWevents[eventName].vol for eventName in self.GWevents.keys()],
+         'Vol_mpc3':[self.GWevents[eventName].volCom for eventName in self.GWevents.keys()],
          'nGal':[self.nGals[ eventName] if eventName in self.selectedGWevents.keys() else '--' for eventName in self.GWevents.keys()],
          'Pc_Av': [self.PcAv[eventName] for eventName in self.GWevents.keys()],
          'Pc_event': [self.PEv[eventName] for eventName in self.GWevents.keys()]})
@@ -106,12 +106,12 @@ class GWgal(object):
                 PcAv[eventName] = 0.
             else:
                 Pcomp = np.array([self.gals.total_completeness( *self.GWevents[eventName].find_theta_phi(self.GWevents[eventName].selected_pixels), z).sum() for z in zGrid])
-                vol = self.GWevents[eventName].area_rad*np.trapz(cosmoglob.differential_comoving_volume(zGrid).value, zGrid) #quad(lambda x: cosmoglob.differential_comoving_volume(x).value, self.GWevents[eventName].zmin,  self.GWevents[eventName].zmax)
+                vol = self.GWevents[eventName].areaRad*np.trapz(cosmoglob.differential_comoving_volume(zGrid).value, zGrid) #quad(lambda x: cosmoglob.differential_comoving_volume(x).value, self.GWevents[eventName].zmin,  self.GWevents[eventName].zmax)
                 _PcAv = np.trapz(Pcomp*cosmoglob.differential_comoving_volume(zGrid).value, zGrid)*self.GWevents[eventName].pixarea/vol
                 PcAv[eventName] = _PcAv
             
             
-            _PEv = self.gals.total_completeness( *self.GWevents[eventName].find_event_coords(polarCoords=True), self.GWevents[eventName].zEv)
+            _PEv = self.gals.total_completeness( *self.GWevents[eventName].find_event_coords(polarCoords=True), self.GWevents[eventName].zfiducial)
             PEv[eventName] = _PEv
             if self.verbose:
                 print('<P_compl> for %s = %s; Completeness at (z_event, Om_event): %s' %(eventName, np.round(_PcAv, 3), np.round(_PEv, 3)))        
@@ -164,7 +164,7 @@ class GWgal(object):
         
             # Convolution with z errors
             
-            rGrid = self._get_rGrid(eventName, nsigma=self.selectedGWevents[eventName].std_number, minPoints=20)
+            rGrid = self._get_rGrid(eventName, minPoints=20)
 
             zGrid = z_from_dLGW_fast(rGrid, H0=H0, Xi0=Xi0, n=n)
             
@@ -238,7 +238,7 @@ class GWgal(object):
     
     def _get_rGrid(self, eventName, minPoints=50):
     
-       lower, upper = self.selectedGWevents[eventName].dLmin, self.selectedGWevents[eventName].dLmax,
+        lower, upper = self.selectedGWevents[eventName].dLmin, self.selectedGWevents[eventName].dLmax,
         
         nPoints = np.int(minPoints*(upper-lower)/self.selectedGWevents[eventName].sigmadL)
         

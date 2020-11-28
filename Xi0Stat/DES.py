@@ -71,7 +71,7 @@ class DES(GalCat):
             dg.loc[:, 'z_upperbound'] = dg.z + 3*dg.z_err
             
             if galPosterior:
-                self.include_vol_prior(dg) 
+                dg = self.include_vol_prior(dg) 
 
         dg.loc[:, "w"] = np.ones(dg.shape[0])
         dg.loc[:,"pix" + str(self._nside)]   = hp.ang2pix(self._nside, dg.theta, dg.phi)

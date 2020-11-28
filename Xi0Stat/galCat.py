@@ -167,8 +167,8 @@ class GalCat(ABC):
         df.loc[:,which_z+'_CMB'] = z_corr
   
     def include_vol_prior(self, df):
-        L = 0
-        nBatch = 10000
+        batchSize = 10000
+        nBatches = int(len(df)/batchSize)
          
         if self.verbose:
             print("Computing galaxy posteriors...")
@@ -182,46 +182,37 @@ class GalCat(ABC):
         from scipy import interpolate
         func = interpolate.interp1d(zGrid, jac, kind='cubic')
         
-        i = 0
-        while True:
-            i += 1
+        def convolve_batch(df, func, batchId, nBatches): 
+            N = len(df)
+            # actual batch size, different from batchSize only due to integer rounding 
+            n = int(N/nBatches) 
+            start = n*batchId
+            stop = n*(batchId+1)
+            if batchId == nBatches-1:
+                stop = N 
+
+            batch = df.iloc[start:stop]
+
             if self.verbose:
-                print("Batch " + str(i) + " of " + str(np.int(len(df)/nBatch)+1) )
+                print("Batch " + str(batchId) + " of " + str(nBatches) )
             
-            R = L + nBatch
+            ll = batch.z_lowerbound.to_numpy()
+            l  = batch.z_lower.to_numpy()
+            m  = batch.z.to_numpy()
+            u  = batch.z_upper.to_numpy()
+            uu = batch.z_upperbound.to_numpy()
+               
+            return convolve_bounded_keelin_3(func, 0.16, l, m, u, ll, uu, N=500)
 
-            if R >= len(df):
-                ll = df.z_lowerbound.to_numpy()[L:]
-                l  = df.z_lower.to_numpy()[L:]
-                m  = df.z.to_numpy()[L:]
-                u  = df.z_upper.to_numpy()[L:]
-                uu = df.z_upperbound.to_numpy()[L:]
-            else:
-                ll = df.z_lowerbound.to_numpy()[L:R]
-                l  = df.z_lower.to_numpy()[L:R]
-                m  = df.z.to_numpy()[L:R]
-                u  = df.z_upper.to_numpy()[L:R]
-                uu = df.z_upperbound.to_numpy()[L:R]
-                
+        res = np.vstack(parmap(lambda b: convolve_batch(df, func, b, nBatches), range(nBatches)))
+        df.z_lowerbound = res[:, 0]
+        df.z_lower = res[:, 1]
+        df.z = res[:, 2]
+        df.z_upper = res[:, 3]
+        df.z_upperbound = res[:, 4]
+        
+        return df 
 
-            fits = convolve_bounded_keelin_3(func, 0.16, l, m, u, ll, uu, N=500)
-            
-            if R >= len(df):
-                df.iloc[L:, df.columns.get_loc("z_lowerbound")] = fits[:, 0]
-                df.iloc[L:, df.columns.get_loc("z_lower")] = fits[:, 1]
-                df.iloc[L:, df.columns.get_loc("z")] = fits[:, 2]
-                df.iloc[L:, df.columns.get_loc("z_upper")] = fits[:, 3]
-                df.iloc[L:, df.columns.get_loc("z_upperbound")] = fits[:, 4]
-                break
-            else:
-                df.iloc[L:R, df.columns.get_loc("z_lowerbound")] = fits[:, 0]
-                df.iloc[L:R, df.columns.get_loc("z_lower")] = fits[:, 1]
-                df.iloc[L:R, df.columns.get_loc("z")] = fits[:, 2]
-                df.iloc[L:R, df.columns.get_loc("z_upper")] = fits[:, 3]
-                df.iloc[L:R, df.columns.get_loc("z_upperbound")] = fits[:, 4]
-
-            
-            L += nBatch
     
     
 def gal_to_eq(l, b):
