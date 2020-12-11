@@ -270,7 +270,7 @@ def main():
               galPosterior=galPosterior, band_weight=band_weight)
         
     elif catalogue == 'GWENS':
-        cat = GWENS('GWENS', compl, useDirac= not galRedshiftErrors, verbose=verbose)
+        cat = GWENS('GWENS', compl, useDirac= not galRedshiftErrors, verbose=verbose, galPosterior=galPosterior)
 
     elif catalogue == 'DES':
         cat = DES('DES', compl, useDirac= not galRedshiftErrors, verbose=verbose, galPosterior=galPosterior)
@@ -284,7 +284,7 @@ def main():
     
         mymask = None
         if completeness == 'mask':
-            mymask = compl._mask
+            mymask = cat._completeness._mask
         
         plot_completeness(out_path, allGW, cat, lims, mask=mymask, verbose=verbose)
     
