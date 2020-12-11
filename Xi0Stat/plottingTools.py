@@ -26,10 +26,21 @@ def plot_completeness(base_path, allGW, catalogue, lims, mask = None, verbose=Tr
     print('Plotting completeness...')
     
     if mask is not None:
+        if verbose:
+            print("Plotting mask mollview...")
         plt.figure(figsize=(20,10))
         hp.mollview(mask)
-        plt.savefig(os.path.join(c_path, key+'mask.pdf'))
-        
+        plt.savefig(os.path.join(c_path,'mask.pdf'))
+       
+    zslices = np.linspace(0,1,20)
+    th, ph = hp.pix2ang(128, np.arange(hp.nside2npix(128)))
+
+    for z in zslices:
+        c = catalogue.completeness(th, ph, z)
+        plt.figure(figsize=(20,10))
+        hp.mollview(c)
+        plt.savefig(os.path.join(c_path,'complz={:05.2f}.pdf'.format(z)))
+
     for key, ev in allGW.items():
         plt.figure(figsize=(20,10))
         #print(ev.find_r_loc())
