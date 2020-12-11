@@ -82,9 +82,9 @@ do_check_footprint=False
 # Band should be None if we use number counts
 Lcut=0.6
 # Band for lum cut
-band='B' #'B' # B, K, or None . 
-# Average galaxy density in comoving volume, used if band='None'
-Nbar = 0.1
+band=None #'B' # B, K, or None . 
+# Average galaxy density in comoving volume, used if band='None'. A number, or 'auto' (only for mask completeness) 
+Nbar = 'auto'
 # Band for lum weights
 band_weight = band #'B' # B, K, or None . 
 
@@ -129,8 +129,12 @@ nHomSamples=10000
 
 ## Which beta to use. 'fit', 'MC', 'hom', 'cat'
 which_beta = 'MC'
+
 # only used when which_beta='hom'. If 'scale', use individually SNR rescaled dmax estimate. If 'flat' use d of event. If a number use that for all events. 
-betaHomdMax = 425.7 
+betaHomdMax = 600 #roughly O3 
+#betaHomMax = 425.7 # O2 
+
+
 # Max redshift  of the region R,  if beta is 'fit'
 zR = 10
 # n of MC samples for beta MC
