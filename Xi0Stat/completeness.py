@@ -434,7 +434,30 @@ class MaskCompleteness(Completeness):
        
         if self.verbose:
             print('Final computations for completeness...')
-        
+       
+        if self._comovingDensityGoal == 'auto':
+            maxden = 0 
+            for i in np.arange(self._nMasks):
+
+                z1 = self.zedges[i][:-1]
+                z2 = self.zedges[i][1:]
+                vol = self.areas[i] * (self._fiducialcosmo.comoving_distance(z2).value**3 - self._fiducialcosmo.comoving_distance(z1).value**3)/3
+                # too small volumes can be spurious. Ignore these by reducing the density so they won't be picked 
+                vol[vol < 10000] = 1e30
+                nearden = np.max(coarseden[i]/vol)
+                
+                print(maxden, nearden, z1, z2, vol)
+
+                if nearden > maxden:
+                    import copy
+                    maxden = copy.copy(nearden)
+
+            self._comovingDensityGoal = maxden
+
+            if self.verbose:
+                print('Comoving density goal is set to ' + str(self._comovingDensityGoal) )
+
+
         for i in np.arange(self._nMasks):
             z1 = self.zedges[i][:-1]
             z2 = self.zedges[i][1:]
@@ -444,16 +467,17 @@ class MaskCompleteness(Completeness):
             
             from scipy import interpolate
             # first, make a 1000 pt linear interpolation
-            
+           
+            zmax = self.zedges[i][-1]*1.001
             zFine = np.linspace(0, zmax, 1000)
             
-            coarseden_interp = np.interp(zFine, self.zcenters[i], coarseden[i], right=0)
+            coarseden_interp = np.interp(zFine, self.zcenters[i], coarseden[i], right=None)
             
             # now filter our fluctuations.
             from scipy.signal import savgol_filter
             # with 251 points (must be odd) there are effectively 4 independent points left
             # to describe the decay in the intervall adjusted to the part of the mask
-            coarseden_filtered = coarseden_interp
+            coarseden_filtered = np.zeros(coarseden_interp.shape)
             n=0
             coarseden_filtered[n:] = savgol_filter(coarseden_interp[n:], 251, 2)
             
@@ -465,20 +489,34 @@ class MaskCompleteness(Completeness):
         
             # interpolator
             if self.zcenters[i].size > 3:
-                self._interpolators.append(interpolate.interp1d(self.zcenters[i], self._compl[i], kind='quadratic', bounds_error=False, fill_value=(1,0)))
+                self._interpolators.append(interpolate.interp1d(self.zcenters[i], self._compl[i], kind='linear', bounds_error=False, fill_value=(1,0)))
             else:
                 self._interpolators.append(lambda x: np.squeeze(np.zeros(np.atleast_1d(x).shape)))
         
         
             # find the point where the interpolated result crosses 1 for the last time
-            zFine = np.linspace(0, zmax, 10000)
+            zFine = np.linspace(0, self.zcenters[i][-1]*0.999, 10000)
             zFine = zFine[::-1]
             evals = self._interpolators[i](zFine)
         
             # argmax returns "first" occurence of maximum, which is True in a boolean array. we search starting at large z due to the flip
             idx = np.argmax(evals >= 1)
             # however, if all enries are False, argmax returns 0, which would be the largest redshift, while we want 0 in that case
-            self._zstar.append(0 if idx == 0 else zFine[idx])
+            # if all entries are True, we want indeed the largest 
+            if idx == 0:
+                if evals[1] < 1:
+                    self._zstar.append(0)
+                    if self.verbose:
+                        print("Catalog nowhere overcomplete in region {}.".format(i))
+                else:
+                    self._zstar.append(zFine[idx])
+                    if self.verbose:
+                        print("Warning: overcomplete catalog {} region even at largest redshift {}.".format(i, zmax))
+            else:
+                self._zstar.append(zFine[idx])
+                if self.verbose:
+                    print("Catalog overcomplete in region {} up to redshift {}.".format(i, zFine[idx]))
+
             
         self._zstar = np.array(self._zstar)
 
