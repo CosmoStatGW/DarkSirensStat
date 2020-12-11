@@ -168,7 +168,7 @@ class GalCat(ABC):
   
     def include_vol_prior(self, df):
         batchSize = 10000
-        nBatches = int(len(df)/batchSize)
+        nBatches = max(int(len(df)/batchSize), 1)
          
         if self.verbose:
             print("Computing galaxy posteriors...")
@@ -176,7 +176,7 @@ class GalCat(ABC):
         from keelin import convolve_bounded_keelin_3
         from astropy.cosmology import FlatLambdaCDM
         fiducialcosmo = FlatLambdaCDM(H0=70.0, Om0=0.3)
-        zGrid = np.linspace(0, 2*np.max(df.z_upperbound), 500)
+        zGrid = np.linspace(0, 1.4*np.max(df.z_upperbound), 500)
         jac = fiducialcosmo.comoving_distance(zGrid).value**2 / fiducialcosmo.H(zGrid).value
         
         from scipy import interpolate
@@ -194,7 +194,8 @@ class GalCat(ABC):
             batch = df.iloc[start:stop]
 
             if self.verbose:
-                print("Batch " + str(batchId) + " of " + str(nBatches) )
+                if batchId % 100 == 0:
+                    print("Batch " + str(batchId) + " of " + str(nBatches) )
             
             ll = batch.z_lowerbound.to_numpy()
             l  = batch.z_lower.to_numpy()
@@ -202,15 +203,23 @@ class GalCat(ABC):
             u  = batch.z_upper.to_numpy()
             uu = batch.z_upperbound.to_numpy()
                
-            return convolve_bounded_keelin_3(func, 0.16, l, m, u, ll, uu, N=500)
+            return convolve_bounded_keelin_3(func, 0.16, l, m, u, ll, uu, N=1000)
 
         res = np.vstack(parmap(lambda b: convolve_batch(df, func, b, nBatches), range(nBatches)))
+        
+        mask = (res[:,0] >= res[:,1]) | (res[:,1] >= res[:,2]) | (res[:,2] >= res[:,3]) | (res[:,3] >= res[:,4]) | (res[:,0] < 0)
+      
+        if self.verbose: 
+            print('Removing ' + str( np.sum(mask) ) + ' galaxies with unfeasible redshift pdf after r-squared prior correction.' )
+
         df.z_lowerbound = res[:, 0]
         df.z_lower = res[:, 1]
         df.z = res[:, 2]
         df.z_upper = res[:, 3]
         df.z_upperbound = res[:, 4]
-        
+
+        df = df[~mask]
+
         return df 
 
     
