@@ -582,11 +582,20 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
         for fname in sm_files:
             if len(fname.split('_')) == 2: 
                 ev_names.append(fname.split('_')[0])
-            elif len(fname.split('_')) == 3:
+            elif len(fname.split('_'))>2:# len(fname.split('_')) == 3:
                 ev_names.append(fname.split('_')[0]+'_'+fname.split('_')[1])
         #ev_names = [e+'_'+wf_model_name for e in ev_names]
+    elif 'O3b' in loc.split('/'):
+        run='O3b'
+        sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and ('LALInference.fits' in f.split('_')) )]
+        if eventType=='BNS':
+            raise ValueError('No BNS included in O3b')
+        ev_names = [fname.split('_')[0]  for fname in sm_files]
+        
+            
+    
     else:
-        raise ValueError('O2 or O3 data expected.')
+        raise ValueError('O2, O3 or O3b data expected.')
     
     if verbose:
         print('GW observing run: %s' %run)
@@ -606,11 +615,17 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
                 sm_files = [e+'_skymap.fits.gz' for e in ev_names]
             else:
                 sm_files = [e+'_skymap.fits' for e in ev_names]
-        else:
+        elif run=='O3':
             if compressed:
                 sm_files = [e+'_'+wf_model_name+'.fits.gz' for e in ev_names]
             else:
                 sm_files = [e+'_'+wf_model_name+'.fits' for e in ev_names]
+        elif run=='O3b':
+            if compressed:
+                sm_files = [e+'_'+'LALInference'+'.fits.gz' for e in ev_names]
+            else:
+                sm_files = [e+'_'+'LALInference'+'.fits' for e in ev_names]
+            
     
     
     if verbose:
