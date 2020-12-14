@@ -135,7 +135,11 @@ def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals):
             anisotropy = False
             if nUseCatalogBetaMC or type(eventSelector) is not SkipSelection:
                 anisotropy = True
-            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRun, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose )
+            if 'O3' in observingRun:
+                observingRunBeta='O3'
+            else:
+                observingRunBeta=observingRun   
+            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose )
         elif which_beta=='cat':
             Beta=BetaCat(gals, galRedshiftErrors,  zR, eventSelector )
         beta = Beta.get_beta(H0grid, Xi0grid)

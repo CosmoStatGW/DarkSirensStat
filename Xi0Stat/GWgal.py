@@ -73,7 +73,7 @@ class GWgal(object):
     def _get_summary(self):
         
         self.summary = pd.DataFrame.from_dict({'name': [self.GWevents[eventName].event_name for eventName in self.GWevents.keys()],
-         'Omega_degSq': [self.GWevents[eventName].area for eventName in self.GWevents.keys()],
+         'Omega_degSq': [self.GWevents[eventName].area() for eventName in self.GWevents.keys()],
          'dL_Mpc': [self.GWevents[eventName].dL for eventName in self.GWevents.keys()],
         'dLlow_Mpc':[self.GWevents[eventName].dLmin for eventName in self.GWevents.keys()],
         'dLup_Mpc':[self.GWevents[eventName].dLmax for eventName in self.GWevents.keys()],
