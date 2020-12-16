@@ -239,7 +239,7 @@ def main():
                            eventType=eventType,
                     priorlimits=lims ,
                     subset=subset, subset_names=subset_names, 
-                    verbose=verbose, level = level, std_number=std_number, )#compressed=is_compressed)
+                    verbose=verbose, level = level, std_number=std_number, zLimSelection=zLimSelection)#compressed=is_compressed)
     
     if do_check_footprint:
         print('Checking DES and GWENS coverage...')
