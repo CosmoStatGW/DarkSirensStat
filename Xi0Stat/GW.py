@@ -488,8 +488,8 @@ class Skymap3D(object):
         upper=mean+std_number*std
         if verbose:
             print('Position: %s +%s %s'%(mean, upper, lower))
-        meanmu = map_val
-        meansig = up_lim
+        #meanmu = mean
+        #meansig = up_lim
         
         return mean, lower, upper, std #map_val, up_lim, low_lim
         
