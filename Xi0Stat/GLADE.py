@@ -348,9 +348,9 @@ class GLADE(GalCat):
             if self.verbose:
                 print('Computing total luminosity in B band...')
             # add  a column for B-band luminosity
-            #my_dist=cosmo.luminosity_distance(df.z.values).value
-            #df.loc[:,"B_Abs"]=df.B-5*np.log10(my_dist)-25
-            BLum = df.B_Abs.apply(lambda x: TotLum(x, MBSun))
+            my_dist=cosmoGLADE.luminosity_distance(df.z.values).value
+            df.loc[:,"B_Abs_corr"]=df.B_Abs-5*np.log10(my_dist)+5*np.log10(df.dL.values)
+            BLum = df.B_Abs_corr.apply(lambda x: TotLum(x, MBSun))
             df.loc[:,"B_Lum"] =BLum
             df = df.drop(columns='B_Abs')
             # df = df.drop(columns='B') don't assume it's here

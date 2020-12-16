@@ -242,7 +242,7 @@ def main():
                     verbose=verbose, level = level, std_number=std_number, )#compressed=is_compressed)
     
     if do_check_footprint:
-        print('Chacking DES and GWENS coverage...')
+        print('Checking DES and GWENS coverage...')
         fp_DES, fp_GWENS = check_footprint(allGW, observingRun)
         print('DES coverage of GW events: fraction of %s %% credible region that falls into DES footprint' %str(100*level))
         print(fp_DES)

@@ -395,7 +395,7 @@ class BetaMC:#(Beta):
     
         interpolator = interpolate.interp1d(grid, resfiltered, kind='cubic')
         
-        return grid, res, resCat, resHom, sigma, resfiltered, reshomfit, interpolator(x)
+        #return grid, res, resCat, resHom, sigma, resfiltered, reshomfit, interpolator(x)
         return interpolator(x)
 
 
