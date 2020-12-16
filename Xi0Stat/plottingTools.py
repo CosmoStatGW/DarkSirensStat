@@ -144,10 +144,10 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
         ax.set_xlabel(r'$H_0$', fontsize=20);
         ax.set_ylabel(r'$p(H_0)$', fontsize=20);
     ax.legend(fontsize=10);
-    if zR is not None:
-        ax.set_title('{} band, $L/L_* > $ {}, $z_R =$ {}'.format(band,Lcut,zR), fontsize=20)
-    else:
-        ax.set_title('{} band, $L/L_* > $ {}'.format(band,Lcut), fontsize=20)
+    #if zR is not None:
+    #    ax.set_title('{} band, $L/L_* > $ {}, $z_R =$ {}'.format(band,Lcut,zR), fontsize=20)
+    #else:
+    ax.set_title('{} band, $L/L_* > $ {}'.format(band,Lcut), fontsize=20)
     
     plt.savefig(os.path.join(base_path, 'posterior.pdf'))
     
