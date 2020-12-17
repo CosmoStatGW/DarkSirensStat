@@ -31,6 +31,8 @@ def plot_completeness(base_path, allGW, catalogue, lims, mask = None, verbose=Tr
         plt.figure(figsize=(20,10))
         hp.mollview(mask)
         plt.savefig(os.path.join(c_path,'mask.pdf'))
+        plt.close()
+    plt.close('all')
        
     zslices = np.linspace(0,1,20)
     th, ph = hp.pix2ang(128, np.arange(hp.nside2npix(128)))
