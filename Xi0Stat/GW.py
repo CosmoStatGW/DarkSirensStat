@@ -632,7 +632,7 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
         #print('GW events:')
         #print(ev_names)
         print('Reading skymaps: %s...' %str(ev_names))
-    all_events = {fname.split('_')[0]: Skymap3D(os.path.join(dirName,loc,fname), priorlimits=priorlimits, nest=False, verbose=verbose, **kwargs) for fname in sm_files}
+    all_events = {get_ename(fname, verbose=False): Skymap3D(os.path.join(dirName,loc,fname), priorlimits=priorlimits, nest=False, verbose=verbose, **kwargs) for fname in sm_files}
 
     return all_events
 
