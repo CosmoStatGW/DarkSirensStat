@@ -642,7 +642,7 @@ def get_ename(fname, verbose=True):
 
         if len(fname.split('/')[-1].split('_')) <= 2:    #Same as before since certain names contain a "_"
             event_name = fname.split('/')[-1].split('_')[0]
-        elif len(fname.split('/')[-1].split('_')) == 3:
+        elif len(fname.split('/')[-1].split('_')) > 2:
             event_name = fname.split('/')[-1].split('_')[0]+'_'+fname.split('/')[-1].split('_')[1]
         else:
             raise ValueError('Could not set event name. Got fname= %s'%fname)

@@ -40,7 +40,10 @@ def plot_completeness(base_path, allGW, catalogue, lims, mask = None, verbose=Tr
         plt.figure(figsize=(20,10))
         hp.mollview(c)
         plt.savefig(os.path.join(c_path,'complz={:05.2f}.pdf'.format(z)))
-
+        #plt.clf()
+        plt.close()
+    plt.close('all')
+    
     for key, ev in allGW.items():
         plt.figure(figsize=(20,10))
         #print(ev.find_r_loc())
@@ -70,6 +73,8 @@ def plot_completeness(base_path, allGW, catalogue, lims, mask = None, verbose=Tr
         plt.xlabel('z', fontsize=20)
         plt.ylabel(r'$P_{complete}(z)$', fontsize=20)
         plt.savefig(os.path.join(c_path, key+'_completeness.pdf'))
+        plt.close()
+    plt.close('all')
     #if verbose:
     print('Done.')
     #plt.show()
