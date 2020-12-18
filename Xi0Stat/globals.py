@@ -20,9 +20,29 @@ detectorPath = os.path.join(baseGWPath, 'detectors')
 # CONSTANTS
 ###########################
 
+clight = 2.99792458* 10**5
+
+
 O2BNS = ('GW170817',)
 O3BNS = ('GW190425', )
 
+########################
+# COORDINATES OF THE COUNTERPARTS
+
+O2_counterparts = {'GW170817': {
+                  'RA':197.450374, 
+                  'dec':-23.381495,
+                  'z_mean':3017/clight,
+                  'z_std':0*166/clight} } # ra dec  From ApJL 848 L16, z from 1710.05835 pag 7
+
+
+O3_counterparts = {'GW190521':{
+                  'RA':192.42625, 
+                  'dec':34.82472,
+                  'z_mean':0.438,
+                  'z_std':0} }# ra decz from arXiv:2009.14199v1
+
+##########################
 
 d0GlobO2=123 # d_0 of eq. 2.125 for O2, in Mpc
 
@@ -31,7 +51,6 @@ zRglob = 0.5
 nGlob = 1.91
 gammaGlob = 1.6
 
-clight = 2.99792458* 10**5
 
 l_CMB, b_CMB = (263.99, 48.26)
 v_CMB = 369
@@ -207,7 +226,9 @@ def z_from_dLGW_fast(r, H0, Xi0, n):
     from scipy import interpolate
     z2dL = interpolate.interp1d(dLGridGLOB/H0*70*Xi(zGridGLOB, Xi0, n=n), zGridGLOB, kind='cubic', bounds_error=False, fill_value=(0,np.NaN), assume_sorted=True)
     return z2dL(r)
-    
+
+
+
 
 def z_from_dLGW(dL_GW_val, H0, Xi0, n):
     '''
@@ -304,3 +325,10 @@ def hpx_downgrade_idx(hpx_array, nside_out=1024):
     #Computes the list of explored indices in a hpx array for the chosen nside_out
     arr_down = hp.ud_grade(hpx_array, nside_out)
     return np.where(arr_down>0.)[0] 
+
+
+def hav(theta):
+    return (np.sin(theta/2))**2
+def haversine(phi, theta, phi0, theta0):
+    return np.arccos(1 - 2*(hav(theta-theta0)+hav(phi-phi0)*np.sin(theta)*np.sin(theta0)))
+

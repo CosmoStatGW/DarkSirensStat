@@ -85,10 +85,10 @@ def plot_completeness(base_path, allGW, catalogue, lims, mask = None, verbose=Tr
 
     
 def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
-              band,Lcut,zR,
+              band=None,Lcut=None,zR=None,
               myMin=20, myMax=140, 
               yMin=0, yMax=0.025,
-              varname='H0',):
+              varname='H0', add_value=True):
     
     # post[event]:  posterior, already normalized, already divided by beta
     # post_cat
@@ -96,7 +96,10 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
     # test_cat_compl: True to plot separately catalogue and hom contributions
     if len(event_list)>1:
         test_cat_compl = False
-    else: test_cat_compl = True
+    elif post_cat is not None and post_compl is not None: 
+        test_cat_compl = True
+    else:
+        test_cat_compl =False
         
     if (len(event_list)>1):
         total_post=np.ones(len(grid)) #initialize an array of dimension equal to that of Xi0_grid, 
@@ -154,7 +157,16 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
     #if zR is not None:
     #    ax.set_title('{} band, $L/L_* > $ {}, $z_R =$ {}'.format(band,Lcut,zR), fontsize=20)
     #else:
-    ax.set_title('{} band, $L/L_* > $ {}'.format(band,Lcut), fontsize=20)
+    if band is not None:
+        ax.set_title('{} band, $L/L_* > $ {}'.format(band,Lcut), fontsize=20)
+    if add_value:
+        if (len(event_list)>1):
+            fin_post=post['total']
+        else:
+            #print(event_list[0])
+            fin_post=post[event_list[0]]
+        tstr=find_median(fin_post, grid, myMin,myMax, cl=0.9, digits=0)
+        fig.suptitle(tstr)
     
     plt.savefig(os.path.join(base_path, 'posterior.pdf'))
     
@@ -166,4 +178,45 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
     return post, post_cat, post_compl
 
 
+
+
+def find_nearest_idx(array, value):
+    #for us the array will be the cumulative posterior
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
+
+
+  
     
+def find_median(post, grid, myMin,myMax, cl=0.90, digits=1): 
+    
+    import scipy.integrate as integrate
+    
+    grid_finer=np.linspace(myMin, myMax, 500)
+    
+    post_finer = np.interp(grid_finer, grid, post)
+    cumul_post= integrate.cumtrapz(post_finer, grid_finer, initial=0) #cumulative integration of the posterior
+    #is an array of the same dimension as H0_grid and post['total'] 
+    #initial=0 set to zero the value of the first element of the array cumul_post
+    #(if not specified, cumul_post has one element less that post['total'] )
+
+    idx_low= find_nearest_idx(cumul_post, (1-cl)/2 )
+    idx_med= find_nearest_idx(cumul_post, 1/2)
+    idx_up= find_nearest_idx(cumul_post, (1+cl)/2 ) 
+    #note that, it we require  cl =90%, there will be a 5% prob that the result is below Hmin
+    #and 5% that it is above Hmax, so we must use (1-cl)/2 in idx_low and  (1+cl))/2 in idx_max
+
+        
+    low = np.round(grid_finer[idx_low],digits)
+    med = np.round(grid_finer[idx_med],digits)
+    up  = np.round(grid_finer[idx_up],digits) 
+    err_plus=np.round(up-med,digits)
+    err_minus=np.round(med-low,digits)
+
+    print('MEDIAN, HIGH, LOW = {}+{}-{} at {}% c.l., min= {}, max= {}'.format(med,err_plus,err_minus, np.round(100*cl, 1),
+                                                                    low,up))
+    
+    return '{}+{}-{} \n( {}% c.l.)'.format(med,err_plus,err_minus,np.round(100*cl, 1)
+                                                                    )
+
