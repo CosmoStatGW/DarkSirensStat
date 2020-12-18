@@ -58,6 +58,9 @@ class BetaMC:#(Beta):
             self.gamma = 1.6
             self.mMin = 5
             self.mMax = 40
+        elif massDist == 'NS':
+            self.mNSmean = 1.35
+            self.mNSsigma = 0.15
         else:
             raise ValueError
             
@@ -464,11 +467,7 @@ class BetaMC:#(Beta):
             def pm1(m):
                 valid = (m < self.mMax) & (m > self.mMin)
                 return np.where(valid, m**(-self.gamma), 0)
-#            # distributon of lighter BH mass
-#            def pm2(m, m1):
-#                valid = (m < m1) & (m > self.mMin)
-#                return np.where(valid, 1/(m1-self.mMin), 0)
-#
+
             m1 = self._sample(nSamples, lambda x : pm1(x), self.mMin, self.mMax)
             m2 = self.mMin+(m1-self.mMin)*np.random.uniform(size=nSamples)
 
@@ -494,6 +493,14 @@ class BetaMC:#(Beta):
                 
             m1 = self._sample(nSamples, pm1, self.mMin, self.mMax)
             m2 = self._sample_vector_upper(pm2, self.mMin, m1)
+            
+        if self._massDist=='NS':
+       
+            m1a = numpy.random.normal(loc=self.mNSmean, scale=self.mNSsigma, size=nSamples)
+            m2a = numpy.random.normal(loc=self.mNSmean, scale=self.mNSsigma, size=nSamples)
+            m1 = np.where(m1a>m2a, m1a, m2a)
+            m2 = np.where(m1a<=m2a, m2a, m1a)
+           
             
         # never seems to happen, but let's be sure (not that it would matter...)
         m2[m2>m1] = m1[m2>m1]
