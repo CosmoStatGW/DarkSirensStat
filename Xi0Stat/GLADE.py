@@ -12,7 +12,8 @@ import os, os.path
 from globals import *
 from galCat import GalCat
 
-
+from astropy.cosmology import FlatLambdaCDM
+cosmoGLADE = FlatLambdaCDM(H0=H0GLADE, Om0=Om0GLADE)  # the values used by GLADE
 
 class GLADE(GalCat):
     
@@ -77,8 +78,7 @@ class GLADE(GalCat):
             filepath_GLADE = os.path.join(self._path, gname)
             filepath_groups = os.path.join(miscPath, groupname)
 
-            from astropy.cosmology import FlatLambdaCDM
-            cosmoGLADE = FlatLambdaCDM(H0=H0GLADE, Om0=Om0GLADE)  # the values used by GLADE
+
 
             
             

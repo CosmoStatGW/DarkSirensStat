@@ -45,6 +45,7 @@ class BetaMC:#(Beta):
         else:
             self._sigmaSNR = 0.001
             
+        print('Setting mass distribution to %s' %massDist)
         if massDist == 'O3':
             self.gamma1 = 1.58
             self.gamma2 = 5.59

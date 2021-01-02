@@ -122,7 +122,7 @@ def completeness_case(completeness, band, Lcut, path=None):
     return compl
 
 
-def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals):
+def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals, massDist):
     # 'fit', 'MC', 'hom', 'cat'
     
     if which_beta in ('fit', 'MC', 'cat'):
@@ -138,8 +138,9 @@ def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals):
             if 'O3' in observingRun:
                 observingRunBeta='O3'
             else:
-                observingRunBeta=observingRun   
-            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose )
+                observingRunBeta=observingRun 
+
+            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose , massDist=massDist)
         elif which_beta=='cat':
             Beta=BetaCat(gals, galRedshiftErrors,  zR, eventSelector )
         beta = Beta.get_beta(H0grid, Xi0grid)
@@ -176,8 +177,11 @@ def main():
     if completnessThreshCentral>0. and ( which_beta == 'fit' or which_beta == 'hom') :
         print('\n!!!! completnessThreshCentral is larger than zero but beta %s is used. This beta does not take into account completeness threshold. You may be fine with this, but be aware that the result could be inconsistent.\n' %which_beta)
     if completnessThreshCentral>0. and which_beta == 'MC':
-        print('completnessThreshCentral is larger than zero, be sure that beta MC is implementing the completeness threshold.')
+        print('\n!!!! completnessThreshCentral is larger than zero, be sure that beta MC is implementing the completeness threshold.')
         
+    if 'NS' in massDist and eventType!='BNS':
+        raise ValueError('Using NS mass distribution for BBHs does not make sense. Use massDist=02 or O3. ')
+    
     #if band_weight is not None:
     #    if band_weight!=band:
     #        raise ValueError('Band used for selection and band used for luminosity weighting should be the same ! ')
@@ -189,8 +193,8 @@ def main():
         if comp_band_loaded!=band:
             raise ValueError('Band used for cut does not match loaded file. Got band=%s but completeness file is %s' %(band, completeness_path))
         if galPosterior == True:
-            raise ValueError('Load completeness can only be used with no galaxy posteriors')
-    
+            #raise ValueError('Load completeness can only be used with no galaxy posteriors')
+            print('\n!!! Load completeness should only be used with no galaxy posteriors. Be aware that the result can be inconsistent.')
     # St out path and create out directory
     out_path=os.path.join(dirName, 'results', fout)
     if not os.path.exists(out_path):
@@ -322,7 +326,7 @@ def main():
     ######
     if do_inference:
         print('\n-----  COMPUTING BETAS ....')
-        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, evSelector, gals) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
+        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, evSelector, gals, massDist) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
         for event in myGWgal.selectedGWevents:
             betaPath =os.path.join(out_path, event+'_beta'+goalParam+'.txt')
             np.savetxt(betaPath, betas[event])

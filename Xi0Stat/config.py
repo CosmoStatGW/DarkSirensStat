@@ -15,13 +15,13 @@ from globals import H0GLOB, Xi0Glob
 # --------------------------------------------------------------
 # INFERENCE SETUP
 # --------------------------------------------------------------
-do_inference=True
+do_inference=False
 
 ## Variable H0 or Xi0
 goalParam = 'H0'
 
 ## Output folder name
-fout = 'O2_run1'
+fout = '03_BNS'
 
 ## Prior limits
 Xi0min =  Xi0Glob # 0.3 #Xi0Glob
@@ -31,7 +31,7 @@ H0max =    140
 
 
 ## Number of points for posterior grid
-nPointsPosterior = 50
+nPointsPosterior = 100
 
 verbose=True
 
@@ -41,10 +41,10 @@ verbose=True
 
 
 ## Select dataset : O2, O3
-observingRun = 'O2'
+observingRun = 'O3'
 
 ## Select BBH or BNS
-eventType='BBH'
+eventType='BNS'
 
 ## Specify which mass distribution to use. Options: O2, O3, NS-flat, NS-gauss
 massDist='NS-flat'
@@ -58,17 +58,17 @@ subset_names =  None #['GW190425',]
 
 
 ## Select events based on completeness at the nominal position
-select_events=True
+select_events=False
 
 ## Threshold in probability at position of the event, for event selection
-completnessThreshCentral=0.1
+completnessThreshCentral=0.05
 
 # THIS IS NOT USED FOR THE MOMENT!
 # completnessThreshAvg=0.01
 
 ## Confidence region for GW skymaps
-level = 0.97
-std_number=None # if none, it is computed from level
+level = 0.99
+std_number=5 # if none, it is computed from level
 
 
 # --------------------------------------------------------------
@@ -86,9 +86,9 @@ do_check_footprint=False
 # Band should be None if we use number counts
 Lcut=0.6
 # Band for lum cut
-band=None #'B' # B, K, or None . 
+band='B' #'B' # B, K, or None . 
 # Average galaxy density in comoving volume, used if band='None'. A number, or 'auto' (only for mask completeness) 
-Nbar = 'auto'
+Nbar = 0.1
 # Band for lum weights
 band_weight = band #'B' # B, K, or None . 
 
@@ -115,7 +115,7 @@ zRes = 30
 # nMasks for mask completeness. 2 for DES/GWENS, >5 for GLADE
 nMasks = 9
 #
-plot_comp=False
+plot_comp=True
 
 
 ## Type of completion: 'mult' , 'add' or 'mix' 
@@ -142,6 +142,6 @@ betaHomdMax = 600 #roughly O3
 # Max redshift  of the region R,  if beta is 'fit'
 zR = 10
 # n of MC samples for beta MC
-nSamplesBetaMC= 100000
-nUseCatalogBetaMC = False
+nSamplesBetaMC= 200000
+nUseCatalogBetaMC = True
 SNRthresh=8
