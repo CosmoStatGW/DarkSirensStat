@@ -356,7 +356,7 @@ def main():
             myMin, myMax= lims.H0min, lims.H0max
         else:  myMin, myMax= lims.Xi0min, lims.Xi0max
     
-        post, post_cat, post_compl = plot_post(out_path, grid, post, post_cat, post_compl, myGWgal.selectedGWevents.keys(),
+        post, post_cat, post_compl = plot_post(out_path, grid, post, post_cat, post_compl, list(myGWgal.selectedGWevents.keys()),
                                               band,Lcut,zR,
                                               myMin=myMin, myMax=myMax, 
                                               varname=goalParam,)
