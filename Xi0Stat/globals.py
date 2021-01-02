@@ -32,17 +32,40 @@ O3BNS = ('GW190425', )
 O2_counterparts = {'GW170817': {
                   'RA':197.450374, 
                   'dec':-23.381495,
-                  'z_mean':3017/clight,
-                  'z_std':0*166/clight} } # ra dec  From ApJL 848 L16, z from 1710.05835 pag 7
+                  'z_mean':3327/clight, #   UNCORRECTED OBSERVED VELOCITY   #3017/clight: LVC corrected for vP,
+                  'z_std':72/clight, #  STD OF UNCORRECTED VELOCITY  #166/clight:  LVC corrected for vP, 72 original
+                  'vPmean':373/clight,  #373 mukherjee, 310 LVC
+                  'vPsigma': 130/clight} }  #130 mukherjee, 150 LVC
+# ra dec  From ApJL 848 L16, zfrom 1710.05835 pag 7
 
 
 O3_counterparts = {'GW190521':{
                   'RA':192.42625, 
                   'dec':34.82472,
                   'z_mean':0.438,
-                  'z_std':0} }# ra decz from arXiv:2009.14199v1
+                  'z_std':0., #0.001,
+                  'vPmean':0, 
+                  'vPsigma': 0 } }# ra decz from arXiv:2009.14199v1
 
 ##########################
+##########################
+# MASS DISTRIBUTIONS
+
+BNS_gauss_mu = 1.35
+BNS_gauss_sigma = 0.15
+
+BNS_flat_Mmin = 1
+BNS_flat_Mmax = 3
+
+BBH_flat_Mmin = 5 # In source frame
+BBH_flat_Mmax = 200
+
+
+pow_law_Mmin = 5
+pow_law_Mmax = 100
+
+
+###########################
 
 d0GlobO2=123 # d_0 of eq. 2.125 for O2, in Mpc
 
@@ -275,8 +298,37 @@ def dVdcom_dVdLGW(z, H0, Xi0, n):
     return jac
 
 
+def s(z, Xi0, n):
+    return (1+z)*Xi(z, Xi0, n)
+
+
+def sPrime(z, Xi0, n):
+    return Xi(z, Xi0, n)-n*(1-Xi0)/(1+z)**n
+
 def j(z):
+    '''
+    Dimensioneless Jacobian of comoving volume. Does not depend on H0
+    '''
     return cosmoglob.differential_comoving_volume(z).value*(cosmoglob.H0.value/clight)**3
+
+
+def uu(z):
+    '''
+    Dimensionless comoving distance. Does not depend on H0
+    '''
+    return 70/clight*FlatLambdaCDM(H0=70, Om0=Om0GLOB).comoving_distance(z).value
+
+def ddL_dz(z, H0, Xi0, n):
+    '''
+    Jacobian d(DL)/dz
+    '''
+    return (sPrime(z, Xi0, n)*uu(z)+s(z, Xi0, n)/E(z))*(clight/H0)
+
+def E(z):
+    '''
+    E(z). Does not depend on H0
+    '''
+    return FlatLambdaCDM(H0=70, Om0=Om0GLOB).efunc(z)
 
 
 def BB(dL, gamma=gammaGlob, d0=d0GlobO2):
@@ -331,4 +383,13 @@ def hav(theta):
     return (np.sin(theta/2))**2
 def haversine(phi, theta, phi0, theta0):
     return np.arccos(1 - 2*(hav(theta-theta0)+hav(phi-phi0)*np.sin(theta)*np.sin(theta0)))
+
+
+def get_norm_posterior(lik_inhom,lik_hom, beta, grid):
+    
+    tot_post = (lik_inhom+lik_hom)/beta
+    norm = np.trapz( tot_post, grid)
+    
+    post = tot_post/norm
+    return post, lik_inhom/beta/norm, lik_hom/beta/norm
 

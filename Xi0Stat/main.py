@@ -162,15 +162,6 @@ def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals):
     
 
 
-def get_norm_posterior(lik_inhom,lik_hom, beta, grid):
-    
-    tot_post = (lik_inhom+lik_hom)/beta
-    norm = np.trapz( tot_post, grid)
-    
-    post = tot_post/norm
-    return post, lik_inhom/beta/norm, lik_hom/beta/norm
-
-
 
 def main():
     

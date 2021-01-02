@@ -56,11 +56,17 @@ class BetaMC:#(Beta):
             self.mBreak = self.mMin + self.b*(self.mMax - self.mMin)
         elif massDist == 'O2':
             self.gamma = 1.6
-            self.mMin = 5
-            self.mMax = 40
-        elif massDist == 'NS':
-            self.mNSmean = 1.35
-            self.mNSsigma = 0.15
+            self.mMin = pow_law_Mmin
+            self.mMax = pow_law_Mmax
+        elif massDist == 'NS-gauss':
+            self.mNSmean = BNS_gauss_mu
+            self.mNSsigma = BNS_gauss_sigma
+            self.mMin = self.mNSmean-7*self.mNSsigma
+            self.mMax = self.mNSmean+7*self.mNSsigma
+        elif massDist == 'NS-flat':
+            self.mMin = BNS_flat_Mmin
+            self.mMax = BNS_flat_Mmax
+            self.DeltaM = self.mMax-self.mMin
         else:
             raise ValueError
             
@@ -494,13 +500,20 @@ class BetaMC:#(Beta):
             m1 = self._sample(nSamples, pm1, self.mMin, self.mMax)
             m2 = self._sample_vector_upper(pm2, self.mMin, m1)
             
-        if self._massDist=='NS':
+        if self._massDist=='NS-gauss':
        
-            m1a = numpy.random.normal(loc=self.mNSmean, scale=self.mNSsigma, size=nSamples)
-            m2a = numpy.random.normal(loc=self.mNSmean, scale=self.mNSsigma, size=nSamples)
+            m1a = np.random.normal(loc=self.mNSmean, scale=self.mNSsigma, size=nSamples)
+            m2a = np.random.normal(loc=self.mNSmean, scale=self.mNSsigma, size=nSamples)
             m1 = np.where(m1a>m2a, m1a, m2a)
-            m2 = np.where(m1a<=m2a, m2a, m1a)
-           
+            m2 = np.where(m1a<=m2a, m1a, m2a)
+        
+        if self._massDist=='NS-flat': 
+            
+            m1a = np.random.uniform(low=self.mMin, high=self.mMax, size=nSamples)
+            m2a = np.random.uniform(low=self.mMin, high=self.mMax, size=nSamples)
+            m1 = np.where(m1a>m2a, m1a, m2a)
+            m2 = np.where(m1a<=m2a, m1a, m2a)
+            
             
         # never seems to happen, but let's be sure (not that it would matter...)
         m2[m2>m1] = m1[m2>m1]

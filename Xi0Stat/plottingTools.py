@@ -10,8 +10,10 @@ from globals import *
 import matplotlib.pyplot as plt
 plt.rcParams["font.family"] = 'serif'
 plt.rcParams["mathtext.fontset"] = "cm"
+plt.rcParams['figure.dpi'] = 100
 import numpy as np
 import os
+
 
 import healpy as ho
 
@@ -165,11 +167,17 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
         else:
             #print(event_list[0])
             fin_post=post[event_list[0]]
-        tstr=find_median(fin_post, grid, myMin,myMax, cl=0.9, digits=0)
-        fig.suptitle(tstr)
+        tstr=find_median(fin_post, grid, myMin,myMax, cl=0.683, digits=1)
+        if varname=='H0':
+            units='$\, \mathrm{{km}} \, \mathrm{{s}}^{{-1}} \, \mathrm{{Mpc}}^{{-1}}$'
+            var_tex = r'$H_0$'
+        elif varname=='Xi0':
+            units=''
+            var_tex = r'$\Xi_0$'
+        fig.suptitle(varname+'='+tstr+units, fontsize=15)
     
     plt.savefig(os.path.join(base_path, 'posterior.pdf'))
-    
+    plt.close()
     
     #plt.show()
 
@@ -193,7 +201,7 @@ def find_median(post, grid, myMin,myMax, cl=0.90, digits=1):
     
     import scipy.integrate as integrate
     
-    grid_finer=np.linspace(myMin, myMax, 500)
+    grid_finer=np.linspace(myMin, myMax, 5000)
     
     post_finer = np.interp(grid_finer, grid, post)
     cumul_post= integrate.cumtrapz(post_finer, grid_finer, initial=0) #cumulative integration of the posterior
@@ -201,22 +209,26 @@ def find_median(post, grid, myMin,myMax, cl=0.90, digits=1):
     #initial=0 set to zero the value of the first element of the array cumul_post
     #(if not specified, cumul_post has one element less that post['total'] )
 
-    idx_low= find_nearest_idx(cumul_post, (1-cl)/2 )
-    idx_med= find_nearest_idx(cumul_post, 1/2)
-    idx_up= find_nearest_idx(cumul_post, (1+cl)/2 ) 
+    #idx_low= find_nearest_idx(cumul_post, (1-cl)/2 )
+    #idx_med= find_nearest_idx(cumul_post, 1/2)
+    #idx_up= find_nearest_idx(cumul_post, (1+cl)/2 ) 
     #note that, it we require  cl =90%, there will be a 5% prob that the result is below Hmin
     #and 5% that it is above Hmax, so we must use (1-cl)/2 in idx_low and  (1+cl))/2 in idx_max
-
-        
-    low = np.round(grid_finer[idx_low],digits)
-    med = np.round(grid_finer[idx_med],digits)
-    up  = np.round(grid_finer[idx_up],digits) 
-    err_plus=np.round(up-med,digits)
-    err_minus=np.round(med-low,digits)
-
-    print('MEDIAN, HIGH, LOW = {}+{}-{} at {}% c.l., min= {}, max= {}'.format(med,err_plus,err_minus, np.round(100*cl, 1),
-                                                                    low,up))
     
-    return '{}+{}-{} \n( {}% c.l.)'.format(med,err_plus,err_minus,np.round(100*cl, 1)
-                                                                    )
+    m = np.interp(0.5, cumul_post, grid_finer)
+    l = np.interp((1-cl)/2, cumul_post, grid_finer)
+    h = np.interp((1+cl)/2, cumul_post, grid_finer)
+        
+    #low = np.round(grid_finer[idx_low],digits)
+    #med = np.round(grid_finer[idx_med],digits)
+    #up  = np.round(grid_finer[idx_up],digits) 
+    #err_plus=np.round(up-med,digits)
+    #err_minus=np.round(med-low,digits)
+
+    print('MEDIAN, HIGH, LOW = {}+{}-{} at {}% c.l.'.format(m,l,h, np.round(100*cl, 1),
+                                                                    ))
+    print('Peak at %s' %grid_finer[np.argmax(post_finer)])
+    mystr = '${:.0f}^{{+{:.0f}}}_{{-{:.0f}}} \, ({:.0f}$\% c.l.)'.format(m, h-m, m-l, 100*cl)
+    return mystr #'{}+{}-{} ({}\% c.l. ), peak at {}'.format(med,err_plus,err_minus,np.round(100*cl, 1), np.round(grid_finer[np.argmax(post_finer)],1 ))
+                                                                    
 
