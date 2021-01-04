@@ -55,19 +55,23 @@ class BetaMC:#(Beta):
             self.b      = 0.43
             self.deltam = 4.83
             self.mBreak = self.mMin + self.b*(self.mMax - self.mMin)
+            print('Parameters: gamma1=%s, gamma2=%s, betaq=%s, mMin=%s, mMax=%s, b=%s, deltam=%s, mBreak=%s' %(self.gamma1, self.gamma2, self.betaq, self.mMin, self.mMax, self.b, self.deltam, self.mBreak))
         elif massDist == 'O2':
             self.gamma = 1.6
             self.mMin = pow_law_Mmin
             self.mMax = pow_law_Mmax
+            print('Parameters: gamma=%s, mMin=%s, mMax=%s' %(self.gamma, self.mMin, self.mMax))
         elif massDist == 'NS-gauss':
             self.mNSmean = BNS_gauss_mu
             self.mNSsigma = BNS_gauss_sigma
             self.mMin = self.mNSmean-7*self.mNSsigma
             self.mMax = self.mNSmean+7*self.mNSsigma
+            print('Parameters: mu=%s, sigma=%s, sampling between mMin=%s, mMax=%s' %(self.mNSmean, self.mNSsigma, self.mMin, self.mMax))
         elif massDist == 'NS-flat':
             self.mMin = BNS_flat_Mmin
             self.mMax = BNS_flat_Mmax
             self.DeltaM = self.mMax-self.mMin
+            print('Paramters: mMin=%s, mMax=%s' %(self.mMin, self.mMax))
         else:
             raise ValueError
             

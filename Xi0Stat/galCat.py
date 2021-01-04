@@ -161,7 +161,7 @@ class GalCat(ABC):
                         
         delV = v_CMB*(np.sin(df.theta)*np.sin(theta_CMB)*np.cos(df.phi-phi_CMB) +np.cos(df.theta)*np.cos(theta_CMB))
             
-        v_corr = v_gal+delV 
+        v_corr = v_gal+delV  # at first order in v/c ...
             
         z_corr = v_corr/clight
         df.loc[:,which_z+'_CMB'] = z_corr
