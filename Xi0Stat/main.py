@@ -311,13 +311,17 @@ def main():
     # Grids
     ######
     if goalParam=='H0':
+        assert Xi0min==Xi0max
         H0grid=np.linspace(lims.H0min, lims.H0max, nPointsPosterior)
-        Xi0grid=Xi0Glob
+        Xi0grid=Xi0min
         grid=H0grid
+        print('Fiducial value of Xi0 fixed to %s ' %Xi0grid)
     elif goalParam=='Xi0':
-        H0grid=H0GLOB
+        assert H0min==H0max
+        H0grid= H0min #H0GLOB
         Xi0grid=np.linspace(lims.Xi0min, lims.Xi0max, nPointsPosterior)
         grid=Xi0grid
+        print('Fiducial value of H0 fixed to %s ' %H0grid)
     np.savetxt(os.path.join(out_path, goalParam+'_grid.txt'), grid)
     
     
