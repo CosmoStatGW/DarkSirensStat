@@ -225,10 +225,24 @@ def find_median(post, grid, myMin,myMax, cl=0.90, digits=1):
     #err_plus=np.round(up-med,digits)
     #err_minus=np.round(med-low,digits)
 
-    print('MEDIAN, HIGH, LOW = {}+{}-{} at {}% c.l.'.format(m,l,h, np.round(100*cl, 1),
-                                                                    ))
+    print('MEDIAN, HIGH, LOW = {}+{}-{} at {}% c.l.'.format(m,h-m,m-l, np.round(100*cl, digits),))
+    
+    if digits==1:
+        mystr = r'${:.0f}^{{+{:.0f}}}_{{-{:.0f}}}$'.format(m, h-m, m-l)
+    elif digits==2:
+        mystr = r'${:.1f}^{{+{:.1f}}}_{{-{:.1f}}}$'.format(m, h-m, m-l)
+    else:
+        print('No more than 1 significant decimal supported. Rounding to one')
+        mystr = r'${:.1f}^{{+{:.1f}}}_{{-{:.1f}}}$'.format(m, h-m, m-l)
+     
+    if (100*cl).is_integer():
+        mystr+=r'$\, ({:.0f}$% c.l.)'.format(100*cl)
+    else:
+        mystr+=r'$\,  ({:.1f}$% c.l.)'.format(100*cl)
+        
+                                                             
     print('Peak at %s' %grid_finer[np.argmax(post_finer)])
-    mystr = '${:.0f}^{{+{:.0f}}}_{{-{:.0f}}} \, ({:.0f}$\% c.l.)'.format(m, h-m, m-l, 100*cl)
+    #mystr = '${:.0f}^{{+{:.0f}}}_{{-{:.0f}}} \, ({:.0f}$\% c.l.)'.format(m, h-m, m-l, 100*cl)
     return mystr #'{}+{}-{} ({}\% c.l. ), peak at {}'.format(med,err_plus,err_minus,np.round(100*cl, 1), np.round(grid_finer[np.argmax(post_finer)],1 ))
                                                                     
 

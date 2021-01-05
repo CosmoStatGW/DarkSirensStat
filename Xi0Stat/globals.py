@@ -25,6 +25,7 @@ clight = 2.99792458* 10**5
 
 O2BNS = ('GW170817',)
 O3BNS = ('GW190425', )
+O3BHNS = ('GW190426_152155', )
 
 ########################
 # COORDINATES OF THE COUNTERPARTS
@@ -62,7 +63,7 @@ BBH_flat_Mmax = 200
 
 
 pow_law_Mmin = 5
-pow_law_Mmax = 100
+pow_law_Mmax = 50
 
 
 ###########################

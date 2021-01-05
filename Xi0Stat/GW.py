@@ -553,8 +553,8 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
                ):
     
     if subset_names is not None:
-        if eventType=='BBH' and 'GW170817' in subset_names:
-                raise ValueError('Selected event type is BBH but GW170817 is included in subset_names. This event is a BNS. Check your prefereneces')
+        if eventType=='BBH' and (('GW170817' in subset_names) or ('GW190425' in subset_names) or ('GW190426_152155' in subset_names) ):
+                raise ValueError('Selected event type is BBH but some events that are not BBHs are included in subset_names. Check your prefereneces')
     
     if 'O2' in loc.split('/'):
         run='O2'
@@ -562,20 +562,25 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
         if eventType=='BBH':
             for BNSname in O2BNS:
                 sm_files = [f for f in sm_files if BNSname not in f]
-        else:
+        elif eventType=='BNS':
             for BNSname in O2BNS:
                 sm_files = [f for f in sm_files if BNSname in f]
+        elif eventType=='BHNS':
+            raise ValueError('No BH-NS included in O2.')
         ev_names = [fname.split('_')[0]  for fname in sm_files]
             
     elif 'O3' in loc.split('/'):
         run='O3'
         sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and (wf_model_name+'.fits' in f.split('_')) )]
         if eventType=='BBH':
-            for BNSname in O3BNS:
-                sm_files = [f for f in sm_files if BNSname not in f]
-        else:
+            for ename in O3BNS+O3BHNS:
+                sm_files = [f for f in sm_files if ename not in f]
+        elif eventType=='BNS':
             for BNSname in O3BNS:
                 sm_files = [f for f in sm_files if BNSname in f]
+        elif eventType=='BHNS':
+            for BHNSname in O3BNS:
+                sm_files = [f for f in sm_files if BHNSname in f]
         ev_names = [] #Initialize array
         #Event names could display the time separated by a "_", for this reason the next two if are necessary
         #Maybe this is not the best way, but it works and is fast
@@ -588,8 +593,8 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
     elif 'O3b' in loc.split('/'):
         run='O3b'
         sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and ('LALInference.fits' in f.split('_')) )]
-        if eventType=='BNS':
-            raise ValueError('No BNS included in O3b')
+        if eventType=='BNS' or eventType=='BHNS':
+            raise ValueError('No BNS or BHNS included in O3b')
         ev_names = [fname.split('_')[0]  for fname in sm_files]
         
             
