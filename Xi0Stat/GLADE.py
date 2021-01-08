@@ -48,7 +48,7 @@ class GLADE(GalCat):
                    galPosterior = True,
                    err_vals='GLADE',
                    drop_HyperLeda2=True, 
-                   colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w']):
+                   colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w', 'completenessGoal']):
         
         if band_weight is not None:
             assert band_weight==band
