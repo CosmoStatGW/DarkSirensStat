@@ -413,7 +413,7 @@ class MaskCompleteness(Completeness):
             batch = gals.iloc[start:stop]
 
             if useDirac:
-                res, _ = np.histogram(a=batch.z.to_numpy(), bins=zedges, weights=batch.w.to_numpy())
+                res, _ = np.histogram(a=batch.z.to_numpy(), bins=zedges, weights=batch.completenessGoal.to_numpy())
                 return res.astype(float)
             else:
                 weights = bounded_keelin_3_discrete_probabilities_between(zedges, 0.16, batch.z_lower, batch.z, batch.z_upper, batch.z_lowerbound, batch.z_upperbound, N=100)
@@ -422,7 +422,7 @@ class MaskCompleteness(Completeness):
                 if weights.ndim == 1:
                     weights = weights[np.newaxis, :]
                 
-                return np.sum(weights * batch.w[:, np.newaxis], axis=0)
+                return np.sum(weights * batch.completenessGoal[:, np.newaxis], axis=0)
                 
         coarseden = []  
         nBatches = int(60.*len(galdata)/1000000.)
