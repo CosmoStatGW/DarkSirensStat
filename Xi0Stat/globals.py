@@ -25,7 +25,7 @@ clight = 2.99792458* 10**5
 
 O2BNS = ('GW170817',)
 O3BNS = ('GW190425', )
-O3BHNS = ('GW190426_152155', )
+O3BHNS = ('GW190426_152155', 'GW190426' )
 
 ########################
 # COORDINATES OF THE COUNTERPARTS
@@ -68,7 +68,7 @@ pow_law_Mmax = 50
 
 ###########################
 
-d0GlobO2=123 # d_0 of eq. 2.125 for O2, in Mpc
+
 
 zRglob = 0.5
 
@@ -332,19 +332,7 @@ def E(z):
     return FlatLambdaCDM(H0=70, Om0=Om0GLOB).efunc(z)
 
 
-def BB(dL, gamma=gammaGlob, d0=d0GlobO2):
-    #print('gamma BB: %s' %gamma)
-    #print('d0 BB: %s' %d0)
-    a0, a1 = get_as(gamma)
-    Bfit = np.exp(-a0*(dL-d0)/d0-a1*((dL-d0)/d0)**2)
-        
-    return np.where(dL<=d0, 1, Bfit)
 
-
-def get_as(gamma):
-    a0= (5.21+9.55*gamma+3.47*gamma**2)*1e-02
-    a1=(7.37-0.72*gamma)*1e-02
-    return a0, a1
 
 
 class Logger(object):
