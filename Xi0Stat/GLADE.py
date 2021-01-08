@@ -380,11 +380,16 @@ class GLADE(GalCat):
             df = df[df[col_name]>L_th]
             if self.verbose:
                 print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-                       
+            
+            band_vals = df.loc[:, col_name].values   
         else:
             if self.verbose:
                 print('No cut in luminosity applied ' )
-            #w = np.ones(df.shape[0])
+            band_vals = np.ones(df.shape[0])
+        
+        
+        df.loc[:, 'completenessGoal'] = band_vals
+        
         
          
         # ------ Add 'w' column for weights

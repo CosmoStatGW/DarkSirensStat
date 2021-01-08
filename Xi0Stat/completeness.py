@@ -333,7 +333,7 @@ class MaskCompleteness(Completeness):
         
         # the only feature we use is number of galaxies in a pixel
         X = np.zeros((self._npix, 1))
-        avgweight = np.mean(galdata.w.to_numpy())
+        avgweight = np.mean(galdata.completenessGoal.to_numpy())
         
         galdata.loc[:,'pix'] = hp.ang2pix(self._nside, galdata.theta, galdata.phi)
         galdata.set_index(keys=['pix'], drop=False, inplace=True)
@@ -348,7 +348,7 @@ class MaskCompleteness(Completeness):
 #            else:
 #                X[i,0] = 0
         #foo = galdata.groupby(level=0).size()
-        foo = galdata.groupby(level=0).w.sum()/avgweight
+        foo = galdata.groupby(level=0).completenessGoal.sum()/avgweight
         X[foo.index.to_numpy(), 0] = foo.to_numpy()
         
         # this improves the clustering (at least for GLADE)
