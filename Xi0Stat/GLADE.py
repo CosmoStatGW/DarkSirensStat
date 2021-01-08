@@ -380,11 +380,14 @@ class GLADE(GalCat):
             df = df[df[col_name]>L_th]
             if self.verbose:
                 print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
-            
+            if self.verbose:
+                print('Using %s-band to compute completeness.')
             band_vals = df.loc[:, col_name].values   
         else:
             if self.verbose:
                 print('No cut in luminosity applied ' )
+            if self.verbose:
+                print('Using number counts to compute completeness.')
             band_vals = np.ones(df.shape[0])
         
         
@@ -394,7 +397,7 @@ class GLADE(GalCat):
          
         # ------ Add 'w' column for weights
         if band_weight is not None:
-            w_name=band+'_Lum'
+            w_name=band_weight+'_Lum'
             w = df.loc[:, w_name].values
             if self.verbose:
                 print('Using %s for weighting' %col_name)
