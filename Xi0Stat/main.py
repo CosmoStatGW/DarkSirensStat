@@ -182,9 +182,9 @@ def main():
     if 'NS' in massDist and eventType!='BNS':
         raise ValueError('Using NS mass distribution for BBHs does not make sense. Use massDist=02 or O3. ')
     
-    #if band_weight is not None:
-    #    if band_weight!=band:
-    #        raise ValueError('Band used for selection and band used for luminosity weighting should be the same ! ')
+    if band_weight is not None:
+        if band_weight!=band:
+            raise ValueError('Band used for selection and band used for luminosity weighting should be the same ! ')
    # Andreas: I think this is not necessary. Either we fix from the beginning that they are the same or we allow for them to be different. One may want to use Lum weights but no cut. Instead of setting Lcut to 0 we should allow to set band to None to achieve this. 
   
 
