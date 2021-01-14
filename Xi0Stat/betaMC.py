@@ -11,8 +11,20 @@ from betaHom import *
 
 class BetaMC:#(Beta):
     
-    def __init__(self, priorlimits, selector, gals = None, nSamples=40000, observingRun = 'O2', massDist = 'O3', SNRthresh = 8, fluctuatingSNR = True, properAnisotropy = True, verbose=False, **kwargs):
+    def __init__(self, priorlimits, selector,
+                 gals = None, 
+                 nSamples=40000, 
+                 observingRun = 'O2', 
+                 massDist = 'O3', 
+                 SNRthresh = 8, 
+                 fluctuatingSNR = True, 
+                 properAnisotropy = True, 
+                 verbose=False, 
+                 lamb=1,
+                 **kwargs):
     
+        
+        self.lamb=lamb
         self._gals = gals
         
         self._properAnisotropy = properAnisotropy
@@ -46,6 +58,7 @@ class BetaMC:#(Beta):
             self._sigmaSNR = 0.001
             
         print('Setting mass distribution to %s' %massDist)
+        self.fit_hom=True
         if massDist == 'O3':
             self.gamma1 = 1.58
             self.gamma2 = 5.59
@@ -66,15 +79,19 @@ class BetaMC:#(Beta):
             self.mNSsigma = BNS_gauss_sigma
             self.mMin = self.mNSmean-7*self.mNSsigma
             self.mMax = self.mNSmean+7*self.mNSsigma
+            #self.fit_hom=False
             print('Parameters: mu=%s, sigma=%s, sampling between mMin=%s, mMax=%s' %(self.mNSmean, self.mNSsigma, self.mMin, self.mMax))
         elif massDist == 'NS-flat':
             self.mMin = BNS_flat_Mmin
             self.mMax = BNS_flat_Mmax
             self.DeltaM = self.mMax-self.mMin
+            #self.fit_hom=False
             print('Paramters: mMin=%s, mMax=%s' %(self.mMin, self.mMax))
         else:
             raise ValueError
-            
+        
+        print('Redshift dependence has parameter lambda=%s' %self.lamb)    
+        
         from scipy.optimize import minimize_scalar
 
         # m is the detector frame mass of each of the BH
@@ -157,6 +174,8 @@ class BetaMC:#(Beta):
             grid = np.linspace(np.max([0.1, Xi0s[0]]), Xi0s[-1]+outside, self.nEvals)
             x = Xi0s
             betaarg = lambda i : (H0s[0], grid[i])
+            #if 'NS' in self._massDist:
+            #    self.fit_hom=False
         
     
         res = np.zeros(self.nEvals)
@@ -366,41 +385,45 @@ class BetaMC:#(Beta):
         from scipy.signal import savgol_filter
         resfiltered = savgol_filter(res, self.nWindow, 3, deriv=0)
         
-        # estimate sigma from difference of smoothed signal and MC evals:
         
-        sigma2 = np.sqrt( np.clip(savgol_filter( (res-resfiltered)**2, self.nWindow, 3, deriv=0), a_min = 0, a_max=None) )
         
-        # This is still pretty noisy. Assume sigma is actually proportional to the signal itself. Just need to normalize.
-        
-        sigma = np.sum(sigma2)/np.sum(resfiltered)*resfiltered
-        
-        # Fit homogeneous beta
-        bhom = BetaHom(400)
-        
-        if isH0:
-            def betahom(H, r, A):
-                bhom.dMax = r
-                return A*bhom.get_beta(H, Xi0s[0])
-        else:
-            def betahom(Xi0, r, A):
-                bhom.dMax = r
-                return A*bhom.get_beta(H0s[0], Xi0)
+        if self.fit_hom:
             
-        from scipy.optimize import curve_fit
+            # estimate sigma from difference of smoothed signal and MC evals:
+            sigma2 = np.sqrt( np.clip(savgol_filter( (res-resfiltered)**2, self.nWindow, 3, deriv=0), a_min = 0, a_max=None) )
+        
+            # This is still pretty noisy. Assume sigma is actually proportional to the signal itself. Just need to normalize.
+            sigma = np.sum(sigma2)/np.sum(resfiltered)*resfiltered
+           
+            print('Fitting with BetaHom...')
+        
+            # Fit homogeneous beta
+            bhom = BetaHom(400)
+        
+            if isH0:
+                def betahom(H, r, A):
+                    bhom.dMax = r
+                    return A*bhom.get_beta(H, Xi0s[0])
+            else:
+                def betahom(Xi0, r, A):
+                    bhom.dMax = r
+                    return A*bhom.get_beta(H0s[0], Xi0)
+            
+            from scipy.optimize import curve_fit
   
-        popt, pcov = curve_fit(betahom, grid, res, sigma=sigma)
+            popt, pcov = curve_fit(betahom, grid, res, sigma=sigma)
         #popt2, pcov2 = curve_fit(betahom, grid, res, sigma=sigma2)
         
-        reshomfit = betahom(grid, *popt)
+            reshomfit = betahom(grid, *popt)
         #reshomfit2 = betahom(grid, *popt2)
-        self.chisq = np.sum( (res-reshomfit)**2 / (sigma**2) ) / self.nEvals
+            self.chisq = np.sum( (res-reshomfit)**2 / (sigma**2) ) / self.nEvals
         #self.chisq2 = np.sum( (res-reshomfit2)**2 / (sigma2**2) ) / self.nEvals
-        self.dMaxEff = popt[0]
-        self.dMaxEffErr = np.sqrt(pcov[0][0])
+            self.dMaxEff = popt[0]
+            self.dMaxEffErr = np.sqrt(pcov[0][0])
         #self.dMax2 = popt2[0]
         #self.dMaxErr2 = np.sqrt(pcov2[0][0])
     
-        print("Fit assuming it works well: Fitted BetaMC with BetaHom with dMax = {:.2f} +- {:.2f}. Chisq = {:.2f}".format(self.dMaxEff, self.dMaxEffErr, self.chisq))
+            print("Fit assuming it works well: Fitted BetaMC with BetaHom with dMax = {:.2f} +- {:.2f}. Chisq = {:.2f}".format(self.dMaxEff, self.dMaxEffErr, self.chisq))
         
         #print("Otherwise, if the fit were not to work well, a more general error estimate yields a more reliable Chisq: dMax = {:.2f} +- {:.2f}. Chisq = {:.2f}".format(self.dMax2, self.dMaxErr2, self.chisq2))
       
@@ -436,9 +459,9 @@ class BetaMC:#(Beta):
         cdf = cdf / cdf[-1]
         return np.searchsorted(cdf, np.random.uniform(size=nSamples))
             
-    def sample_hom_position(self, nSamples, zmax):
-        lamb=1
-        zDist = lambda x: (1+x)**(lamb-1)*dcom70fast(x)**2/H70fast(x)
+    def sample_hom_position(self, nSamples, zmax, ):
+        #lamb=1
+        zDist = lambda x: (1+x)**(self.lamb-1)*dcom70fast(x)**2/H70fast(x)
         zsample = self._sample(nSamples=nSamples, pdf=zDist, lower=0, upper=zmax)
         
         phisample = 2*np.pi*np.random.uniform(size=nSamples)

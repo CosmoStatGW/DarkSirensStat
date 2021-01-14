@@ -63,7 +63,7 @@ BBH_flat_Mmax = 200
 
 
 pow_law_Mmin = 5
-pow_law_Mmax = 50
+pow_law_Mmax = 100
 
 
 ###########################
@@ -374,9 +374,12 @@ def haversine(phi, theta, phi0, theta0):
     return np.arccos(1 - 2*(hav(theta-theta0)+hav(phi-phi0)*np.sin(theta)*np.sin(theta0)))
 
 
-def get_norm_posterior(lik_inhom,lik_hom, beta, grid):
+def get_norm_posterior(lik_inhom,lik_hom, beta, grid, prior=None):
     
     tot_post = (lik_inhom+lik_hom)/beta
+    if prior is not None:
+        tot_post*=prior
+        
     norm = np.trapz( tot_post, grid)
     
     post = tot_post/norm

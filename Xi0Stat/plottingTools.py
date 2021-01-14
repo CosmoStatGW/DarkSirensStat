@@ -167,7 +167,7 @@ def plot_post(base_path, grid, post, post_cat, post_compl, event_list,
         else:
             #print(event_list[0])
             fin_post=post[event_list[0]]
-        tstr=find_median(fin_post, grid, myMin,myMax, cl=0.683, digits=1)
+        tstr=find_median(fin_post, grid, myMin,myMax, cl=0.683, digits=2)
         if varname=='H0':
             units='$\, \mathrm{{km}} \, \mathrm{{s}}^{{-1}} \, \mathrm{{Mpc}}^{{-1}}$'
             var_tex = r'$H_0$'
