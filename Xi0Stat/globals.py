@@ -63,7 +63,7 @@ BBH_flat_Mmax = 200
 
 
 pow_law_Mmin = 5
-pow_law_Mmax = 100
+pow_law_Mmax = 50
 
 
 ###########################
