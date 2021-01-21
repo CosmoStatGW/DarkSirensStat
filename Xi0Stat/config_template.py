@@ -49,6 +49,8 @@ eventType='BBH'
 ## Specify which mass distribution to use. Options: O2, O3, NS-flat, NS-gauss
 massDist='NS-flat'
 
+## Specify the exponent of the redshift distribution , p(z) = dV/dz* (1+z)^(lamb-1)
+lamb=0
 
 # How to select credible region in redshift, 'skymap' or 'header'
 zLimSelection='skymap'
