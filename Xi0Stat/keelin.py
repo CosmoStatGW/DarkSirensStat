@@ -1,3 +1,10 @@
+#
+#    Copyright (c) 2021 Andreas Finke <andreas.finke@unige.ch>
+#
+#    All rights reserved. Use of this source code is governed by a modified BSD
+#    license that can be found in the LICENSE file.
+
+
 import numpy as np
 
 import matplotlib.pyplot as plt

@@ -1,3 +1,12 @@
+#
+#    Copyright (c) 2021 Andreas Finke <andreas.finke@unige.ch>,
+#                       Michele Mancarella <michele.mancarella@unige.ch>
+#
+#    All rights reserved. Use of this source code is governed by a modified BSD
+#    license that can be found in the LICENSE file.
+
+
+
 import os
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM

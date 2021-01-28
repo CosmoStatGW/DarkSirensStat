@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Sep 23 10:32:31 2020
-
-@author: Michi
-"""
+#
+#    Copyright (c) 2021 Andreas Finke <andreas.finke@unige.ch>,
+#                       Michele Mancarella <michele.mancarella@unige.ch>
+#
+#    All rights reserved. Use of this source code is governed by a modified BSD
+#    license that can be found in the LICENSE file.
 
 ####
 # This module contains a abstract classes to handle a galaxy catalogue

@@ -1,7 +1,14 @@
-#!/usr/bin/env python3
+#
+#    Copyright (c) 2021 Andreas Finke <andreas.finke@unige.ch>
+#
+#    All rights reserved. Use of this source code is governed by a modified BSD
+#    license that can be found in the LICENSE file.
+
+
 
 ####
-# This module contains a class to compute beta from a realistic detection model from MC integration
+# This module contains a class to compute beta by MC sampling the population model
+# and modelling the detection using the inspiral SNR and further selection.
 ####
 
 #from beta import Beta

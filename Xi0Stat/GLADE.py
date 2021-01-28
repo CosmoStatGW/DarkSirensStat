@@ -1,3 +1,10 @@
+#
+#    Copyright (c) 2021 Michele Mancarella <michele.mancarella@unige.ch>
+#
+#    All rights reserved. Use of this source code is governed by a modified BSD
+#    license that can be found in the LICENSE file.
+
+
 import pandas as pd
 import healpy as hp
 import numpy as np
@@ -272,62 +279,7 @@ class GLADE(GalCat):
                 if computePosterior:
                     
                     self.include_vol_prior(df)
-#                    L = 0
-#                    nBatch = 10000
-#
-#                    if self.verbose:
-#                        print("Computing galaxy posteriors...")
-#
-#                    from keelin import convolve_bounded_keelin_3
-#                    from astropy.cosmology import FlatLambdaCDM
-#                    fiducialcosmo = FlatLambdaCDM(H0=70.0, Om0=0.3)
-#                    zGrid = np.linspace(0, 2*np.max(df.z_upperbound), 500)
-#                    jac = fiducialcosmo.comoving_distance(zGrid).value**2 / fiducialcosmo.H(zGrid).value
-#
-#                    from scipy import interpolate
-#                    func = interpolate.interp1d(zGrid, jac, kind='cubic')
-#
-#                    i = 0
-#                    while True:
-#                        i += 1
-#                        if self.verbose:
-#                            print("Batch " + str(i) + " of " + str(np.int(len(df)/nBatch)+1) )
-#
-#                        R = L + nBatch
-#
-#                        if R >= len(df):
-#                            ll = df.z_lowerbound.to_numpy()[L:]
-#                            l  = df.z_lower.to_numpy()[L:]
-#                            m  = df.z.to_numpy()[L:]
-#                            u  = df.z_upper.to_numpy()[L:]
-#                            uu = df.z_upperbound.to_numpy()[L:]
-#                        else:
-#                            ll = df.z_lowerbound.to_numpy()[L:R]
-#                            l  = df.z_lower.to_numpy()[L:R]
-#                            m  = df.z.to_numpy()[L:R]
-#                            u  = df.z_upper.to_numpy()[L:R]
-#                            uu = df.z_upperbound.to_numpy()[L:R]
-#
-#
-#                        fits = convolve_bounded_keelin_3(func, 0.16, l, m, u, ll, uu, N=500)
-#
-#                        if R >= len(df):
-#                            df.iloc[L:, df.columns.get_loc("z_lowerbound")] = fits[:, 0]
-#                            df.iloc[L:, df.columns.get_loc("z_lower")] = fits[:, 1]
-#                            df.iloc[L:, df.columns.get_loc("z")] = fits[:, 2]
-#                            df.iloc[L:, df.columns.get_loc("z_upper")] = fits[:, 3]
-#                            df.iloc[L:, df.columns.get_loc("z_upperbound")] = fits[:, 4]
-#                            break
-#                        else:
-#                            df.iloc[L:R, df.columns.get_loc("z_lowerbound")] = fits[:, 0]
-#                            df.iloc[L:R, df.columns.get_loc("z_lower")] = fits[:, 1]
-#                            df.iloc[L:R, df.columns.get_loc("z")] = fits[:, 2]
-#                            df.iloc[L:R, df.columns.get_loc("z_upper")] = fits[:, 3]
-#                            df.iloc[L:R, df.columns.get_loc("z_upperbound")] = fits[:, 4]
-#
-#
-#                        L += nBatch
-#
+
         # ------ End if not use precomputed table
         #        Always be able to still chose the weighting and cut.
         

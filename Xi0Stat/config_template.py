@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Oct 30 14:51:08 2020
-
-@author: Michi
-"""
 from globals import H0GLOB, Xi0Glob
 
 ####################################
