@@ -1,9 +1,11 @@
-Organization of  ```data/``` folder:
+Organization of  ```data/``` folder after running ```./install.sh```:
 
 ```bash
-data/
+	data/
 		├── GLADE/
 			├──GLADE_2.4.txt
+			├──hpx_B_zmin0p01_zmax0p25_nside32_npoints25.txt
+			├──hpx_K_zmin0p01_zmax0p25_nside32_npoints25.txt
 			
 		├── GW/
 			├──O2
@@ -36,6 +38,5 @@ data/
 		.
 		├── any other catalogue/
 			├── <catalogue>
-				
-		└── planck.txt		
+						
 ```

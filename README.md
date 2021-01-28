@@ -3,7 +3,7 @@ This package implements a hierarchical bayesian framework for constraining the H
 
 The methods and results can be found in the paper [Cosmology with LIGO/Virgo dark sirens: Hubble parameter and modified gravitational wave propagation](https://arxiv.org/abs/). 
 
-Developed by [Andreas Finke](<Andreas.Finke@unige.ch>)  and [Michele Mancarella](<Michele.Mancarella@unige.ch>).
+Developed by [Andreas Finke](<https://github.com/AndreasFinke>)  and [Michele Mancarella](<https://github.com/Mik3M4n>).
 
 
 ## Summary
@@ -14,7 +14,6 @@ Developed by [Andreas Finke](<Andreas.Finke@unige.ch>)  and [Michele Mancarella]
 * [Overview and code organisation](https://github.com/CosmoStatGW/Xi0Stat#Overview-and-code-organisation)
 * [Data](https://github.com/CosmoStatGW/Xi0Stat#Data)
 * [Usage](https://github.com/CosmoStatGW/Xi0Stat#Usage)
-* [Modifying the code](https://github.com/CosmoStatGW/Xi0Stat#Modifying-the-code)
 
 
 ## Citation
@@ -55,6 +54,21 @@ Description is provided inside the data folder.
 ## Usage
 
 
+The configuration options are read from the the file ```config.py``` . 
+We provide a template with explanation in ```config_template.py```. To creat you own configuration file:
 
-## Modifying the code
+```
+cp config_template.py config.py
+```
+Then, open ```config.py``` and set the options. A description is provided within the file. 
+
+The default options are for running inference for H0 on the O3 BBH events, with flat prior between 20 and 140, mask completeness with 9 masks, interpolation between multiplicative and homogeneous completion, B-band luminosity weights, and a completeness threshold of 50%. The selection effects are computed with MC. To run, execute
+
+```
+python main.py
+```
+
+The result will be saved in a folder ```results/O2BBHs/``` (the name can be changed in the configuration). 
+
+
 
