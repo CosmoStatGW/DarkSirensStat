@@ -15,20 +15,34 @@ GWENSPATH="$P/GWENS/"
 O3PATH="$P/GW/O3/"
 O2PATH="$P/GW/O2/"
 
-mkdir -p $P/GLADE
+#mkdir -p $P/GLADE
 mkdir -p $GWENSPATH
 mkdir -p $P/DES
-mkdir -p $P/misc
+#mkdir -p $P/misc
 mkdir -p $O2PATH
 mkdir -p $O3PATH
 mkdir -p $P/GW/metadata
 mkdir -p $P/GW/detectors
 
+echo "Download GLADE (460M)? y/n"
+read DLGLADE
+
+echo "Download GWENS (5.1G)? y/n"
+read DLGWENS
+
+echo "Download DES 1Y (22G)? y/n"
+read DLDES
+
+echo
+echo
+
 if [ "$(ls -A $P/misc)" ]; then 
 	echo "Group catalog is installed."
 else
-	mv Galaxy_Group_Catalogue.csv $P/misc/.
+	echo "Could not find group catalog in $P/misc/Galaxy_Group_Catalogue.csv."
 fi
+
+echo
 
 if [ "$(ls -A $P/GW/detectors)" ]; then 
 	echo "Found strain sensitivity data"
@@ -45,6 +59,8 @@ else
 	mv index.html $P/GW/metadata/GWTC-1-confident.csv
 fi
 
+echo
+
 if [ "$(ls -A $O2PATH)" ]; then 
 	echo "Found O2 data"
 else
@@ -57,6 +73,8 @@ else
 	
 fi
 
+echo
+
 if [ "$(ls -A $O3PATH)" ]; then 
 	echo "Found O3 data"
 else
@@ -68,54 +86,89 @@ else
 	rm o3.tar
 fi
 
+echo
+
 if [ -a $GLADEFILEPATH ]; then
 	echo "GLADE is installed in $GLADEFILEPATH" 
 else
-	echo "Downloading GLADE..." 
-	curl -o $GLADEFILEPATH http://aquarius.elte.hu/glade/GLADE_2.4.txt
+    if [ $DLGLADE == "y" ]; then 
+        echo "Downloading GLADE..." 
+        curl -o $GLADEFILEPATH http://aquarius.elte.hu/glade/GLADE_2.4.txt
+    else
+        echo "You can install GLADE manually by copying GLADE_2.4.txt to $GLADEFILEPATH. Then, run this script again for a precomputation of galaxy pdfs."
+    fi
 fi 
+
+echo
 
 if [ -a $DESFILEPATH ]; then
 	echo "DES is installed in $DESFILEPATH" 
 else
-	echo "Downloading DES..." 
-	curl -o $DESFILEPATH http://desdr-server.ncsa.illinois.edu/despublic/y1a1_files/photoz_catalogs/y1a1_gold_d04_wdnf.fit
+    if [ $DLDES == "y" ]; then 
+	    echo "Downloading DES..." 
+	    curl -o $DESFILEPATH http://desdr-server.ncsa.illinois.edu/despublic/y1a1_files/photoz_catalogs/y1a1_gold_d04_wdnf.fit
+    else
+        echo "You can install DES manually by copying y1a1_gold_d04_wdnf.fit to $DESFILEPATH"
+    fi
+	
 fi 
+
+foundbatch="no"
+missingbatch="yes"
+
+echo
 
 for ((BATCH=0; BATCH < 24; ++BATCH)); do 
 	FILENAME="ra_$(printf "%03d" $((BATCH*15)))_$(printf "%03d" $((BATCH*15+15))).csv.gz"
 	FILEPATH=$GWENSPATH$FILENAME
 	if [ -a $FILEPATH ]; then
-		if [[ "$BATCH" -eq 0 ]]; then 
-			echo "GWENS-batch $BATCH is installed in $FILEPATH. Suppressing output for other batches" 
+		if [ $foundbatch == "no" ]; then 
+		    foundbatch="yes"
+			echo "GWENS-batch $BATCH is installed in $FILEPATH. Suppressing output for other installed batches." 
 		fi
 	else
-		echo "Downloadin batch $BATCH of GWENS..." 
-		URL="https://astro.ru.nl/catalogs/sdss_gwgalcat/"
-		URL=$URL$FILENAME
-		curl -o $FILEPATH $URL
+	    if [ $DLGWENS == "y" ]; then
+		    echo "Downloading batch $BATCH of GWENS..." 
+		    URL="https://astro.ru.nl/catalogs/sdss_gwgalcat/"
+		    URL=$URL$FILENAME
+		    curl -o $FILEPATH $URL
+        else
+            if [ $missingbatch == "yes" ]; then
+                missingbatch="no"
+                echo "You can install GWENS-batch $BATCH in $FILEPATH manually. Supressing output for other batches that are not found."
+            fi
+        fi
 	fi 
 done
+
+echo
 
 if [ -e $P/GLADE/posteriorglade.csv ]
 then
     echo "Found GLADE with correct galaxy posteriors"
 else
-    echo "Processing GLADE for r^2 corrected galaxy posteriors"
+    if [ -a $GLADEFILEPATH ]; then
+        echo "Processing GLADE for r^2 corrected galaxy posteriors"
 
-    cat << 'ENDOF' > Xi0Stat/compGLADEpost.py
+        cat << 'ENDOF' > Xi0Stat/compGLADEpost.py
 from completeness import *
 from GLADE import GLADE
 
 skipcompl = SkipCompleteness()
 
-glade = GLADE('GLADE', skipcompl, useDirac=False, galPosterior=True, verbose=True, colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w', 'K', 'B_Abs'])
+glade = GLADE('GLADE', skipcompl, useDirac=False, galPosterior=True, verbose=True, colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w', 'K', 'B_Abs', 'dL'])
 
 glade.data.to_csv('posteriorglade.csv', index=False)
 
 ENDOF
-    python Xi0Stat/compGLADEpost.py
-    mv posteriorglade.csv $P/GLADE/.
-    rm Xi0Stat/compGLADEpost.py
+        python Xi0Stat/compGLADEpost.py
+        mv posteriorglade.csv $P/GLADE/.
+        rm Xi0Stat/compGLADEpost.py
+    else
+        echo "Glade not present. Skipping precomputation of galaxy pdfs."
+    fi
+    
 fi
 
+echo
+echo "Installation script completed."
