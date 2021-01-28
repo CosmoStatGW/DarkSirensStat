@@ -1,0 +1,11 @@
+scipy
+numpy
+pandas
+healpy
+astropy
+ligo.skymap
+abc
+copy
+matplotlib
+shutil
+json

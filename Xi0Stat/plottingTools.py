@@ -15,7 +15,7 @@ import numpy as np
 import os
 
 
-import healpy as ho
+import healpy as hp
 
 
 def plot_completeness(base_path, allGW, catalogue, lims, mask = None, verbose=True):
