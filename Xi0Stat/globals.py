@@ -27,26 +27,7 @@ O2BNS = ('GW170817',)
 O3BNS = ('GW190425', )
 O3BHNS = ('GW190426_152155', 'GW190426' )
 
-########################
-# COORDINATES OF THE COUNTERPARTS
 
-O2_counterparts = {'GW170817': {
-                  'RA':197.450374, 
-                  'dec':-23.381495,
-                  'z_mean':3327/clight, #   UNCORRECTED OBSERVED VELOCITY   #3017/clight: LVC corrected for vP,
-                  'z_std':72/clight, #  STD OF UNCORRECTED VELOCITY  #166/clight:  LVC corrected for vP, 72 original
-                  'vPmean':373/clight,  #373 mukherjee, 310 LVC
-                  'vPsigma': 130/clight} }  #130 mukherjee, 150 LVC
-# ra dec  From ApJL 848 L16, zfrom 1710.05835 pag 7
-
-
-O3_counterparts = {'GW190521':{
-                  'RA':192.42625, 
-                  'dec':34.82472,
-                  'z_mean':0.438,
-                  'z_std':0., #0.001,
-                  'vPmean':0, 
-                  'vPsigma': 0 } }# ra decz from arXiv:2009.14199v1
 
 ##########################
 ##########################
@@ -374,7 +355,7 @@ def haversine(phi, theta, phi0, theta0):
     return np.arccos(1 - 2*(hav(theta-theta0)+hav(phi-phi0)*np.sin(theta)*np.sin(theta0)))
 
 
-def get_norm_posterior(lik_inhom,lik_hom, beta, grid, prior=None):
+def get_norm_posterior(lik_inhom, lik_hom, beta, grid, prior=None):
     
     tot_post = (lik_inhom+lik_hom)/beta
     if prior is not None:
