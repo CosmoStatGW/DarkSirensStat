@@ -17,14 +17,14 @@ from globals import H0GLOB, Xi0Glob
 # --------------------------------------------------------------
 do_inference=True
 
-## Variable H0 or Xi0
+## Variable for the inference:  H0 or Xi0
 goalParam = 'H0'
 
 ## Output folder name
-fout = 'O2_run1'
+fout = 'O2BBHs'
 
 ## Prior limits
-Xi0min =  Xi0Glob # 0.3 #Xi0Glob
+Xi0min =  Xi0Glob # 0.3 
 Xi0max =  Xi0Glob # 10
 H0min =   20 # H0GLOB
 H0max =    140
@@ -47,10 +47,10 @@ observingRun = 'O2'
 eventType='BBH'
 
 ## Specify which mass distribution to use. Options: O2, O3, NS-flat, NS-gauss
-massDist='NS-flat'
+massDist='O3'
 
 ## Specify the exponent of the redshift distribution , p(z) = dV/dz* (1+z)^(lamb-1)
-lamb=0
+lamb=1
 
 # How to select credible region in redshift, 'skymap' or 'header'
 zLimSelection='skymap'
@@ -63,14 +63,13 @@ subset_names =  None #['GW190425',]
 select_events=True
 
 ## Threshold in probability at position of the event, for event selection
-completnessThreshCentral=0.1
+completnessThreshCentral=0.5
 
-# THIS IS NOT USED FOR THE MOMENT!
-# completnessThreshAvg=0.01
+
 
 ## Confidence region for GW skymaps
-level = 0.97
-std_number=None # if none, it is computed from level
+level = 0.99
+std_number=5 # if none, it is computed from level
 
 
 # --------------------------------------------------------------
@@ -88,18 +87,18 @@ do_check_footprint=False
 # Band should be None if we use number counts
 Lcut=0.6
 # Band for lum cut
-band=None #'B' # B, K, or None . 
+band='B' # B, K, or None . 
 # Average galaxy density in comoving volume, used if band='None'. A number, or 'auto' (only for mask completeness) 
-Nbar = 'auto'
+Nbar = 0.1
 # Band for lum weights
-band_weight = band #'B' # B, K, or None . 
+band_weight = band  # B, K, or None . 
 
 
 
 ## Use of galaxy redshift errors
 galRedshiftErrors = True
 
-## Use of galaxy posteriors
+## Use of galaxy posteriors, i.e. convolve the likelihood in redshift with a prior p(z) = dV_c/dz
 galPosterior = True
 
 
@@ -109,7 +108,7 @@ galPosterior = True
 
 ## Completeness. 'load', 'pixel', 'mask', 'skip'
 completeness = 'mask'
-# path of completeness file if completeness='load'
+# path of completeness file if completeness='load' and using GLADE
 completeness_path = 'hpx_B_zmin0p01_zmax0p25_nside32_npoints25.txt'
 # Options for SuperPixelCompleteness
 angularRes, interpolateOmega = 4, False
