@@ -155,7 +155,7 @@ from GLADE import GLADE
 
 skipcompl = SkipCompleteness()
 
-glade = GLADE('GLADE', skipcompl, useDirac=False, galPosterior=True, verbose=True, colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w', 'K', 'B_Abs', 'dL'])
+glade = GLADE('GLADE', skipcompl, useDirac=False, galPosterior=True, verbose=True, colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w', 'K', 'B_Abs', 'dL', 'completenessGoal'])
 
 glade.data.to_csv('posteriorglade.csv', index=False)
 
