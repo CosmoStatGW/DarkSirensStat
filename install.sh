@@ -1,10 +1,9 @@
 #!/bin/bash
 
-if [ "$(ls -A Xi0Stat)" ]; then 
-	echo "Found Xi0Stat installation"
+if [ "$(ls -A DarkSirensStat)" ]; then 
+	echo "Found DarkSirensStat installation"
 else
-	echo "Do git clone https://github.com/Mik3M4n/Xi0Stat.git and put this script into the outer /Xi0Stat folder" 
-	#git clone https://github.com/Mik3M4n/Xi0Stat.git
+	echo "Do git clone https://github.com/CosmoStatGW/DarkSirensStat.git and put this script into the outer /DarkSirensStat folder" 
 fi
 
 P="data"
@@ -150,7 +149,7 @@ else
     if [ -a $GLADEFILEPATH ]; then
         echo "Processing GLADE for r^2 corrected galaxy posteriors"
 
-        cat << 'ENDOF' > Xi0Stat/compGLADEpost.py
+        cat << 'ENDOF' > DarkSirensStat/compGLADEpost.py
 from completeness import *
 from GLADE import GLADE
 
@@ -161,9 +160,9 @@ glade = GLADE('GLADE', skipcompl, useDirac=False, galPosterior=True, verbose=Tru
 glade.data.to_csv('posteriorglade.csv', index=False)
 
 ENDOF
-        python Xi0Stat/compGLADEpost.py
+        python DarkSirensStat/compGLADEpost.py
         mv posteriorglade.csv $P/GLADE/.
-        rm Xi0Stat/compGLADEpost.py
+        rm DarkSirensStat/compGLADEpost.py
     else
         echo "Glade not present. Skipping precomputation of galaxy pdfs."
     fi
