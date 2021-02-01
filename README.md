@@ -1,7 +1,7 @@
 # DarkSirensStat
 This package implements a hierarchical bayesian framework for constraining the Hubble parameter and modified GW propagation with dark sirens and galaxy catalogues.
 
-The methods and results can be found in the paper [Cosmology with LIGO/Virgo dark sirens: Hubble parameter and modified gravitational wave propagation](https://arxiv.org/abs/). 
+The methods and results can be found in the paper [Cosmology with LIGO/Virgo dark sirens: Hubble parameter and modified gravitational wave propagation](https://arxiv.org/abs/2101.12660). 
 
 Developed by [Andreas Finke](<https://github.com/AndreasFinke>)  and [Michele Mancarella](<https://github.com/Mik3M4n>).
 
@@ -20,7 +20,14 @@ Developed by [Andreas Finke](<https://github.com/AndreasFinke>)  and [Michele Ma
 This package is released together with the paper [Cosmology with LIGO/Virgo dark sirens: Hubble parameter and modified gravitational wave propagation](https://arxiv.org/abs/). When making use of it, please cite the paper and the present git repository. Bibtex:
 
 ```
-bibex
+@misc{finke2021cosmology,
+      title={Cosmology with LIGO/Virgo dark sirens: Hubble parameter and modified gravitational wave propagation}, 
+      author={Andreas Finke and Stefano Foffa and Francesco Iacovelli and Michele Maggiore and Michele Mancarella},
+      year={2021},
+      eprint={2101.12660},
+      archivePrefix={arXiv},
+      primaryClass={astro-ph.CO}
+}
 ```
 
 ## Installation
