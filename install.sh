@@ -47,13 +47,20 @@ if [ "$(ls -A $P/GW/detectors)" ]; then
 	echo "Found strain sensitivity data"
 else
 	echo "Downloading strain sensitivity data..."
-	O2EARLYNAME="2016-12-13_C01_L1_O2_Sensitivity_strain_asd.txt"
-	O2LATENAME="2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt"
-	O3NAME="2018-10-20_DELTAL_FE_L1_O3_Sensitivity_strain_asd.txt"
+	#O2EARLYNAME="2016-12-13_C01_L1_O2_Sensitivity_strain_asd.txt"
+	#O2LATENAME="2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt"
+	
+	O2H1NAME="2017-06-10_DCH_C02_H1_O2_Sensitivity_strain_asd.txt"
+	02L1NAME="2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt"
+	
+	O3H1NAME="O3-H1-C01_CLEAN_SUB60HZ-1251752040.0_sensitivity_strain_asd.txt"
+	O3L1NAME="O3-L1-C01_CLEAN_SUB60HZ-1240573680.0_sensitivity_strain_asd.txt"
 		
-	curl -o $P/GW/detectors/$O3NAME https://dcc.ligo.org/public/0157/G1802165/001/$O3NAME
-	curl -o $P/GW/detectors/$O2LATENAME https://dcc.ligo.org/public/0156/G1801952/001/$O2LATENAME
-	curl -o $P/GW/detectors/$O2EARLYNAME https://dcc.ligo.org/public/0140/G1700086/002/$O2EARLYNAME
+	curl -o $P/GW/detectors/$O3H1NAME https://dcc.ligo.org/public/0169/P2000251/001/$O3H1NAME
+	curl -o $P/GW/detectors/$O3L1NAME https://dcc.ligo.org/public/0169/P2000251/001/$O3L1NAME
+	curl -o $P/GW/detectors/$O2H1NAME https://dcc.ligo.org/public/0156/G1801950/001/$O2H1NAME
+	curl -o $P/GW/detectors/$02L1NAME https://dcc.ligo.org/public/0156/G1801952/001/$02L1NAME
+	#curl -o $P/GW/detectors/$O2EARLYNAME https://dcc.ligo.org/public/0140/G1700086/002/$O2EARLYNAME
 	wget https://www.gw-openscience.org/eventapi/csv/GWTC-1-confident/
 	mv index.html $P/GW/metadata/GWTC-1-confident.csv
 fi
