@@ -63,7 +63,11 @@ class BetaMC:#(Beta):
             self._sigmaSNR = 1
         else:
             self._sigmaSNR = 0.001
-            
+        
+        # how lucky are the furthest away sources we want to cover: when SNRsigmas*_sigmaSNR is added to the theoretical SNR. Default: 2sigma. Degrades MC performance as larger volumes are needed with less chance of seeing the events
+        
+        self.SNRsigmas = 2
+        
         print('Setting mass distribution to %s' %massDist)
         self.fit_hom=True
         if massDist == 'O3':
@@ -113,7 +117,11 @@ class BetaMC:#(Beta):
 
             # Caveat: This works only if the redshift is not so large to break through the lower mass bound. For Ligo/Virgo, this is z=O(10) though. Otherwise it maximum is probably obtained at the boundary but this would require some checks.
             zPiv = 0.001
-            return -self._SNR(m/(1+zPiv), m/(1+zPiv), zPiv, H0=70, Xi0=1, Qsq=1)*dL70fast(zPiv) #Independent of zPiv, H0, Xi0
+            
+            # assume perfect orientation for both but take min: this means that we look at sources perfectly oriented for the weaker detector, which is the limiting criterion in our detection decision elsewhere
+            # (minimize -min is indeed maximize min, -> maximize the weaker one)
+            
+            return -self._SNR(m/(1+zPiv), m/(1+zPiv), zPiv, H0=70, Xi0=1, QsqL=1, QsqH=1)*dL70fast(zPiv) #Independent of zPiv, H0, Xi0
             
         res = minimize_scalar(goal, bounds = (self.mMin, self.mMax), method='bounded')
         
@@ -129,37 +137,50 @@ class BetaMC:#(Beta):
             
             #
             self.dMax = self.SNRmaxNumerator/self.SNRthresh
+            self.dMaxReal = (self.SNRmaxNumerator)/(self.SNRthresh-self.SNRsigmas*self._sigmaSNR)
             
-            if self.verbose == True:
-                print("Maximal detector reach for {} is {:.1f} Mpc, corresponding to z = {:.2}, ({:.2} - {:.2})".format(observingRun, self.dMax, z_from_dLGW_fast(self.dMax, H0=70, Xi0=1, n=nGlob),  z_from_dLGW_fast(self.dMax, H0=priorlimits.H0min, Xi0=priorlimits.Xi0max, n=nGlob),  z_from_dLGW_fast(self.dMax, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)))
+            if self.verbose:
+                print("Maximal (theoretical) detector reach for {} is {:.1f} Mpc, corresponding to z = {:.2}, ({:.2} - {:.2})".format(observingRun, self.dMax, z_from_dLGW_fast(self.dMax, H0=70, Xi0=1, n=nGlob),  z_from_dLGW_fast(self.dMax, H0=priorlimits.H0min, Xi0=priorlimits.Xi0max, n=nGlob),  z_from_dLGW_fast(self.dMax, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)))
+                
+                if fluctuatingSNR:
+            
+                    print("Maximal (theoretical) detector reach for {} is {:.1f} Mpc, corresponding to z = {:.2}, ({:.2} - {:.2})".format(observingRun, self.dMaxReal, z_from_dLGW_fast(self.dMaxReal, H0=70, Xi0=1, n=nGlob),  z_from_dLGW_fast(self.dMaxReal, H0=priorlimits.H0min, Xi0=priorlimits.Xi0max, n=nGlob),  z_from_dLGW_fast(self.dMaxReal, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)))
+                
           
 
     def load_strain_sensitivity(self):
         import os
+        
+        filenames = {}
+        self.integr = {}
+        self.freq = {}
+        
         if self._observingRun == 'O2':
-            filename = '2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt'
-            #filename = '2016-12-13_C01_L1_O2_Sensitivity_strain_asd.txt'
+            filenames["L"] = '2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt'
+            filenames["H"] = '2017-06-10_DCH_C02_H1_O2_Sensitivity_strain_asd.txt'
         elif self._observingRun == 'O3':
-            filename = '2018-10-20_DELTAL_FE_L1_O3_Sensitivity_strain_asd.txt'
-            
-       
-        filepath = os.path.join(detectorPath, filename)
+            filenames["L"] = 'O3-L1-C01_CLEAN_SUB60HZ-1240573680.0_sensitivity_strain_asd.txt'
+            filenames["H"] = 'O3-H1-C01_CLEAN_SUB60HZ-1251752040.0_sensitivity_strain_asd.txt'
 
-        if self.verbose:
-            print('Loading strain sensitivity from %s...' %filepath)
+        for detectorname in ["L", "H"]:
+       
+            filepath = os.path.join(detectorPath, filenames[detectorname])
+
+            if self.verbose:
+                print('Loading strain sensitivity from %s...' %filepath)
+                
+            noise = np.loadtxt(filepath, usecols=range(2))
+            f = noise[:,0]
+            S = (noise[:,1])**2
             
-        noise = np.loadtxt(filepath, usecols=range(2))
-        f = noise[:,0]
-        S = (noise[:,1])**2
-        
-        # O1 data is very weird at boundaries which extend further than for other files - cut them
-        mask = (f > 10) & (f < 6000)
-        S = S[mask]
-        self.freq = f[mask]
-        
-        import scipy.integrate as igt
-        
-        self.integr = igt.cumtrapz(self.freq**(-7/3)/S, self.freq, initial = 0)
+            # O1 data is very weird at boundaries which extend further than for other files - cut them
+            mask = (f > 10) & (f < 6000)
+            S = S[mask]
+            self.freq[detectorname] = f[mask]
+            
+            import scipy.integrate as igt
+            
+            self.integr[detectorname] = igt.cumtrapz(self.freq[detectorname]**(-7/3)/S, self.freq[detectorname], initial = 0)
 
     def get_beta(self, H0s, Xi0s, n=nGlob, **kwargs):
       
@@ -327,6 +348,11 @@ class BetaMC:#(Beta):
                 # However, we can even include the selection from selector into the proposal distribution first, by changing the weights accordingly.
                 
                 wGalInside[ ~ self.selector.is_good(thetaGalInside, phiGalInside, zGalInside)] = 0
+                
+                
+                # add the lambda dependent GW prior weighting, put on top of the galaxy distribution (also use this a few lines below in the normalization sum!)
+                wGalinside *= (1+zGalInside)**(self.lamb-1)
+                
                 
                 galsample = self._sample_discrete(nSamplesCat, wGalInside)
                 
@@ -530,7 +556,7 @@ class BetaMC:#(Beta):
             # distributon of lighter BH mass
             def pm2(m):
                 valid = m > self.mMin
-                return np.where(valid, m**(-self.betaq)*S(m), 0)
+                return np.where(valid, m**(self.betaq)*S(m), 0)
                 
             m1 = self._sample(nSamples, pm1, self.mMin, self.mMax)
             m2 = self._sample_vector_upper(pm2, self.mMin, m1)
@@ -579,12 +605,10 @@ class BetaMC:#(Beta):
         QsqL = Qsq(costhetaL, phiL, cosinclsample)
         QsqH = Qsq(costhetaH, phiH, cosinclsample)
        
-        Qsq = np.minimum(QsqL, QsqH)
-       
-        return self._SNR(m1, m2, zsample, H0, Xi0, Qsq)
+        return self._SNR(m1, m2, zsample, H0, Xi0, QsqL, QsqH)
          
 
-    def _SNR(self, m1, m2, z, H0, Xi0, Qsq):
+    def _SNR(self, m1, m2, z, H0, Xi0, QsqL, QsqH):
         mtot = m1 + m2
         Mc = (m1*m2)**(0.6)/mtot**(0.2)
         h7 = H0/70
@@ -604,9 +628,13 @@ class BetaMC:#(Beta):
         clightMpc = clight/3.086e+19 #km/s -> Mpc/s
        
         # don't compute square - dynamic range of terms is already difficult enough
-        SNR = 1/np.pi**(2/3)*(GMsun_over_c3*Mc)**(2.5/3)*(clightMpc/dist_true)*np.sqrt(5/6*Qsq*np.interp(fGW, self.freq, self.integr))
+        
+        fac = np.sqrt(5/6)/np.pi**(2/3)*(GMsun_over_c3*Mc)**(2.5/3)*(clightMpc/dist_true)
+        
+        SNR_L = fac * np.sqrt(QsqL*np.interp(fGW, self.freq["L"], self.integr["L"]))
+        SNR_H = fac * np.sqrt(QsqH*np.interp(fGW, self.freq["H"], self.integr["H"]))
        
-        return SNR
+        return np.minimum(SNR_L, SNR_H)
         
     # searches for the redshift after which no more events will be detected, depending on H0 and Xi0.
     # search is carried out until self.zmax
@@ -623,15 +651,17 @@ class BetaMC:#(Beta):
 
         def SNRmax(z):
             def goal(m):
-                return -self._SNR(m, m, z, H0, Xi0, Qsq=1)
+                # assume perfect orientation for both but take min: this means that we look at sources perfectly oriented for the weaker detector, which is the limiting criterion in our detection decision elsewhere
+                return -self._SNR(m, m, z, H0, Xi0, QsqL=1, QsqH=1)
+            # (minimize -min is indeed maximize min, so maximize the weaker one)
             res = minimize_scalar(goal, bounds = (self.mMin, self.mMax), method='bounded')
             if res.success == False:
                 print(res.message, res.x)
             else:
-                return self._SNR(res.x, res.x, z, H0, Xi0, Qsq=1) - self.SNRthresh
+                return self._SNR(res.x, res.x, z, H0, Xi0, QsqL=1, QsqH=1) + self.SNRsigmas*self._sigmaSNR - self.SNRthresh
 
         from scipy.optimize import brentq
-        res = brentq(SNRmax, a=0.001, b=self.zmax)
+        res2 = brentq(SNRmax, a=0.001, b=self.zmax)
         
         return res2
         
