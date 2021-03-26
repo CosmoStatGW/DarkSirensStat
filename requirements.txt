@@ -4,8 +4,5 @@ pandas
 healpy
 astropy
 ligo.skymap
-abc
-copy
+pycbc
 matplotlib
-shutil
-json
