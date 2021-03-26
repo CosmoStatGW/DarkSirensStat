@@ -16,6 +16,8 @@ from globals import *
 from keelin import *
 from betaHom import *
 
+from SNRtools import oSNR
+
 class BetaMC:#(Beta):
     
     def __init__(self, priorlimits, selector,
@@ -28,9 +30,13 @@ class BetaMC:#(Beta):
                  properAnisotropy = True, 
                  verbose=False, 
                  lamb=1,
+                 alpha1=1.6,
+                 fullSNR=True,
+                 approximant='IMRPhenomXHM',
                  **kwargs):
     
         
+        self.fullSNR=fullSNR
         self.lamb=lamb
         self._gals = gals
         
@@ -71,7 +77,7 @@ class BetaMC:#(Beta):
         print('Setting mass distribution to %s' %massDist)
         self.fit_hom=True
         if massDist == 'O3':
-            self.gamma1 = 1.58
+            self.gamma1 = alpha1 #1.58
             self.gamma2 = 5.59
             self.betaq  = 1.40
             self.mMin   = 3.96
@@ -102,6 +108,21 @@ class BetaMC:#(Beta):
             raise ValueError
         
         print('Redshift dependence has parameter lambda=%s' %self.lamb)    
+        
+        # COnstrunctor for full SNR
+        if fullSNR:
+            
+            self.mySNRs={}
+            for detectorname in ["L", "H"]:
+       
+                filepath = os.path.join(detectorPath, self.filenames[detectorname])
+                myoSNR = oSNR(  filepath , verbose=True, approximant=approximant)
+                myoSNR.make_interpolator()
+            
+                self.mySNRs[detectorname] =  myoSNR
+             
+            
+        
         
         from scipy.optimize import minimize_scalar
 
@@ -151,20 +172,20 @@ class BetaMC:#(Beta):
     def load_strain_sensitivity(self):
         import os
         
-        filenames = {}
+        self.filenames = {}
         self.integr = {}
         self.freq = {}
         
         if self._observingRun == 'O2':
-            filenames["L"] = '2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt'
-            filenames["H"] = '2017-06-10_DCH_C02_H1_O2_Sensitivity_strain_asd.txt'
+            self.filenames["L"] = '2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt'
+            self.filenames["H"] = '2017-06-10_DCH_C02_H1_O2_Sensitivity_strain_asd.txt'
         elif self._observingRun == 'O3':
-            filenames["L"] = 'O3-L1-C01_CLEAN_SUB60HZ-1240573680.0_sensitivity_strain_asd.txt'
-            filenames["H"] = 'O3-H1-C01_CLEAN_SUB60HZ-1251752040.0_sensitivity_strain_asd.txt'
+            self.filenames["L"] = 'O3-L1-C01_CLEAN_SUB60HZ-1240573680.0_sensitivity_strain_asd.txt'
+            self.filenames["H"] = 'O3-H1-C01_CLEAN_SUB60HZ-1251752040.0_sensitivity_strain_asd.txt'
 
         for detectorname in ["L", "H"]:
        
-            filepath = os.path.join(detectorPath, filenames[detectorname])
+            filepath = os.path.join(detectorPath, self.filenames[detectorname])
 
             if self.verbose:
                 print('Loading strain sensitivity from %s...' %filepath)
@@ -182,6 +203,9 @@ class BetaMC:#(Beta):
             
             self.integr[detectorname] = igt.cumtrapz(self.freq[detectorname]**(-7/3)/S, self.freq[detectorname], initial = 0)
 
+    
+    
+    
     def get_beta(self, H0s, Xi0s, n=nGlob, **kwargs):
       
     ### prepare grid ###
@@ -351,7 +375,7 @@ class BetaMC:#(Beta):
                 
                 
                 # add the lambda dependent GW prior weighting, put on top of the galaxy distribution (also use this a few lines below in the normalization sum!)
-                wGalinside *= (1+zGalInside)**(self.lamb-1)
+                wGalInside *= (1+zGalInside)**(self.lamb-1)
                 
                 
                 galsample = self._sample_discrete(nSamplesCat, wGalInside)
@@ -607,8 +631,49 @@ class BetaMC:#(Beta):
        
         return self._SNR(m1, m2, zsample, H0, Xi0, QsqL, QsqH)
          
-
+    
     def _SNR(self, m1, m2, z, H0, Xi0, QsqL, QsqH):
+        
+        m1=np.asarray(m1)
+        m2=np.asarray(m2)
+        #z=np.asarray(z)
+        #QsqL=np.asarray(QsqL)
+        #QsqH=np.asarray(QsqH)
+        
+        if self.fullSNR:
+            # call interpolator
+                        
+            h7 = H0/70
+            # dist should be in Gpc for input of oSNR
+            dist_true = Xi(z=z, Xi0=Xi0,n=nGlob)*dL70fast(z)/h7*1e-3
+            
+            m1det = m1*(1+z)
+            m2det = m2*(1+z)
+            
+            # Throw away masses that are very large
+            keep = (m1det<900) & (m2det<900)
+            
+            if not np.isscalar(QsqL):
+                QsqL = QsqL[keep]
+            if not np.isscalar(QsqH):
+                QsqH = QsqH[keep]
+            if not np.isscalar(z):
+                z = z[keep]
+                dist_true=dist_true[keep]
+            
+            SNR_L = np.zeros(m1.shape)
+            SNR_H = np.zeros(m1.shape)
+            
+            SNR_L[keep] = self.mySNRs["L"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqL)
+            SNR_H[keep] = self.mySNRs["H"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqH)
+            
+            return np.minimum(SNR_L, SNR_H)
+            
+        else:
+            return self._SNR1stOrder(m1, m2, z, H0, Xi0, QsqL, QsqH)
+
+
+    def _SNR1stOrder(self, m1, m2, z, H0, Xi0, QsqL, QsqH):
         mtot = m1 + m2
         Mc = (m1*m2)**(0.6)/mtot**(0.2)
         h7 = H0/70
@@ -640,7 +705,7 @@ class BetaMC:#(Beta):
     # search is carried out until self.zmax
     def _find_zmax_SNRthresh(self, H0, Xi0):
 
-        res = z_from_dLGW_fast(self.dMax, H0=H0, Xi0=Xi0, n=nGlob)
+        res = z_from_dLGW_fast(self.dMaxReal, H0=H0, Xi0=Xi0, n=nGlob)
         
         # this should normally be true - the optimal detector frame mass is about 40, while mMin is about 4...
         if self.optimalDetectorFrameMass/(1+res) >= self.mMin:
