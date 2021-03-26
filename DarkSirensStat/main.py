@@ -142,7 +142,7 @@ def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals, mas
             else:
                 observingRunBeta=observingRun 
 
-            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose , massDist=massDist, lamb=lamb, fullSNR=fullSNR)
+            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose , massDist=massDist, lamb=lamb, alpha1=alpha1, fullSNR=fullSNR)
         elif which_beta=='cat':
             Beta=BetaCat(gals, galRedshiftErrors,  zR, eventSelector )
         beta = Beta.get_beta(H0grid, Xi0grid)
