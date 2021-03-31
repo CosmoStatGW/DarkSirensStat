@@ -17,10 +17,11 @@ import h5py
 from scipy.interpolate import RectBivariateSpline, interp1d
 import os
 import argparse
-
+import sys
 
 
 from globals import *
+
 
 
 windows = { 'H1O3': 10.,
@@ -59,13 +60,23 @@ class oSNR(object):
     
     '''
     
-    def __init__(self, psd_path, approximant='IMRPhenomXHM', force_recompute = False, verbose=False):
+    def __init__(self, from_file=False, psd_path=None, psd_name ='aLIGOEarlyHighSensitivityP1200087', psd_base_path=None, approximant='IMRPhenomXAS', force_recompute = False, verbose=False):
         
-        self.psd_base_path = ('/').join(psd_path.split('/')[:-1])
-        self.psd_file_name = psd_path.split('/')[-1]
-        self.name=abbreviations[self.psd_file_name]
-        self.psd_path = psd_path
-        self.path = psd_path+'_optimal_snr_'+approximant+'.h5'
+        self.from_file=from_file
+        if from_file:
+            print('Using PSD from file %s ' %psd_path)
+        
+            self.psd_base_path = ('/').join(psd_path.split('/')[:-1])
+            self.psd_file_name = psd_path.split('/')[-1]
+            self.name=abbreviations[self.psd_file_name]
+            self.psd_path = psd_path
+            self.path = psd_path+'_optimal_snr_'+approximant+'.h5'
+        else:
+            self.name = psd_name
+            self.psd_path = psd_name
+            self.path = os.path.join(psd_base_path,psd_name+'_optimal_snr_'+approximant+'.h5') #psd_path+'_optimal_snr_'+approximant+'.h5'
+            #print('Output will be in %s' %self.path)
+        
         self.approximant=approximant
         self.psd_computed=False
         self.verbose=verbose
@@ -79,12 +90,13 @@ class oSNR(object):
         # extrapolated PSD
         self.maxlen=0
     
-    def _computeSNR(self, m1, m2, npoints=200, mmin=1., mmax=250., dL_pivot_Gpc=1., deltaf=1./40. , store=True):
+    def _computeSNR(self, m1, m2, npoints=200, mmin=1., mmax=1000., dL_pivot_Gpc=1., deltaf=1./40. , store=True):
         
-        if not self.psd_computed:
+        if not self.psd_computed and self.from_file:
             psdvals = np.loadtxt(self.psd_path)
             self.flow = min(psdvals[:,0])
-        
+        elif not self.from_file:
+            self.flow = 10.
         
         hp, hc = pycbc.waveform.get_fd_waveform( approximant=self.approximant,
                                                     mass1=m1,
@@ -99,27 +111,35 @@ class oSNR(object):
                     
                     print('Computing PSD with spectral density from %s ...' %self.psd_path)
                     print('Wf length: %s ' %len(hp))
+                    self.psd_computed=True
                     #psdvals = np.loadtxt(self.psd_path)
                     #print(psdvals)
                     #print('Min frequency in PSD: %s' %min(psdvals[:,0]))
                     #print('Max frequency in PSD: %s' %max(psdvals[:,0]))
                     #assert self.flow==min(psdvals[:,0])
-                    self.psd = self._get_psd(len(hp), deltaf, self.flow, is_asd_file=True, plot=False) #pycbc.psd.from_txt(self.psd_path, len(hp), deltaf, self.flow, is_asd_file=True)
-                    self.psd_computed=True
+        psd = self._get_psd(len(hp), deltaf, self.flow, is_asd_file=True, plot=False) #pycbc.psd.from_txt(self.psd_path, len(hp), deltaf, self.flow, is_asd_file=True)
                     
-        snr = pycbc.filter.sigma(hp, psd=self.psd, low_frequency_cutoff=self.flow)
+                    
+        snr = pycbc.filter.sigma(hp, psd=psd, low_frequency_cutoff=self.flow)
     
         return snr
-        
+     
     
     def _get_psd(self, length, delta_f, low_freq_cutoff, is_asd_file=True, plot=False):
+        if  self.from_file:
+            return self._get_psd_from_file( length, delta_f, low_freq_cutoff, is_asd_file=True, plot=False)
+        else:
+            return pycbc.psd.analytical.from_string( self.name,  length, delta_f, low_freq_cutoff)
+        
+    
+    def _get_psd_from_file(self, length, delta_f, low_freq_cutoff, is_asd_file=True, plot=False):
         '''
         This function adapts pycbc.psd.from_txt to extrapolate abose the max frequency of the 
         tabulated psd: it interpolates the values smoothly, and pads the original
         psd by extrapolating this smooth function.
         '''
-        
-        print('Readind PSD from %s...' %self.psd_path)
+        if not self.psd_computed:
+            print('Readind PSD from %s...' %self.psd_path)
         file_data = np.loadtxt(self.psd_path)
         if (file_data < 0).any() or np.logical_not(np.isfinite(file_data)).any():
             raise ValueError('Invalid data in ' + self.psd_path)
@@ -134,7 +154,8 @@ class oSNR(object):
 
         # If the cutoff is exactly in the file, start there
         if freq_data[data_start+1] == low_freq_cutoff:
-            print('Starting at +1')
+            if not self.psd_computed:
+                print('Starting at +1')
             data_start += 1
 
         freq_data = freq_data[data_start:]
@@ -195,7 +216,7 @@ class oSNR(object):
         
         
     
-    def _computeSNRtable(self, npoints=200, mmin=1., mmax=250., dL_pivot_Gpc=1., deltaf=1./40 ,  store=True):
+    def _computeSNRtable(self, npoints=200, mmin=1., mmax=1000., dL_pivot_Gpc=1., deltaf=1./40 ,  store=True):
     
         npoints=int(npoints)    
     
@@ -288,7 +309,7 @@ ifos = {'L1': 'Livingston', 'H1': 'Hanford'}
         
 
 
-def tabulate_SNR(approximant='IMRPhenomXHM', npoints=200, mmin=3.5, mmax=250., dL_pivot_Gpc=1., deltaf=1./40 , store=True, force_recompute=False):
+def tabulate_SNR_from_files(approximant='IMRPhenomXAS', npoints=200, mmin=1., mmax=1000., dL_pivot_Gpc=1., deltaf=1./40 , store=True, force_recompute=False):
       
     
 
@@ -298,7 +319,7 @@ def tabulate_SNR(approximant='IMRPhenomXHM', npoints=200, mmin=3.5, mmax=250., d
             print('\n --------- %s obs run, %s interferometer' %(run, ifos[detectorname]))
             
             psd_path = os.path.join(detectorPath, filenames[detectorname+run])            
-            myosnr = oSNR(psd_path, approximant=approximant, force_recompute=force_recompute)
+            myosnr = oSNR(from_file=True, psd_path=psd_path, approximant=approximant, force_recompute=force_recompute)
             
             myosnr.make_interpolator(npoints=npoints, mmin=mmin, mmax=mmax, dL_pivot_Gpc=dL_pivot_Gpc, deltaf=deltaf,  store=store)
             
@@ -306,14 +327,35 @@ def tabulate_SNR(approximant='IMRPhenomXHM', npoints=200, mmin=3.5, mmax=250., d
             length = myosnr.maxlen
             _ = myosnr._get_psd( length, deltaf, myosnr.flow, is_asd_file=True, plot=True)
  
+    
+ 
+def tabulate_SNR_from_analytic(psd_name, approximant='IMRPhenomXAS', npoints=200, mmin=1., mmax=1000., dL_pivot_Gpc=1., deltaf=1./40 , store=True, force_recompute=False):
+      
+    
+
+            #print('\n --------- %s obs run, %s interferometer' %(run, ifos[detectorname]))
+            
+            #psd_path = os.path.join(detectorPath, filenames[detectorname+run])            
+            myosnr = oSNR(from_file=False,  psd_name =psd_name, psd_base_path=Globals.detectorPath, approximant=approximant, force_recompute=force_recompute)
+            
+            myosnr.make_interpolator(npoints=npoints, mmin=mmin, mmax=mmax, dL_pivot_Gpc=dL_pivot_Gpc, deltaf=deltaf,  store=store)
+            
+            ##make plot
+            #length = myosnr.maxlen
+            #_ = myosnr._get_psd( length, deltaf, myosnr.flow, is_asd_file=True, plot=True)
+            
+            
+ 
 
 if __name__=='__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--approximant", default='IMRPhenomXHM', type=str, required=False)
+    parser.add_argument("--from_file", default=0., type=float, required=True)
+    parser.add_argument("--psd_name", default='aLIGOEarlyHighSensitivityP1200087', type=str, required=False)
+    parser.add_argument("--approximant", default='IMRPhenomXAS', type=str, required=False)
     parser.add_argument("--npoints", default=200, type=float, required=False) 
-    parser.add_argument("--mmin", default=3.5, type=float, required=False)
-    parser.add_argument("--mmax", default=250., type=float, required=False)
+    parser.add_argument("--mmin", default=1., type=float, required=False)
+    parser.add_argument("--mmax", default=1000., type=float, required=False)
     parser.add_argument("--dL_pivot_Gpc", default=1., type=float, required=False)
     parser.add_argument("--deltaf", default=1./40, type=float, required=False)
     parser.add_argument("--force_recompute", default=0., type=float, required=False)
@@ -325,6 +367,12 @@ if __name__=='__main__':
     force_recompute=False
     if FLAGS.force_recompute==1.:
         force_recompute=True
-    tabulate_SNR(approximant = FLAGS.approximant, npoints=FLAGS.npoints,mmin=FLAGS.mmin, mmax=FLAGS.mmax, dL_pivot_Gpc=FLAGS.dL_pivot_Gpc, deltaf=FLAGS.deltaf ,  store=True, force_recompute=force_recompute)
     
+    if FLAGS.from_file==1:
+        print('Computing from file')
+        tabulate_SNR_from_files(approximant = FLAGS.approximant, npoints=FLAGS.npoints,mmin=FLAGS.mmin, mmax=FLAGS.mmax, dL_pivot_Gpc=FLAGS.dL_pivot_Gpc, deltaf=FLAGS.deltaf ,  store=True, force_recompute=force_recompute)
+    else:
+        if FLAGS.psd_name is None:
+            raise ValueError()
+        tabulate_SNR_from_analytic(FLAGS.psd_name, approximant = FLAGS.approximant, npoints=FLAGS.npoints,mmin=FLAGS.mmin, mmax=FLAGS.mmax, dL_pivot_Gpc=FLAGS.dL_pivot_Gpc, deltaf=FLAGS.deltaf ,  store=True, force_recompute=force_recompute)
     
