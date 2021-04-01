@@ -60,11 +60,14 @@ class oSNR(object):
     
     '''
     
-    def __init__(self, from_file=False, psd_path=None, psd_name ='aLIGOEarlyHighSensitivityP1200087', psd_base_path=None, approximant='IMRPhenomXAS', force_recompute = False, verbose=False):
+    def __init__(self, from_file=True, psd_path=None, psd_name ='aLIGOEarlyHighSensitivityP1200087', psd_base_path=None, approximant='IMRPhenomXAS', force_recompute = False, verbose=False):
         
         self.from_file=from_file
         if from_file:
+            if psd_path is None:
+                raise ValueError('Enter valid file name for the PSD if using from_file=True')
             print('Using PSD from file %s ' %psd_path)
+            
         
             self.psd_base_path = ('/').join(psd_path.split('/')[:-1])
             self.psd_file_name = psd_path.split('/')[-1]
@@ -82,7 +85,7 @@ class oSNR(object):
         self.verbose=verbose
         self.force_recompute=force_recompute
         if self.force_recompute:
-            print('!! You choose to re-compute the PSD even if a pre-comuted one was present! This will overwrite already present files, if any. ')
+            print('!! You choose to re-compute the SNR pre-computed grid even if a pre-comuted one was present! This will overwrite already present files, if any. ')
         #self.interpolator = self._interpolateSNR(**kwargs)
         
         # This  will be the max length of hp , is this is computed. 

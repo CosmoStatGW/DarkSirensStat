@@ -116,7 +116,7 @@ class BetaMC:#(Beta):
             for detectorname in ["L", "H"]:
        
                 filepath = os.path.join(detectorPath, self.filenames[detectorname])
-                myoSNR = oSNR(  filepath , verbose=True, approximant=approximant)
+                myoSNR = oSNR(  from_file=True, psd_path=filepath , verbose=True, approximant=approximant)
                 myoSNR.make_interpolator()
             
                 self.mySNRs[detectorname] =  myoSNR
