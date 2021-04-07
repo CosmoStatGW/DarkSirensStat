@@ -124,7 +124,7 @@ def completeness_case(completeness, band, Lcut, path=None):
     return compl
 
 
-def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals, massDist, lamb, alpha1, fullSNR):
+def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals, massDist, lamb):
     # 'fit', 'MC', 'hom', 'cat'
     
     if which_beta in ('fit', 'MC', 'cat'):
@@ -142,7 +142,7 @@ def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals, mas
             else:
                 observingRunBeta=observingRun 
 
-            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose , massDist=massDist, lamb=lamb, alpha1=alpha1, fullSNR=fullSNR)
+            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose , massDist=massDist, lamb=lamb)
         elif which_beta=='cat':
             Beta=BetaCat(gals, galRedshiftErrors,  zR, eventSelector )
         beta = Beta.get_beta(H0grid, Xi0grid)
@@ -199,10 +199,41 @@ def main():
             print('\n!!! Load completeness should only be used with no galaxy posteriors. Be aware that the result can be inconsistent.')
     # St out path and create out directory
     out_path=os.path.join(dirName, 'results', fout)
+    folderCheck=False
     if not os.path.exists(out_path):
         print('Creating directory %s' %out_path)
         os.makedirs(out_path)
     else:
+       #Store base folder to later load likelihoods
+       ref_folder_path = os.path.join(dirName, 'results', fout)
+       #Compare config files
+       import config as config_new
+       sys.path.append(ref_folder_path)
+       import config_original as config_old
+       from inspect import getmembers, ismodule
+       test_config_new = {item[0]: item[1] for item in getmembers(config_new) if '__' not in item[0]}
+       test_config_old = {item[0]: item[1] for item in getmembers(config_old) if '__' not in item[0]}
+       if set(test_config_new.keys()) != set(test_config_old.keys()):
+            print('Some entries are in one one of the config files but not in the other, check them.\n')
+       betaParamConfigFile=['which_beta', 'betaHomdMax', 'zR', 'nSamplesBetaMC', 'nUseCatalogBetaMC', 'SNRthresh', 'fullSNR']
+       for key in test_config_old.keys():
+            if key not in betaParamConfigFile:
+                if test_config_new[key] != test_config_old[key]:
+                    raise ValueError('Entry for the variable %s is different between the two files' %key)
+       #check if the folder contains the likelihoods and in case create the subfolder
+       for file in os.listdir(out_path):
+            if "_lik_" in file:
+                folderCheck=True
+                out_path=os.path.join(ref_folder_path, 'newBetas', 'v0')
+                tmpFname=0
+                while os.path.exists(out_path):
+                    out_path=os.path.join(ref_folder_path, 'newBetas', 'v'+str(tmpFname))
+                    tmpFname += 1
+                print('Creating directory %s' %out_path)
+                os.makedirs(out_path)
+                shutil.copy('betaMC.py', os.path.join(out_path, 'betaMC_original.py'))
+    
+                break
        print('Using directory %s for output' %out_path)
     
     logfile = os.path.join(out_path, 'logfile.txt') #out_path+'logfile.txt'
@@ -332,7 +363,7 @@ def main():
     ######
     if do_inference:
         print('\n-----  COMPUTING BETAS ....')
-        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, evSelector, gals, massDist, lamb, alpha1, fullSNR) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
+        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, evSelector, gals, massDist, lamb) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
         for event in myGWgal.selectedGWevents:
             betaPath =os.path.join(out_path, event+'_beta'+goalParam+'.txt')
             np.savetxt(betaPath, betas[event])
@@ -342,16 +373,24 @@ def main():
         ###### 
         # Likelihood
         ######
-        print('\n-----  COMPUTING LIKELIHOOD ....')
-        liks = myGWgal.get_lik(H0s=H0grid, Xi0s=Xi0grid, n=nGlob)
-        for event in myGWgal.selectedGWevents:
-            liksPathhom =os.path.join(out_path, event+'_lik_compl'+goalParam+'.txt')
-            liksPathinhom =os.path.join(out_path, event+'_lik_cat'+goalParam+'.txt')
-            np.savetxt(liksPathhom, liks[event][1])
-            np.savetxt(liksPathinhom, liks[event][0])
+        if not folderCheck:
+            print('\n-----  COMPUTING LIKELIHOOD ....')
+            liks = myGWgal.get_lik(H0s=H0grid, Xi0s=Xi0grid, n=nGlob)
+            for event in myGWgal.selectedGWevents:
+                liksPathhom =os.path.join(out_path, event+'_lik_compl'+goalParam+'.txt')
+                liksPathinhom =os.path.join(out_path, event+'_lik_cat'+goalParam+'.txt')
+                np.savetxt(liksPathhom, liks[event][1])
+                np.savetxt(liksPathinhom, liks[event][0])
+            print('Done.')
+        else:
+            print('\n-----  LOADING LIKELIHOOD ....')
+            liks = {}
+            for event in myGWgal.selectedGWevents:
+                tmpcol2 = np.loadtxt(os.path.join(ref_folder_path, event+'_lik_compl'+goalParam+'.txt'))
+                tmpcol1 = np.loadtxt(os.path.join(ref_folder_path, event+'_lik_cat'+goalParam+'.txt'))
+                liks[event] = [tmpcol1, tmpcol2]
         print('Done.')
-    
-    
+                
         print('\n-----  COMPUTING POSTERIOR ....')
     
         post, post_cat, post_compl = {},  {},  {}
