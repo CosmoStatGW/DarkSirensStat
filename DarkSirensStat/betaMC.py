@@ -32,10 +32,13 @@ class BetaMC:#(Beta):
                  lamb=1,
                  alpha1=1.6,
                  fullSNR=True,
-                 approximant='IMRPhenomXHM',
+                 approximant='IMRPhenomXAS',
+                 ifo_SNR='HL' , # 'H': USES ONLY H1  # 'L': USES ONLY L1  # # 'HL': USES min H1, L1 
+                 fit_hom=True,
                  **kwargs):
     
         
+        self.ifo_SNR = ifo_SNR
         self.fullSNR=fullSNR
         self.lamb=lamb
         self._gals = gals
@@ -75,7 +78,8 @@ class BetaMC:#(Beta):
         self.SNRsigmas = 2
         
         print('Setting mass distribution to %s' %massDist)
-        self.fit_hom=True
+        self.fit_hom=fit_hom
+        
         if massDist == 'O3':
             self.gamma1 = alpha1 #1.58
             self.gamma2 = 5.59
@@ -114,15 +118,26 @@ class BetaMC:#(Beta):
             
             self.mySNRs={}
             for detectorname in ["L", "H"]:
-       
-                filepath = os.path.join(detectorPath, self.filenames[detectorname])
-                myoSNR = oSNR(  from_file=True, psd_path=filepath , verbose=True, approximant=approximant)
-                myoSNR.make_interpolator()
+                if detectorname in self.ifo_SNR:
+                    filepath = os.path.join(detectorPath, self.filenames[detectorname])
+                    myoSNR = oSNR(  from_file=True, psd_path=filepath , verbose=True, approximant=approximant)
+                    myoSNR.make_interpolator()
             
-                self.mySNRs[detectorname] =  myoSNR
+                    self.mySNRs[detectorname] =  myoSNR
              
-            
+        if self.ifo_SNR=='HL':
+                print('Detection model: must have SNR>%s  in the lowest SNR between Hanford and Livingston'%self.SNRthresh)
+        elif self.ifo_SNR=='H':
+                print('Detection model: must have SNR>%s  in Hanford '%self.SNRthresh)
+        elif self.ifo_SNR=='L':
+                print('Detection model: must have SNR>%s  in Livingston '%self.SNRthresh) 
+        else:
+            raise ValueError('ifo_SNR must havone of the values: H , L , HL')
         
+        if self._properAnisotropy:
+            print('properAnisotropy is True: taking into account effects of the orientation of the detector')
+        else:
+            print('properAnisotropy is False: neglecting effects of the orientation of the detector')
         
         from scipy.optimize import minimize_scalar
 
@@ -183,25 +198,28 @@ class BetaMC:#(Beta):
             self.filenames["L"] = 'O3-L1-C01_CLEAN_SUB60HZ-1240573680.0_sensitivity_strain_asd.txt'
             self.filenames["H"] = 'O3-H1-C01_CLEAN_SUB60HZ-1251752040.0_sensitivity_strain_asd.txt'
 
-        for detectorname in ["L", "H"]:
-       
-            filepath = os.path.join(detectorPath, self.filenames[detectorname])
-
-            if self.verbose:
-                print('Loading strain sensitivity from %s...' %filepath)
+        
+        if not self.fullSNR:
+            for detectorname in ["L", "H"]:
                 
-            noise = np.loadtxt(filepath, usecols=range(2))
-            f = noise[:,0]
-            S = (noise[:,1])**2
+                if detectorname in self.ifo_SNR:
+                    filepath = os.path.join(detectorPath, self.filenames[detectorname])
+
+                    if self.verbose:
+                        print('Loading strain sensitivity from %s...' %filepath)
+                
+                    noise = np.loadtxt(filepath, usecols=range(2))
+                    f = noise[:,0]
+                    S = (noise[:,1])**2
             
-            # O1 data is very weird at boundaries which extend further than for other files - cut them
-            mask = (f > 10) & (f < 6000)
-            S = S[mask]
-            self.freq[detectorname] = f[mask]
+                    # O1 data is very weird at boundaries which extend further than for other files - cut them
+                    mask = (f > 10) & (f < 6000)
+                    S = S[mask]
+                    self.freq[detectorname] = f[mask]
             
-            import scipy.integrate as igt
-            
-            self.integr[detectorname] = igt.cumtrapz(self.freq[detectorname]**(-7/3)/S, self.freq[detectorname], initial = 0)
+                    import scipy.integrate as igt
+                    
+                    self.integr[detectorname] = igt.cumtrapz(self.freq[detectorname]**(-7/3)/S, self.freq[detectorname], initial = 0)
 
     
     
@@ -625,9 +643,13 @@ class BetaMC:#(Beta):
             Qc = Fc*cosincl
             # (7.178f)
             return Qp**2 + Qc**2
-           
-        QsqL = Qsq(costhetaL, phiL, cosinclsample)
-        QsqH = Qsq(costhetaH, phiH, cosinclsample)
+        
+        QsqL=0.
+        QsqH=0.
+        if 'L' in self.ifo_SNR:
+            QsqL = Qsq(costhetaL, phiL, cosinclsample)
+        if 'H' in self.ifo_SNR:
+            QsqH = Qsq(costhetaH, phiH, cosinclsample)
        
         return self._SNR(m1, m2, zsample, H0, Xi0, QsqL, QsqH)
          
@@ -664,10 +686,19 @@ class BetaMC:#(Beta):
             SNR_L = np.zeros(m1.shape)
             SNR_H = np.zeros(m1.shape)
             
-            SNR_L[keep] = self.mySNRs["L"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqL)
-            SNR_H[keep] = self.mySNRs["H"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqH)
+            if 'L' in self.ifo_SNR:
+                SNR_L[keep] = self.mySNRs["L"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqL)
+            if 'H' in self.ifo_SNR:
+                SNR_H[keep] = self.mySNRs["H"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqH)
             
-            return np.minimum(SNR_L, SNR_H)
+            
+            if self.ifo_SNR=='HL':
+                return np.minimum(SNR_L, SNR_H)
+            elif self.ifo_SNR=='H':
+                return SNR_H
+            elif self.ifo_SNR=='L':
+            
+                return SNR_L#np.minimum(SNR_L, SNR_H)
             
         else:
             return self._SNR1stOrder(m1, m2, z, H0, Xi0, QsqL, QsqH)
@@ -696,10 +727,21 @@ class BetaMC:#(Beta):
         
         fac = np.sqrt(5/6)/np.pi**(2/3)*(GMsun_over_c3*Mc)**(2.5/3)*(clightMpc/dist_true)
         
-        SNR_L = fac * np.sqrt(QsqL*np.interp(fGW, self.freq["L"], self.integr["L"]))
-        SNR_H = fac * np.sqrt(QsqH*np.interp(fGW, self.freq["H"], self.integr["H"]))
+        SNR_L = np.zeros(m1.shape)
+        SNR_H = np.zeros(m1.shape)
+        
+        if 'L' in self.ifo_SNR:
+            SNR_L = fac * np.sqrt(QsqL*np.interp(fGW, self.freq["L"], self.integr["L"]))
+        if 'H' in self.ifo_SNR:
+            SNR_H = fac * np.sqrt(QsqH*np.interp(fGW, self.freq["H"], self.integr["H"]))
        
-        return np.minimum(SNR_L, SNR_H)
+        if self.ifo_SNR=='HL':
+                return np.minimum(SNR_L, SNR_H)
+        elif self.ifo_SNR=='H':
+                return SNR_H
+        elif self.ifo_SNR=='L':
+            
+                return SNR_L
         
     # searches for the redshift after which no more events will be detected, depending on H0 and Xi0.
     # search is carried out until self.zmax

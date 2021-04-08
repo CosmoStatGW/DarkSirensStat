@@ -50,7 +50,7 @@ class oSNR(object):
     Tabulates the results by using pycbc if pre-computed tables are not available.
     Usage:
     
-    myosnr = oSNR(psd_path,  approximant='IMRPhenomXHM') 
+    myosnr = oSNR(psd_path,  approximant='IMRPhenomXAS') 
     
     myosnr.make_interpolator()
     
