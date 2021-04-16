@@ -334,7 +334,7 @@ def main():
     ###### 
     # GWgal
     ######
-    myGWgal = GWgal(gals, allGW, evSelector,
+    myGWgal = GWgal(gals, allGW, evSelector, lamb=lamb,
                     MC=MChom, nHomSamples=nHomSamples, 
                     verbose=verbose, galRedshiftErrors=galRedshiftErrors, zR=zR)
     #myGWgal._select_events(completnessThreshAvg=completnessThreshAvg, completnessThreshCentral=completnessThreshCentral)

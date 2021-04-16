@@ -17,12 +17,14 @@ from copy import deepcopy
 
 class GWgal(object):
     
-    def __init__(self, GalCompleted, GWevents, 
-                 eventSelector,
+    def __init__(self, GalCompleted, GWevents,
+                 eventSelector, lamb = 1,
                  MC = True, nHomSamples=1000, 
                  galRedshiftErrors = True, 
                  zR=zRglob,
                  verbose=False):
+                 
+        self.lamb = lamb
         
         self.eventSelector=eventSelector
         self.gals = GalCompleted
@@ -170,6 +172,8 @@ class GWgal(object):
             
             pixels, weights = self.gals.get_inhom_contained(zGrid, self.selectedGWevents[eventName].nside )
             
+            weights *= (1+zGrid[np.newaxis, :])**(self.lamb-1)
+            
             my_skymap = self.selectedGWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
          
             #LL = np.sum(skymap*weights)
@@ -179,6 +183,8 @@ class GWgal(object):
             pixels, zs, weights =  self.gals.get_inhom(self.selectedGWevents[eventName].nside)
             
             rs = dLGW(zs, H0=H0, Xi0=Xi0, n=n)
+            
+            weights *= (1+zs)**(self.lamb-1)
             
             my_skymap = self.selectedGWevents[eventName].likelihood_px(rs, pixels)
             
@@ -204,7 +210,7 @@ class GWgal(object):
         pxs = self.selectedGWevents[eventName].get_credible_region_pixels()
         th, ph = self.selectedGWevents[eventName].find_theta_phi(pxs)
         
-        integrand_grid = np.array([ j(z)*(self.gals.eval_hom(th, ph, z, MC=False))*self.selectedGWevents[eventName].likelihood_px( dLGW(z, H0, Xi0, n), pxs) for z in zGrid])
+        integrand_grid = np.array([ j(z)*(1+z)**(self.lamb-1)*(self.gals.eval_hom(th, ph, z, MC=False))*self.selectedGWevents[eventName].likelihood_px( dLGW(z, H0, Xi0, n), pxs) for z in zGrid])
         
         integral = np.trapz(integrand_grid.sum(axis=1), zGrid)
         den = (70/clight)**3
@@ -231,7 +237,7 @@ class GWgal(object):
          
         # MC integration
         
-        LL = (H0/70)**3*np.mean(jac*self.gals.eval_hom(theta, phi, z))
+        LL = (H0/70)**3*np.mean(jac*(1+z)**(self.lamb-1)*self.gals.eval_hom(theta, phi, z))
         
         return LL
     

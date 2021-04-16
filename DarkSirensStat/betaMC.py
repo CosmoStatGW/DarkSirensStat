@@ -56,10 +56,11 @@ class BetaMC:#(Beta):
         self.SNRthresh = SNRthresh
         
         # for setting the scale - if this is chosen around the effective detector horizon comoving volume in Mpc^3, beta is around one
-        self.VcomPivot = 4/3*np.pi*(400)**3
+        self.VcomPivot = 4/3*np.pi*(2000)**3
         
-        # be generous to include extending the limits for filtering
-        self.zmax = z_from_dLGW(3000, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)
+        self.zmax = None # compute below based on dmax!
+        
+        self.zDist = lambda x: (1+x)**(self.lamb-1)*dcom70fast(x)**2/H70fast(x)
         
         # number of evaluations that will be interpolated
         self.nEvals = 2000
@@ -113,17 +114,17 @@ class BetaMC:#(Beta):
         
         print('Redshift dependence has parameter lambda=%s' %self.lamb)    
         
-        # COnstrunctor for full SNR
+        # Construct objects (interpolation tables) for waveform model SNRs
         if fullSNR:
             
-            self.mySNRs={}
+            self.SNRtables={}
             for detectorname in ["L", "H"]:
                 if detectorname in self.ifo_SNR:
                     filepath = os.path.join(detectorPath, self.filenames[detectorname])
                     myoSNR = oSNR(  from_file=True, psd_path=filepath , verbose=True, approximant=approximant)
                     myoSNR.make_interpolator()
             
-                    self.mySNRs[detectorname] =  myoSNR
+                self.SNRtables[detectorname] =  myoSNR
              
         if self.ifo_SNR=='HL':
                 print('Detection model: must have SNR>%s  in the lowest SNR between Hanford and Livingston'%self.SNRthresh)
@@ -166,6 +167,7 @@ class BetaMC:#(Beta):
             raise
         else:
             self.optimalDetectorFrameMass = res.x
+        
             if self.verbose == True:
                 print("Optimal detector frame mass for {} is {:.2f}".format(observingRun, res.x))
             # what was called "rest" in the comment above
@@ -180,9 +182,10 @@ class BetaMC:#(Beta):
                 
                 if fluctuatingSNR:
             
-                    print("Maximal (theoretical) detector reach for {} is {:.1f} Mpc, corresponding to z = {:.2}, ({:.2} - {:.2})".format(observingRun, self.dMaxReal, z_from_dLGW_fast(self.dMaxReal, H0=70, Xi0=1, n=nGlob),  z_from_dLGW_fast(self.dMaxReal, H0=priorlimits.H0min, Xi0=priorlimits.Xi0max, n=nGlob),  z_from_dLGW_fast(self.dMaxReal, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)))
+                    print("Maximal detector reach with SNR noise for {} is {:.1f} Mpc, corresponding to z = {:.2}, ({:.2} - {:.2})".format(observingRun, self.dMaxReal, z_from_dLGW_fast(self.dMaxReal, H0=70, Xi0=1, n=nGlob),  z_from_dLGW_fast(self.dMaxReal, H0=priorlimits.H0min, Xi0=priorlimits.Xi0max, n=nGlob),  z_from_dLGW_fast(self.dMaxReal, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)))
                 
-          
+        
+        self.zmax = z_from_dLGW(self.dMaxReal, H0=priorlimits.H0max, Xi0=priorlimits.Xi0min, n=nGlob)
 
     def load_strain_sensitivity(self):
         import os
@@ -272,7 +275,7 @@ class BetaMC:#(Beta):
            
             if cat._useDirac == False:
                 zGal = sample_bounded_keelin_3(0.16, dg.z_lower, dg.z, dg.z_upper, dg.z_lowerbound, dg.z_upperbound, N=1)
-                print(zGal)
+            
             else: 
                 zGal = dg.z.to_numpy()
             inside = zGal < self.zmax
@@ -382,6 +385,12 @@ class BetaMC:#(Beta):
                 homweights = 1-self._gals.confidence(cat.completeness(thetas, phis, zs, oneZPerAngle = True))
                 # inserting the 1/VcomMax to get a pdf of the sample draws generated a VcomMax here. Also let's not forget that a fraction of the evaluations
                 # was zero, and it would be wrong to take np.mean(homweights) instead of np.sum(homweights) / nSamplesHom since homweights only contains the nonzero entries.
+                
+                # recompute with lambda (todo for improved convergence: add lambda also before)
+                if np.abs(self.lamb - 1) > 1e-7:
+                    zfine = np.linspace(0,zmax,10000)
+                    VcomMax = 4*np.pi*(zfine[1]-zfine[0])*np.trapz(self.zDist(zfine))
+                
                 res[i] = VcomMax * np.sum(homweights*contrib) / nSamplesHom
                 resHom[i] = res[i]
                 
@@ -431,7 +440,11 @@ class BetaMC:#(Beta):
             
                 zmax = self._find_zmax_SNRthresh(H0, Xi0)
                 
-                VcomMax = 4/3*np.pi*(dcom70fast(zmax))**3/self.VcomPivot
+                if np.abs(self.lamb - 1) < 1e-7:
+                    VcomMax = 4/3*np.pi*(dcom70fast(zmax))**3/self.VcomPivot
+                else:
+                    zfine = np.linspace(0,zmax,10000)
+                    VcomMax = 4*np.pi*(zfine[1]-zfine[0])*np.trapz(self.zDist(zfine))
                 
                 costhetasample, phisample, zsample = self.sample_hom_position(self.nSamples, zmax)
                 SNR = self.sample_event(costhetasample, phisample, zsample, H0, Xi0 )
@@ -473,7 +486,7 @@ class BetaMC:#(Beta):
             print('Fitting with BetaHom...')
         
             # Fit homogeneous beta
-            bhom = BetaHom(400)
+            bhom = BetaHom(2000)
         
             if isH0:
                 def betahom(H, r, A):
@@ -486,7 +499,7 @@ class BetaMC:#(Beta):
             
             from scipy.optimize import curve_fit
   
-            popt, pcov = curve_fit(betahom, grid, res, sigma=sigma)
+            popt, pcov = curve_fit(betahom, grid, res, sigma=sigma, p0 = [1000, 8])
         #popt2, pcov2 = curve_fit(betahom, grid, res, sigma=sigma2)
         
             reshomfit = betahom(grid, *popt)
@@ -535,16 +548,14 @@ class BetaMC:#(Beta):
         return np.searchsorted(cdf, np.random.uniform(size=nSamples))
             
     def sample_hom_position(self, nSamples, zmax, ):
-        #lamb=1
-        zDist = lambda x: (1+x)**(self.lamb-1)*dcom70fast(x)**2/H70fast(x)
-        zsample = self._sample(nSamples=nSamples, pdf=zDist, lower=0, upper=zmax)
+        zsample = self._sample(nSamples=nSamples, pdf=self.zDist, lower=0, upper=zmax)
         
         phisample = 2*np.pi*np.random.uniform(size=nSamples)
         #pdf is sin(theta), cdf is (1-cos(theta))/2, inverse cdf is arccos(1-2*x)
         # ----no, actually only need cos of these angles which are uniform as they should
         #TEST costhetasample = 0.1 -0.2*np.random.uniform(size=self.nSamples)
         costhetasample = 1-2*np.random.uniform(size=nSamples)
-    
+        
         return costhetasample, phisample, zsample
         
     # takes positions in equat. coords and adds the sampling of masses, inclination and computes SNR
@@ -628,8 +639,6 @@ class BetaMC:#(Beta):
        
         cosinclsample = 1-2*np.random.uniform(size=nSamples)
        
-        cosiota = cosinclsample
-       
         # (9.136) note that the additional rotation of psi of u and v definitng the
         # polarization in plane perpendicular to propagagion
         # from matching detector polarization reference and source (aligned to major and minor axis)
@@ -651,6 +660,7 @@ class BetaMC:#(Beta):
         if 'H' in self.ifo_SNR:
             QsqH = Qsq(costhetaH, phiH, cosinclsample)
        
+        #return m1, m2, QsqL, QsqH
         return self._SNR(m1, m2, zsample, H0, Xi0, QsqL, QsqH)
          
     
@@ -687,9 +697,9 @@ class BetaMC:#(Beta):
             SNR_H = np.zeros(m1.shape)
             
             if 'L' in self.ifo_SNR:
-                SNR_L[keep] = self.mySNRs["L"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqL)
+                SNR_L[keep] = self.SNRtables["L"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqL)
             if 'H' in self.ifo_SNR:
-                SNR_H[keep] = self.mySNRs["H"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqH)
+                SNR_H[keep] = self.SNRtables["H"].get_oSNR(m1det[keep], m2det[keep], dist_true)*np.sqrt(QsqH)
             
             
             if self.ifo_SNR=='HL':
@@ -697,8 +707,8 @@ class BetaMC:#(Beta):
             elif self.ifo_SNR=='H':
                 return SNR_H
             elif self.ifo_SNR=='L':
+                return SNR_L
             
-                return SNR_L#np.minimum(SNR_L, SNR_H)
             
         else:
             return self._SNR1stOrder(m1, m2, z, H0, Xi0, QsqL, QsqH)
@@ -740,16 +750,15 @@ class BetaMC:#(Beta):
         elif self.ifo_SNR=='H':
                 return SNR_H
         elif self.ifo_SNR=='L':
-            
                 return SNR_L
         
     # searches for the redshift after which no more events will be detected, depending on H0 and Xi0.
-    # search is carried out until self.zmax
+    # search is carried out until self.zmax, if it needs to be. Usually no search is necessary.
     def _find_zmax_SNRthresh(self, H0, Xi0):
 
         res = z_from_dLGW_fast(self.dMaxReal, H0=H0, Xi0=Xi0, n=nGlob)
         
-        # this should normally be true - the optimal detector frame mass is about 40, while mMin is about 4...
+        # this should normally be true for reasonable redshifts - the optimal detector frame mass is about 80, while mMin is about 4...
         if self.optimalDetectorFrameMass/(1+res) >= self.mMin:
             return res
             

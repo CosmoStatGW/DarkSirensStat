@@ -23,7 +23,6 @@ import sys
 from globals import *
 
 
-
 windows = { 'H1O3': 10.,
             'L1O3': 10.,
              'L1O2': 2,
@@ -67,7 +66,6 @@ class oSNR(object):
             if psd_path is None:
                 raise ValueError('Enter valid file name for the PSD if using from_file=True')
             print('Using PSD from file %s ' %psd_path)
-            
         
             self.psd_base_path = ('/').join(psd_path.split('/')[:-1])
             self.psd_file_name = psd_path.split('/')[-1]
@@ -137,12 +135,12 @@ class oSNR(object):
     
     def _get_psd_from_file(self, length, delta_f, low_freq_cutoff, is_asd_file=True, plot=False):
         '''
-        This function adapts pycbc.psd.from_txt to extrapolate abose the max frequency of the 
+        This function adapts pycbc.psd.from_txt to extrapolate above the max frequency of the
         tabulated psd: it interpolates the values smoothly, and pads the original
         psd by extrapolating this smooth function.
         '''
         if not self.psd_computed:
-            print('Readind PSD from %s...' %self.psd_path)
+            print('Reading PSD from %s...' %self.psd_path)
         file_data = np.loadtxt(self.psd_path)
         if (file_data < 0).any() or np.logical_not(np.isfinite(file_data)).any():
             raise ValueError('Invalid data in ' + self.psd_path)
