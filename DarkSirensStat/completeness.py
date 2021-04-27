@@ -342,7 +342,7 @@ class MaskCompleteness(Completeness):
         X = np.zeros((self._npix, 1))
         avgweight = np.mean(galdata.completenessGoal.to_numpy())
         
-        galdata.loc[:,'pix'] = hp.ang2pix(self._nside, galdata.theta, galdata.phi)
+        galdata.loc[:,'pix'] = hp.ang2pix(self._nside, galdata.theta.to_numpy(), galdata.phi.to_numpy())
         galdata.set_index(keys=['pix'], drop=False, inplace=True)
         
 #        # need to iterate through pixels...

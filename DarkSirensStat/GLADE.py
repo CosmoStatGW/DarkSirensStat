@@ -369,7 +369,7 @@ class GLADE(GalCat):
             df = df[colnames_final]
        
         # ------ Add pixel column. Note that not providing nest parameter to ang2pix defaults to nest=True, which has to be set in GW too!
-        df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta, df.phi)
+        df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta.to_numpy(), df.phi.to_numpy())
         
         # ------
         if self.verbose:
