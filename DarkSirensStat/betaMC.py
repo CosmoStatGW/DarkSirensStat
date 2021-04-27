@@ -60,7 +60,7 @@ class BetaMC:#(Beta):
         
         self.zmax = None # compute below based on dmax!
         
-        self.zDist = lambda x: (1+x)**(self.lamb-1)*dcom70fast(x)**2/H70fast(x)
+        self.zDist = lambda x: (1+x)**(self.lamb-1)*clight*dcom70fast(x)**2/H70fast(x)/self.VcomPivot
         
         # number of evaluations that will be interpolated
         self.nEvals = 2000
@@ -112,7 +112,8 @@ class BetaMC:#(Beta):
         else:
             raise ValueError
         
-        print('Redshift dependence has parameter lambda=%s' %self.lamb)    
+        if verbose:
+            print('Redshift dependence has parameter lambda=%s' %self.lamb)
         
         # Construct objects (interpolation tables) for waveform model SNRs
         if fullSNR:
@@ -135,11 +136,12 @@ class BetaMC:#(Beta):
         else:
             raise ValueError('ifo_SNR must havone of the values: H , L , HL')
         
-        if self._properAnisotropy:
-            print('properAnisotropy is True: taking into account effects of the orientation of the detector')
-        else:
-            print('properAnisotropy is False: neglecting effects of the orientation of the detector')
-        
+        if verbose:
+            if self._properAnisotropy:
+                print('properAnisotropy is True: taking into account effects of the orientation of the detector')
+            else:
+                print('properAnisotropy is False: neglecting effects of the orientation of the detector')
+            
         from scipy.optimize import minimize_scalar
 
         # m is the detector frame mass of each of the BH
@@ -157,18 +159,26 @@ class BetaMC:#(Beta):
             
             # assume perfect orientation for both but take min: this means that we look at sources perfectly oriented for the weaker detector, which is the limiting criterion in our detection decision elsewhere
             # (minimize -min is indeed maximize min, -> maximize the weaker one)
-            
-            return -self._SNR(m/(1+zPiv), m/(1+zPiv), zPiv, H0=70, Xi0=1, QsqL=1, QsqH=1)*dL70fast(zPiv) #Independent of zPiv, H0, Xi0
-            
-        res = minimize_scalar(goal, bounds = (self.mMin, self.mMax), method='bounded')
+            val = -self._SNR(m/(1+zPiv), m/(1+zPiv), zPiv, H0=70, Xi0=1, QsqL=1, QsqH=1)*dL70fast(zPiv) #Independent of zPiv, H0, Xi0
+            # guide optimizer to low masses since _SNR returns a flat 0 for too heavy BHs and it might run to the upper mass bound then
+            if np.fabs(val) < 0.001:
+                val = m
+            return val
+        
+        zmax = 10 # only temporary, for setting a possible range of detector frame masses.
+        res = minimize_scalar(goal, bounds = (self.mMin, self.mMax*(1+zmax)), method='bounded')
         
         if res.success == False:
             print(res.message, res.x)
             raise
         else:
+        
+            if np.fabs(res.x-self.mMin) < 0.01 or np.fabs(res.x-self.mMax*(1+zmax)) < 0.01:
+                print("Warning: optimal detector frame mass hit boundaries of optimization. Adjust these boundaries!")
+                
             self.optimalDetectorFrameMass = res.x
         
-            if self.verbose == True:
+            if self.verbose:
                 print("Optimal detector frame mass for {} is {:.2f}".format(observingRun, res.x))
             # what was called "rest" in the comment above
             self.SNRmaxNumerator = -res.fun
@@ -325,7 +335,6 @@ class BetaMC:#(Beta):
                 # compute total galaxy catalog prior mass
                 inhomMass = np.sum(wGalInside)
                
-                #return
                 # after division by nbar (for h7=1), the sum of weights - the integral over the catalog term for all completion schemes - becomes an effective comoving volume (which we have normalized by the pivot volume, which is an overall normalization of beta and which we ignore in the following explanations). In the additive case, this is equal to the volume integral of Pcompl (unless the catalog is overcomplete and Pcompl is cut to 1)
                 
                 # therefore in the additive case the integral of the hom term 1-Pcompl, that we call homMass, is, Vcom - sum of weights,
@@ -445,7 +454,7 @@ class BetaMC:#(Beta):
                 else:
                     zfine = np.linspace(0,zmax,10000)
                     VcomMax = 4*np.pi*(zfine[1]-zfine[0])*np.trapz(self.zDist(zfine))
-                
+                                           
                 costhetasample, phisample, zsample = self.sample_hom_position(self.nSamples, zmax)
                 SNR = self.sample_event(costhetasample, phisample, zsample, H0, Xi0 )
                 
@@ -473,8 +482,7 @@ class BetaMC:#(Beta):
         from scipy.signal import savgol_filter
         resfiltered = savgol_filter(res, self.nWindow, 3, deriv=0)
         
-        
-        
+
         if self.fit_hom:
             
             # estimate sigma from difference of smoothed signal and MC evals:
@@ -520,7 +528,7 @@ class BetaMC:#(Beta):
     
         interpolator = interpolate.interp1d(grid, resfiltered, kind='cubic')
         
-        #return grid, res, resCat, resHom, sigma, resfiltered, reshomfit, interpolator(x)
+        #return grid, res, resCat, resHom, resfiltered, interpolator(x)
         return interpolator(x)
 
 
