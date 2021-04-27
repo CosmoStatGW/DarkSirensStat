@@ -29,9 +29,11 @@ class BetaMC:#(Beta):
                  fluctuatingSNR = True, 
                  properAnisotropy = True, 
                  verbose=False, 
-                 lamb=1,
-                 alpha1=1.6,
-                 fullSNR=True,
+                 lamb=1.,
+                 alpha1=1.05,
+                 mMax=86,
+                 b = 0.39,
+                 fullSNR=False,
                  approximant='IMRPhenomXAS',
                  ifo_SNR='HL' , # 'H': USES ONLY H1  # 'L': USES ONLY L1  # # 'HL': USES min H1, L1 
                  fit_hom=True,
@@ -82,13 +84,13 @@ class BetaMC:#(Beta):
         self.fit_hom=fit_hom
         
         if massDist == 'O3':
-            self.gamma1 = alpha1 #1.58
-            self.gamma2 = 5.59
-            self.betaq  = 1.40
-            self.mMin   = 3.96
-            self.mMax   = 87.14
-            self.b      = 0.43
-            self.deltam = 4.83
+            self.gamma1 = alpha1 # default 1.6 1.05
+            self.gamma2 = 5.17 #5.59 
+            self.betaq  = 0.28 #1.40 
+            self.mMin   = 2.22 #3.96
+            self.mMax   = mMax # 87 86
+            self.b      = b
+            self.deltam = 0.39 #4.83
             self.mBreak = self.mMin + self.b*(self.mMax - self.mMin)
             print('Parameters: gamma1=%s, gamma2=%s, betaq=%s, mMin=%s, mMax=%s, b=%s, deltam=%s, mBreak=%s' %(self.gamma1, self.gamma2, self.betaq, self.mMin, self.mMax, self.b, self.deltam, self.mBreak))
         elif massDist == 'O2':
@@ -125,7 +127,7 @@ class BetaMC:#(Beta):
                     myoSNR = oSNR(  from_file=True, psd_path=filepath , verbose=True, approximant=approximant)
                     myoSNR.make_interpolator()
             
-                self.SNRtables[detectorname] =  myoSNR
+                    self.SNRtables[detectorname] =  myoSNR
              
         if self.ifo_SNR=='HL':
                 print('Detection model: must have SNR>%s  in the lowest SNR between Hanford and Livingston'%self.SNRthresh)

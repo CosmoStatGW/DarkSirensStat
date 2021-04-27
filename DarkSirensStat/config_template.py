@@ -45,6 +45,8 @@ massDist='O3'
 ## Specify the exponent of the redshift distribution , p(z) = dV/dz* (1+z)^(lamb-1)
 lamb=1
 alpha1=1.6
+mMax=86
+b=0.4
 
 # How to select credible region in redshift, 'skymap' or 'header'
 zLimSelection='skymap'

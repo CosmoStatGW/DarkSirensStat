@@ -124,7 +124,8 @@ def completeness_case(completeness, band, Lcut, path=None):
     return compl
 
 
-def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals, massDist, lamb, alpha1, fullSNR):
+def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals, massDist, 
+              lamb, alpha1, mMax,b, fullSNR):
     # 'fit', 'MC', 'hom', 'cat'
     
     if which_beta in ('fit', 'MC', 'cat'):
@@ -142,7 +143,7 @@ def beta_case(which_beta, allGW, lims, H0grid, Xi0grid, eventSelector, gals, mas
             else:
                 observingRunBeta=observingRun 
 
-            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose , massDist=massDist, lamb=lamb, alpha1=alpha1, fullSNR=fullSNR)
+            Beta = BetaMC(lims, eventSelector, gals=galsBeta, nSamples=nSamplesBetaMC, observingRun = observingRunBeta, SNRthresh = SNRthresh, properAnisotropy=anisotropy, verbose=verbose , massDist=massDist, lamb=lamb, alpha1=alpha1,  mMax=mMax, b=b, fullSNR=fullSNR)
         elif which_beta=='cat':
             Beta=BetaCat(gals, galRedshiftErrors,  zR, eventSelector )
         beta = Beta.get_beta(H0grid, Xi0grid)
@@ -363,7 +364,7 @@ def main():
     ######
     if do_inference:
         print('\n-----  COMPUTING BETAS ....')
-        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, evSelector, gals, massDist, lamb, alpha1, fullSNR) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
+        betas = beta_case(which_beta, myGWgal.selectedGWevents, lims, H0grid, Xi0grid, evSelector, gals, massDist, lamb, alpha1, mMax, b, fullSNR) #which_beta, allGW, lims, H0grid, Xi0grid, EventSelector, gals
         for event in myGWgal.selectedGWevents:
             betaPath =os.path.join(out_path, event+'_beta'+goalParam+'.txt')
             np.savetxt(betaPath, betas[event])
