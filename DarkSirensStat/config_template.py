@@ -44,9 +44,19 @@ massDist='O3'
 
 ## Specify the exponent of the redshift distribution , p(z) = dV/dz* (1+z)^(lamb-1)
 lamb=1
-alpha1=1.6
-mMax=86
-b=0.4
+
+## Specify parameters of the broken power law model
+gamma1=1.05
+gamma2=5.17
+betaq=0.28
+mMin=2.22
+mMax=86.16
+deltam=0.39
+
+# Only one between mBreak and b should be given
+b=None
+mBreak=36.7
+
 
 # How to select credible region in redshift, 'skymap' or 'header'
 zLimSelection='skymap'

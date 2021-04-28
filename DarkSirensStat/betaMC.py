@@ -30,9 +30,15 @@ class BetaMC:#(Beta):
                  properAnisotropy = True, 
                  verbose=False, 
                  lamb=1.,
-                 alpha1=1.05,
-                 mMax=86,
-                 b = 0.39,
+                 gamma1=1.05,
+                 gamma2=5.17, 
+                 betaq=0.28,
+                 mMin=2.22,
+                 mMax=86.16,
+                 deltam=0.39,
+                 b = None, #0.41
+                 mBreak=36.7,
+                 #mass_params = {'alpha1': 1.05, 'mMax': 86.16, 'mBreak':36.7},
                  fullSNR=False,
                  approximant='IMRPhenomXAS',
                  ifo_SNR='HL' , # 'H': USES ONLY H1  # 'L': USES ONLY L1  # # 'HL': USES min H1, L1 
@@ -84,14 +90,23 @@ class BetaMC:#(Beta):
         self.fit_hom=fit_hom
         
         if massDist == 'O3':
-            self.gamma1 = alpha1 # default 1.6 1.05
-            self.gamma2 = 5.17 #5.59 
-            self.betaq  = 0.28 #1.40 
-            self.mMin   = 2.22 #3.96
+            self.gamma1 = gamma1 # default 1.6 1.05
+            self.gamma2 = gamma2 #5.59 
+            self.betaq  = betaq #1.40 
+            self.mMin   = mMin # 3.96
             self.mMax   = mMax # 87 86
-            self.b      = b
-            self.deltam = 0.39 #4.83
-            self.mBreak = self.mMin + self.b*(self.mMax - self.mMin)
+            
+            self.deltam = deltam #4.83
+            if b is not None:
+                self.b  = b
+                self.mBreak = self.mMin + self.b*(self.mMax - self.mMin)
+                if mBreak is not None:
+                    if  mBreak != self.mBreak:
+                        raise ValueError('you specified both mbreak and b, but their value is incompatible.  b=%s, mBreak=%s' %(b, mBreak))
+            elif mBreak is not None:
+                 self.mBreak = mBreak
+                 self.b = None
+                
             print('Parameters: gamma1=%s, gamma2=%s, betaq=%s, mMin=%s, mMax=%s, b=%s, deltam=%s, mBreak=%s' %(self.gamma1, self.gamma2, self.betaq, self.mMin, self.mMax, self.b, self.deltam, self.mBreak))
         elif massDist == 'O2':
             self.gamma = 1.6
