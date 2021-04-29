@@ -37,7 +37,7 @@ class BetaMC:#(Beta):
                  mMax=86.16,
                  deltam=0.39,
                  b = None, #0.41
-                 mBreak=36.7,
+                 mBreak=36.76,
                  #mass_params = {'alpha1': 1.05, 'mMax': 86.16, 'mBreak':36.7},
                  fullSNR=False,
                  approximant='IMRPhenomXAS',
