@@ -42,7 +42,7 @@ class BetaMC:#(Beta):
                  fullSNR=False,
                  approximant='IMRPhenomXAS',
                  ifo_SNR='HL' , # 'H': USES ONLY H1  # 'L': USES ONLY L1  # # 'HL': USES min H1, L1 
-                 fit_hom=True,
+                 fit_hom=False,
                  **kwargs):
     
         
@@ -396,7 +396,7 @@ class BetaMC:#(Beta):
 
                 # want the integral over gaussian at position SNR with sigma=1, from 8 to infinity
                 # = 1 - cdf(8, snr) = 1 - 1/2 [1 + erf((8-snr)/sqrt(2))] = 1/2 [1 + erf((snr-8)/sqrt(2))] = cdf(snr, 8)
-                contrib = 0.5*(1+erf((SNR-8)/np.sqrt(2)/self._sigmaSNR))
+                contrib = 0.5*(1+erf((SNR-self.SNRthresh)/np.sqrt(2)/self._sigmaSNR))
                 
                 mask = contrib > 0.001
                 contrib = contrib[mask]
@@ -444,7 +444,7 @@ class BetaMC:#(Beta):
                 #res[i] += (np.sum(wGalInside)/nSamplesCat)*np.sum(mask)
                 #resCat[i] = (np.sum(wGalInside)/nSamplesCat)*np.sum(mask)
                               
-                contrib = 0.5*(1+erf((SNR-8)/np.sqrt(2)/self._sigmaSNR))
+                contrib = 0.5*(1+erf((SNR-self.SNRthresh)/np.sqrt(2)/self._sigmaSNR))
                 
                 #not necessary anymore, included in weights.
                 #contrib[ ~ self.selector.is_good(thetaGalInside[galsample], phisample, zsample)] = 0
@@ -475,7 +475,7 @@ class BetaMC:#(Beta):
                 costhetasample, phisample, zsample = self.sample_hom_position(self.nSamples, zmax)
                 SNR = self.sample_event(costhetasample, phisample, zsample, H0, Xi0 )
                 
-                contrib = 0.5*(1+erf((SNR-8)/np.sqrt(2)/self._sigmaSNR))
+                contrib = 0.5*(1+erf((SNR-self.SNRthresh)/np.sqrt(2)/self._sigmaSNR))
                 
                 
                 mask = contrib > 0.001
@@ -581,6 +581,7 @@ class BetaMC:#(Beta):
         #TEST costhetasample = 0.1 -0.2*np.random.uniform(size=self.nSamples)
         costhetasample = 1-2*np.random.uniform(size=nSamples)
         
+       
         return costhetasample, phisample, zsample
         
     # takes positions in equat. coords and adds the sampling of masses, inclination and computes SNR
@@ -652,8 +653,7 @@ class BetaMC:#(Beta):
             m2a = np.random.uniform(low=self.mMin, high=self.mMax, size=nSamples)
             m1 = np.where(m1a>m2a, m1a, m2a)
             m2 = np.where(m1a<=m2a, m1a, m2a)
-            
-            
+     
         # never seems to happen, but let's be sure (not that it would matter...)
         m2[m2>m1] = m1[m2>m1]
       
@@ -664,6 +664,8 @@ class BetaMC:#(Beta):
        
         cosinclsample = 1-2*np.random.uniform(size=nSamples)
        
+
+        
         # (9.136) note that the additional rotation of psi of u and v definitng the
         # polarization in plane perpendicular to propagagion
         # from matching detector polarization reference and source (aligned to major and minor axis)
@@ -685,7 +687,7 @@ class BetaMC:#(Beta):
         if 'H' in self.ifo_SNR:
             QsqH = Qsq(costhetaH, phiH, cosinclsample)
        
-        #return m1, m2, QsqL, QsqH
+
         return self._SNR(m1, m2, zsample, H0, Xi0, QsqL, QsqH)
          
     
@@ -786,7 +788,7 @@ class BetaMC:#(Beta):
         # this should normally be true for reasonable redshifts - the optimal detector frame mass is about 80, while mMin is about 4...
         if self.optimalDetectorFrameMass/(1+res) >= self.mMin:
             return res
-            
+ 
         # else, solve afresh with bounds
         from scipy.optimize import minimize_scalar
 
