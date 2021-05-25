@@ -325,9 +325,15 @@ class GLADE(GalCat):
         # ------ Apply cut in luminosity
         if band is not None:
             col_name=band+'_Lum'
-            L_th = Lcut*LBstar07
+            if band=='B':
+                Lstar=LBstar07
+            elif band=='K':
+                Lstar=LKstar07
+            
+            L_th = Lcut*Lstar
             if self.verbose:
                 print('Applying cut in luminosity in %s-band. Selecting galaxies with %s>%s x L_* = %s' %(band, col_name, Lcut, np.round(L_th,2)))
+                print('L_* in %s band is L_*=%s' %(band, np.round(Lstar,5)))
             or_dim = df.shape[0]
             df = df[df[col_name]>L_th]
             if self.verbose:
