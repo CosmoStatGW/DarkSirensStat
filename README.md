@@ -20,13 +20,17 @@ Developed by [Andreas Finke](<https://github.com/AndreasFinke>)  and [Michele Ma
 This package is released together with the paper [Cosmology with LIGO/Virgo dark sirens: Hubble parameter and modified gravitational wave propagation](https://arxiv.org/abs/). When making use of it, please cite the paper and the present git repository. Bibtex:
 
 ```
-@misc{finke2021cosmology,
-      title={Cosmology with LIGO/Virgo dark sirens: Hubble parameter and modified gravitational wave propagation}, 
-      author={Andreas Finke and Stefano Foffa and Francesco Iacovelli and Michele Maggiore and Michele Mancarella},
-      year={2021},
-      eprint={2101.12660},
-      archivePrefix={arXiv},
-      primaryClass={astro-ph.CO}
+@article{Finke:2021aom,
+    author = "Finke, Andreas and Foffa, Stefano and Iacovelli, Francesco and Maggiore, Michele and Mancarella, Michele",
+    title = "{Cosmology with LIGO/Virgo dark sirens: Hubble parameter and modified gravitational wave propagation}",
+    eprint = "2101.12660",
+    archivePrefix = "arXiv",
+    primaryClass = "astro-ph.CO",
+    doi = "10.1088/1475-7516/2021/08/026",
+    journal = "JCAP",
+    volume = "08",
+    pages = "026",
+    year = "2021"
 }
 ```
 
