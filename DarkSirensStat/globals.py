@@ -34,26 +34,8 @@ clight = 2.99792458* 10**5
 
 O2BNS = ('GW170817',)
 O3BNS = ('GW190425', )
-O3BHNS = ('GW190426_152155', 'GW190426' )
+O3BHNS = ('GW190426_152155', 'GW190426','GW200115_042309','GW200105_162426', 'GW191219_163120', 'GW200210_092254', 'GW200210_092255', 'GW190917_114630')
 
-
-
-##########################
-##########################
-# MASS DISTRIBUTIONS
-
-BNS_gauss_mu = 1.35
-BNS_gauss_sigma = 0.15
-
-BNS_flat_Mmin = 1
-BNS_flat_Mmax = 3
-
-BBH_flat_Mmin = 5 # In source frame
-BBH_flat_Mmax = 200
-
-
-pow_law_Mmin = 5
-pow_law_Mmax = 50
 
 
 ###########################
@@ -62,10 +44,10 @@ pow_law_Mmax = 50
 
 zRglob = 0.5
 
-nGlob = 1.91
-gammaGlob = 1.6
 
+#gammaGlob = 1.6
 
+# CMB dipole
 l_CMB, b_CMB = (263.99, 48.26)
 v_CMB = 369
 
@@ -78,8 +60,9 @@ H0GLADE=70
 Om0GLADE=0.27
 
 # Cosmologival parameters used for the analysis (RT minimal; table 2 of 2001.07619)
-H0GLOB=67.9 #69
-Om0GLOB=0.3
+nGlob = 2.7 #1.91
+H0GLOB= 67.88 #69
+Om0GLOB=0.311
 Xi0Glob =1.
 cosmoglob = FlatLambdaCDM(H0=H0GLOB, Om0=Om0GLOB)
 
@@ -102,6 +85,21 @@ alphaB07 =-1.07
 LKstar07 = 10.56
 phiKstar07 = 3.70 * 1e-3
 alphaK07 =-1.02
+
+###########################
+# RATE EVOLUTION MODELS (USED IN GWgal and betaMC)g
+###########################
+
+def psiRate_pow_law(x, **params):
+    return (1+x)**(params['lamb']-1)
+    
+def psiRate_MD(x, **params):
+    return np.exp((params['gammaRate']-1)*np.log1p(x)-np.log(1+((1+x)/(1+params['zP']))**(params['gammaRate']+params['kRate'])))
+
+
+psiRates = { 'simple_pow_law': psiRate_pow_law,
+            'MD': psiRate_MD
+            }
 
 
 ###########################
@@ -232,15 +230,30 @@ dLGridGLOB = cosmo70GLOB.luminosity_distance(zGridGLOB).value
 dcomGridGLOB = cosmo70GLOB.comoving_distance(zGridGLOB).value
 HGridGLOB = cosmo70GLOB.H(zGridGLOB).value
 from scipy import interpolate
-dcom70fast = interpolate.interp1d(zGridGLOB, dcomGridGLOB, kind='cubic', bounds_error=False, fill_value=(0, np.NaN), assume_sorted=True)
-dL70fast = interpolate.interp1d(zGridGLOB, dLGridGLOB, kind='cubic', bounds_error=False, fill_value=(0 ,np.NaN), assume_sorted=True)
 
-H70fast = interpolate.interp1d(zGridGLOB, HGridGLOB, kind='cubic', bounds_error=False, fill_value=(70 ,np.NaN), assume_sorted=True)
+
+
+try:                                
+    dcom70fast = interpolate.interp1d(zGridGLOB, dcomGridGLOB, kind='cubic', bounds_error=False, fill_value=(0, np.NaN), assume_sorted=True)
+    dL70fast = interpolate.interp1d(zGridGLOB, dLGridGLOB, kind='cubic', bounds_error=False, fill_value=(0 ,np.NaN), assume_sorted=True)
+    H70fast = interpolate.interp1d(zGridGLOB, HGridGLOB, kind='cubic', bounds_error=False, fill_value=(70 ,np.NaN), assume_sorted=True)
+
+except:
+    dcom70fast = interpolate.interp1d(zGridGLOB, dcomGridGLOB, kind='cubic', bounds_error=False, fill_value=(0, np.nan), assume_sorted=True)
+    
+    dL70fast = interpolate.interp1d(zGridGLOB, dLGridGLOB, kind='cubic', bounds_error=False, fill_value=(0 ,np.nan), assume_sorted=True)
+    H70fast = interpolate.interp1d(zGridGLOB, HGridGLOB, kind='cubic', bounds_error=False, fill_value=(70 ,np.nan), assume_sorted=True)
+
+
+
 
 
 def z_from_dLGW_fast(r, H0, Xi0, n):
     from scipy import interpolate
-    z2dL = interpolate.interp1d(dLGridGLOB/H0*70*Xi(zGridGLOB, Xi0, n=n), zGridGLOB, kind='cubic', bounds_error=False, fill_value=(0,np.NaN), assume_sorted=True)
+    try:
+        z2dL = interpolate.interp1d(dLGridGLOB/H0*70*Xi(zGridGLOB, Xi0, n=n), zGridGLOB, kind='cubic', bounds_error=False, fill_value=(0,np.NaN), assume_sorted=True)
+    except:
+        z2dL = interpolate.interp1d(dLGridGLOB/H0*70*Xi(zGridGLOB, Xi0, n=n), zGridGLOB, kind='cubic', bounds_error=False, fill_value=(0,np.nan), assume_sorted=True)
     return z2dL(r)
 
 

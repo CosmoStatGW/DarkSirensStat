@@ -18,13 +18,16 @@ from copy import deepcopy
 class GWgal(object):
     
     def __init__(self, GalCompleted, GWevents,
-                 eventSelector, lamb = 1,
+                 eventSelector, #lamb = 1,
                  MC = True, nHomSamples=1000, 
                  galRedshiftErrors = True, 
                  zR=zRglob,
-                 verbose=False):
+                 verbose=False,
+                 rateModel= 'simple_pow_law',
+                 rateParams = {'lamb':1.},
+                 ):
                  
-        self.lamb = lamb
+        #self.lamb = lamb
         
         self.eventSelector=eventSelector
         self.gals = GalCompleted
@@ -46,6 +49,11 @@ class GWgal(object):
         for eventName in GWevents.keys():
             self.select_gals_event(eventName)
             self.nGals[eventName] = self.gals.count_selection()
+        
+        self._rateModel = rateModel
+        self._rateParams = rateParams 
+        
+        
         # Note on the generalization. Eventually we should have a dictionary
         # {'GLADE': glade catalogue, 'DES': ....}
         # and a dictionary {'GW event': 'name of the catalogue to use'}
@@ -85,7 +93,13 @@ class GWgal(object):
          'Vol_mpc3':[self.GWevents[eventName].volCom for eventName in self.GWevents.keys()],
          'nGal':[self.nGals[ eventName] if eventName in self.selectedGWevents.keys() else '--' for eventName in self.GWevents.keys()],
          'Pc_Av': [self.PcAv[eventName] for eventName in self.GWevents.keys()],
-         'Pc_event': [self.PEv[eventName] for eventName in self.GWevents.keys()]})
+         'Pc_event': [self.PEv[eventName] for eventName in self.GWevents.keys()],
+         'SNR': [np.round(self.GWevents[eventName].metadata.network_matched_filter_snr.values, 1) for eventName in self.GWevents.keys()],
+         'FAR': [self.GWevents[eventName].metadata.far.values for eventName in self.GWevents.keys()]
+         
+         
+         
+         })
         
         
         
@@ -172,7 +186,7 @@ class GWgal(object):
             
             pixels, weights = self.gals.get_inhom_contained(zGrid, self.selectedGWevents[eventName].nside )
             
-            weights *= (1+zGrid[np.newaxis, :])**(self.lamb-1)
+            weights *= psiRates[self._rateModel](zGrid[np.newaxis, :], **self._rateParams) #(1+zGrid[np.newaxis, :])**(self.lamb-1)
             
             my_skymap = self.selectedGWevents[eventName].likelihood_px(rGrid[np.newaxis, :], pixels[:, np.newaxis])
          
@@ -184,7 +198,7 @@ class GWgal(object):
             
             rs = dLGW(zs, H0=H0, Xi0=Xi0, n=n)
             
-            weights *= (1+zs)**(self.lamb-1)
+            weights *= psiRates[self._rateModel](zs, **self._rateParams) #(1+zs)**(self.lamb-1)
             
             my_skymap = self.selectedGWevents[eventName].likelihood_px(rs, pixels)
             
@@ -210,7 +224,8 @@ class GWgal(object):
         pxs = self.selectedGWevents[eventName].get_credible_region_pixels()
         th, ph = self.selectedGWevents[eventName].find_theta_phi(pxs)
         
-        integrand_grid = np.array([ j(z)*(1+z)**(self.lamb-1)*(self.gals.eval_hom(th, ph, z, MC=False))*self.selectedGWevents[eventName].likelihood_px( dLGW(z, H0, Xi0, n), pxs) for z in zGrid])
+        #integrand_grid = np.array([ j(z)*(1+z)**(self.lamb-1)*(self.gals.eval_hom(th, ph, z, MC=False))*self.selectedGWevents[eventName].likelihood_px( dLGW(z, H0, Xi0, n), pxs) for z in zGrid])
+        integrand_grid = np.array([ j(z)*psiRates[self._rateModel](z, **self._rateParams)*(self.gals.eval_hom(th, ph, z, MC=False))*self.selectedGWevents[eventName].likelihood_px( dLGW(z, H0, Xi0, n), pxs) for z in zGrid])
         
         integral = np.trapz(integrand_grid.sum(axis=1), zGrid)
         den = (70/clight)**3
@@ -237,7 +252,7 @@ class GWgal(object):
          
         # MC integration
         
-        LL = (H0/70)**3*np.mean(jac*(1+z)**(self.lamb-1)*self.gals.eval_hom(theta, phi, z))
+        LL = (H0/70)**3*np.mean(jac*psiRates[self._rateModel](z, **self._rateParams)*self.gals.eval_hom(theta, phi, z))
         
         return LL
     

@@ -28,6 +28,7 @@ class Skymap3D(object):
     
 
     def __init__(self, fname, priorlimits, level=0.99, 
+                 metadata=None,
                  nest=False, verbose=False, std_number=None,
                  zLimSelection='skymap'):
         
@@ -57,7 +58,7 @@ class Skymap3D(object):
         #self.sigma   = smap[2]
         #self.posteriorNorm   = smap[3]
         self.all_pixels = np.arange(self.npix)
-        self.metadata = self._get_metadata()
+        self.metadata = metadata #_get_metadata()
       
         # the likelihood *does* still contain the posteriorNorm things, or in other words, the posterior p's are not the likelihood "pixel probabilities"
         # we normalize the likelihood to get a pdf for the measure (dOmega d dLGW)
@@ -148,7 +149,7 @@ class Skymap3D(object):
         
         self.dL, self.dLmin, self.dLmax, self.sigmadL = self.find_r_loc(std_number=self.std_number)
         
-        self.compute_z_lims()
+        zmin, zmax=  self.compute_z_lims()
         
         self.areaDeg, self.areaRad, self.volCom = self._get_credible_region_fiducial_info()
         
@@ -158,10 +159,10 @@ class Skymap3D(object):
             # Print size of the credible region
             vol="{:.2e}".format(self.volCom)
             print('%s credible region for %s: area=%s deg^2 (%s rad^2), com. volume= %s Mpc^3 (with H0=%s)' %(self.level, self.event_name, np.round(self.areaDeg), np.round(self.areaRad, 3), vol, H0GLOB))
-        
+            print('Redshift range encompassing all the prior range: (z_min, z_max)=(%s, %s)' %(zmin, zmax))
         
     def _get_metadata(self):
-        O2metaPath = os.path.join(metaPath, 'GWTC-1-confident.csv')     
+        metaPath = os.path.join(metaPath, 'GWTC-1-confident.csv')     
         try:
             df = pd.read_csv(O2metaPath)
             res = df[df['commonName']==self.event_name]
@@ -548,7 +549,11 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
                    eventType='BBH',
                    subset=False, 
                    subset_names=['GW150914',],
-                   verbose=False, **kwargs
+                   verbose=False, 
+                   SNR_th=None,
+                   FAR_th=None,
+                   #metadata=None,
+                   **kwargs
                ):
     
     if subset_names is not None:
@@ -566,10 +571,13 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
                 sm_files = [f for f in sm_files if BNSname in f]
         elif eventType=='BHNS':
             raise ValueError('No BH-NS included in O2.')
-        ev_names = [fname.split('_')[0]  for fname in sm_files]
+        ev_names_base = [fname.split('_')[0]  for fname in sm_files]
             
-    elif 'O3' in loc.split('/'):
-        run='O3'
+    elif 'O3' in loc.split('/') or 'O3b' in loc.split('/'):
+        if 'O3' in loc.split('/'):        
+            run='O3'
+        elif 'O3b' in loc.split('/'):
+            run='O3b'
         sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and (wf_model_name+'.fits' in f.split('_')) )]
         if eventType=='BBH':
             for ename in O3BNS+O3BHNS:
@@ -580,21 +588,22 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
         elif eventType=='BHNS':
             for BHNSname in O3BNS:
                 sm_files = [f for f in sm_files if BHNSname in f]
-        ev_names = [] #Initialize array
+        ev_names_base = [] #Initialize array
         #Event names could display the time separated by a "_", for this reason the next two if are necessary
         #Maybe this is not the best way, but it works and is fast
         for fname in sm_files:
             if len(fname.split('_')) == 2: 
-                ev_names.append(fname.split('_')[0])
+                ev_names_base.append(fname.split('_')[0])
             elif len(fname.split('_'))>2:# len(fname.split('_')) == 3:
-                ev_names.append(fname.split('_')[0]+'_'+fname.split('_')[1])
+                ev_names_base.append(fname.split('_')[0]+'_'+fname.split('_')[1])
         #ev_names = [e+'_'+wf_model_name for e in ev_names]
-    elif 'O3b' in loc.split('/'):
-        run='O3b'
-        sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and ('LALInference.fits' in f.split('_')) )]
-        if eventType=='BNS' or eventType=='BHNS':
-            raise ValueError('No BNS or BHNS included in O3b')
-        ev_names = [fname.split('_')[0]  for fname in sm_files]
+    #elif 'O3b' in loc.split('/'):
+        # This was for 'unofficial' data. now GWTC-3 supported
+    #    run='O3b'
+    #    sm_files = [f for f in listdir(join(dirName,loc)) if ((isfile(join(dirName, loc, f))) and (f!='.DS_Store') and ('LALInference.fits' in f.split('_')) )]
+    #    if eventType=='BNS' or eventType=='BHNS':
+    #        raise ValueError('No BNS or BHNS included in O3b')
+    #    ev_names = [fname.split('_')[0]  for fname in sm_files]
         
             
     
@@ -604,31 +613,66 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
     if verbose:
         print('GW observing run: %s' %run)
         print('Type of events used: %s' %eventType)
-        print('Found %s skymaps: %s' %(len(sm_files), str(ev_names)))
+        print('Found %s skymaps: %s' %(len(sm_files), str(ev_names_base)))
     
     if sum([fname.endswith('.gz') for fname in sm_files])==len(sm_files):
         compressed=True
     else:
         compressed=False
         
-    if subset:
-        ev_names = [e for e in ev_names if e in subset_names]
+    
+    
+    
+    if SNR_th is not None:
+        
+        # get metadata
         if run=='O2':
+            metaPathFile = os.path.join(metaPath, 'GWTC-1-confident.csv')
+        elif run=='O3':
+            metaPathFile = os.path.join(metaPath, 'GWTC-2-confident.csv')
+        elif run=='O3b':
+            metaPathFile = os.path.join(metaPath, 'GWTC-3-confident.csv')
+        
+        metadata = pd.read_csv(metaPathFile)
+        
+        # Impose cut on SNR
+        print('Using only events with SNR>%s (round to 1 decimal digit)' %SNR_th)
+        ev_names_0 = [x for x in ev_names_base if np.round(metadata[metadata.commonName==x].network_matched_filter_snr.values, 1)>=SNR_th  ]
+        list_excluded_0 = [(x, np.round(metadata[metadata.commonName==x].network_matched_filter_snr.values), 1)[0] for x in ev_names_base if np.round(metadata[metadata.commonName==x].network_matched_filter_snr.values, 1)<SNR_th  ]
+        print('Excluded the following events with SNR<%s: ' %SNR_th)
+        print(list_excluded_0)
+        print('%s events remaining.' %len(ev_names_0))
+    if FAR_th is not None:
+        # Impose cut on FAR
+        print('Using only events with FAR<%s' %FAR_th)
+        ev_names = [x for x in ev_names_0 if metadata[metadata.commonName==x].far.values<=FAR_th  ]
+        list_excluded_1 = [(x, metadata[metadata.commonName==x].far.values) for x in ev_names_0 if metadata[metadata.commonName==x].far.values>FAR_th  ]
+        print('Excluded the following events with FAR>%s: ' %FAR_th)
+        print(str(list_excluded_1))
+        print('%s events remaining.' %len(ev_names))
 
+        
+        
+    if subset:
+        # Use only the specified subset if this is passed
+        print('Selecting subset of events as given in input: %s' %str(subset_names))
+        ev_names = [e for e in ev_names if e in subset_names]
+        
+    if run=='O2':
             if compressed:
                 sm_files = [e+'_skymap.fits.gz' for e in ev_names]
             else:
                 sm_files = [e+'_skymap.fits' for e in ev_names]
-        elif run=='O3':
+    elif run=='O3' or run=='O3b':
             if compressed:
                 sm_files = [e+'_'+wf_model_name+'.fits.gz' for e in ev_names]
             else:
                 sm_files = [e+'_'+wf_model_name+'.fits' for e in ev_names]
-        elif run=='O3b':
-            if compressed:
-                sm_files = [e+'_'+'LALInference'+'.fits.gz' for e in ev_names]
-            else:
-                sm_files = [e+'_'+'LALInference'+'.fits' for e in ev_names]
+        #elif run=='O3b':
+        #    if compressed:
+        #        sm_files = [e+'_'+'LALInference'+'.fits.gz' for e in ev_names]
+        #    else:
+        #        sm_files = [e+'_'+'LALInference'+'.fits' for e in ev_names]
             
     
     
@@ -636,7 +680,12 @@ def get_all_events(priorlimits, loc='data/GW/O2/',
         #print('GW events:')
         #print(ev_names)
         print('Reading skymaps: %s...' %str(ev_names))
-    all_events = {get_ename(fname, verbose=False): Skymap3D(os.path.join(dirName,loc,fname), priorlimits=priorlimits, nest=False, verbose=verbose, **kwargs) for fname in sm_files}
+    all_events = {get_ename(fname, verbose=False): Skymap3D(os.path.join(dirName,loc,fname), 
+                                                            priorlimits=priorlimits, 
+                                                            nest=False, 
+                                                            verbose=verbose, 
+                                                            metadata=metadata[metadata.commonName==get_ename(fname, verbose=False)],
+                                                            **kwargs) for fname in sm_files}
 
     return all_events
 

@@ -23,7 +23,7 @@ from keelin import bounded_keelin_3_discrete_probabilities
 
 class GalCat(ABC):
     
-    def __init__(self, foldername, completeness, useDirac, verbose, **kwargs):
+    def __init__(self, foldername, completeness, useDirac, verbose, compute_comp=True,  **kwargs):
         
         self._path = os.path.join(dirName, 'data', foldername)
           
@@ -38,7 +38,8 @@ class GalCat(ABC):
         
         self._completeness = deepcopy(completeness)
         self._completeness.verbose = verbose
-        self._completeness.compute(self.data, useDirac)
+        if compute_comp:
+            self._completeness.compute(self.data, useDirac)
         
     def get_data(self):
         return self.selectedData

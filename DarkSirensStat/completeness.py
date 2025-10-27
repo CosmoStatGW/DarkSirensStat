@@ -365,7 +365,7 @@ class MaskCompleteness(Completeness):
         if self.verbose:
             print('Making masks...')
         clusterer = cluster.AgglomerativeClustering(self._nMasks, linkage='ward')
-        self._mask = clusterer.fit(X).labels_.astype(np.int)
+        self._mask = clusterer.fit(X).labels_.astype(int)
         if self.verbose:
             print('Preparing further... ')
         
@@ -436,8 +436,12 @@ class MaskCompleteness(Completeness):
         if self.verbose:
             print('Batch number: ' + str(nBatches))
             
-        for i in np.arange(self._nMasks):   
-            coarseden.append(sum(parmap(lambda b : g(gr, maskId=i, batchId=b, nBatches=nBatches), range(nBatches))))
+        # for i in np.arange(self._nMasks):   
+        #     coarseden.append(sum(parmap(lambda b : g(gr, maskId=i, batchId=b, nBatches=nBatches), range(nBatches))))
+        coarseden = [
+            sum( g(gr, maskId=i, batchId=b, nBatches=nBatches) for b in range(nBatches))
+            for i in range(self._nMasks)
+        ]
        
         if self.verbose:
             print('Final computations for completeness...')

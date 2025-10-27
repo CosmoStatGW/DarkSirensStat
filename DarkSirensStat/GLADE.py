@@ -389,3 +389,341 @@ class GLADE(GalCat):
    
 def TotLum(x, MSun): 
     return 10**(-0.4* (x+25-MSun))
+
+
+
+
+## ------------------------------------------------------------------------------------
+
+
+class GLADEPlus(GalCat):
+    
+    def __init__(self, foldername, compl, useDirac, #finalData = None,
+                 subsurveysIncl = ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS', 'WISE'],
+                 subsurveysExcl = [],
+                 verbose=False,
+                 **kwargs):
+        
+        self._subsurveysIncl = subsurveysIncl
+        self._subsurveysExcl = subsurveysExcl
+        #self._finalData = finalData
+        
+        assert(set(subsurveysExcl).isdisjoint(subsurveysIncl))
+        assert(len(subsurveysIncl) > 0)
+
+        GalCat.__init__(self, foldername, compl, useDirac, verbose, **kwargs)
+        
+    
+    def load(self, df=None, save_final=False, band=None, band_weight=None,
+                   Lcut=0,
+                   zMax = 100,
+                   z_flag=None,
+                   drop_z_uncorr=False, #Not used
+                   get_cosmo_z =False,
+                   pos_z_cosmo=True,
+                   drop_no_dist=True, # drops points with no redshift z_cmb entry
+                   group_correct=True,
+                   which_z_correct = 'z_cosmo',
+                   CMB_correct=True, # Now not used, because GLADE+ has already z_cmb
+                   which_z='z_cosmo_CMB',
+                   galPosterior = True,
+                   err_vals = True, #'GLADE',
+                   drop_HyperLeda2=True,
+                 colnames = None,
+                   colnames_final = ['theta','phi','z','z_err', 'z_lower', 'z_lowerbound', 'z_upper', 'z_upperbound', 'w', 'completenessGoal']):
+        
+        if band_weight is not None:
+            assert band_weight==band
+       
+        loaded = False
+        computePosterior = False
+        posteriorglade = os.path.join(self._path, 'posteriorglade.csv')
+        if self.verbose:
+            print(posteriorglade)
+        if galPosterior:
+            from os.path import isfile
+            if isfile(posteriorglade):
+                if self.verbose:
+                    print("Directly loading final data ")
+                df = pd.read_csv(os.path.join(self._path, 'posteriorglade.csv'))
+                loaded=True
+            else:
+                computePosterior=True
+                loaded=False
+                
+            
+        if not loaded:
+        
+            
+            
+            groupname='Galaxy_Group_Catalogue.csv'
+            
+            filepath_groups = os.path.join(miscPath, groupname)
+
+            if df is None:
+                gname='GLADE+.txt'
+                filepath_GLADE = os.path.join(self._path, gname)
+
+            
+                # ------ LOAD CATALOGUE
+                if self.verbose:
+                    print('Loading GLADE from %s...' %filepath_GLADE)
+                df = pd.read_csv(filepath_GLADE, sep=" ", header=None, low_memory=False)
+
+            if colnames is None:
+                colnames = ['GLADE_n', 'PGC', 'GWGC_name', 'HYPERLEDA_name', 'TWOMASS_name', 'WISE_name', 'SDSS_name',
+            'Obj_type_flag', 'RA', 'dec', 'B', 'B_err', 'B_flag', 'B_Abs', 'J', 'J_err', 'H', 'H_err', 'K', 'K_err',
+            'W1', 'W1_err', 'W2', 'W2_err', 'W1_flag', 'BJ', 'BJ_err', 'z_helio', 'z_cmb', 'z_flag', 'v_err', 'z_err',
+            'dL', 'dL_err', 'dist_flag', 'Mst', 'Mst_err', 'Mst_flag' , 'BNS_MR', 'BNS_MR_err']
+            
+            
+                df.columns=colnames
+            
+            else:
+            
+                print('GLADE was given.')
+
+            
+            if df is None:
+                # ------  SELECT SUBSURVEYS
+                
+                
+                # if object is named in a survey (not NaN), it is present in a survey
+                for survey in ['GWGC', 'HYPERLEDA', 'TWOMASS', 'SDSS', 'WISE']:
+                    # new column named suvey that will be True or False
+                    # if object is in or not
+                    
+                    #copy the name column
+                    df.loc[:,survey] = df[survey + '_name']
+                    
+                    # NaN to False
+                    df[survey] = df[survey].fillna(False)
+                    # not False (i.e. a name) to True
+                    df.loc[df[survey] != False, survey] = True
+    
+              
+                # include only objects that are contained in at least one of the surveys listed in _subsurveysIncl (is non-empty list)
+                mask = df[self._subsurveysIncl[0]] == True
+                for incl in self._subsurveysIncl[1:]:
+                    mask = mask | (df[incl] == True)
+                df = df.loc[mask]
+                
+                # explicitely exclude objects if they are contained in some survey(s) in _subsurveysExcl
+                # (may be necessary if an object is in multiple surveys)
+                for excl in self._subsurveysExcl:
+                    df = df.loc[df[excl] == False]
+                
+                
+                # ------ Add theta, phi for healpix in radians
+                try:
+                    df.loc[:,"theta"] = np.pi/2 - (df.dec*np.pi/180)
+                    df.loc[:,"phi"]   = df.RA*np.pi/180
+                except:
+                    print('Theta, phi already present')
+                
+                
+                
+                or_dim = df.shape[0] # ORIGINAL LENGTH OF THE CATALOGUE
+                if self.verbose:
+                    print('N. of objects: %s' %or_dim)
+                
+               
+                    
+                
+                # ------ Select parts of the catalogue
+                    
+                if drop_no_dist:
+                    df=df[df.z_cmb.notna()==True]
+                    if self.verbose:
+                        print('Keeping only galaxies with known value of redshift...')
+                        print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+                
+                if drop_HyperLeda2:
+                    df=df.drop(df[(df['HYPERLEDA_name'].isna()) & (df['dist_flag']==2)].index)
+                    if self.verbose:
+                        print("Dropping galaxies with HyperLeda name=null and flag2=2...")
+                        print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.00%}".format(df.shape[0]/or_dim)+' of total' )
+                
+                
+                
+                # ------ Add z corrections
+                
+                
+                df.loc[:,'z_cosmo'] = df.z_helio    # z_helio is the cosmological redshif tin the heliocentric frame. 
+                                                    # Before converting to cmb, we apply group velocity corrections 
+                                                    # Use z_cmb if wanting to skip this step
+                        
+                if not CMB_correct and not group_correct and pos_z_cosmo:
+                    if self.verbose:
+                        print('Keeping only galaxies with positive cosmological redshift...')
+                    df = df[df.z_cosmo >= 0]
+                    if self.verbose:
+                        print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+                
+                
+                if group_correct:
+                    if self.verbose:
+                        print('Loading galaxy group catalogue from %s...' %filepath_groups)
+                    df_groups =  pd.read_csv(filepath_groups)
+                    self.group_correction(df, df_groups, which_z=which_z_correct)
+    
+    
+                if CMB_correct:
+    
+                    self.CMB_correction(df, which_z=which_z_correct)
+                    if pos_z_cosmo:
+                        if self.verbose:
+                            print('Keeping only galaxies with positive redshift in the colums %s...' %which_z)
+                        df = df[df[which_z ]>= 0]
+                        if self.verbose:
+                            print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+    
+                
+                if which_z!='z':
+                    if self.verbose:
+                        print('Renaming column %s to z. This will be used in the analysis.' %which_z)
+                    #df = df.drop(columns='z')
+                    df.rename(columns={which_z:'z'}, inplace=True)
+                # From now on, the relevant column for redshift, including all corrections, will be 'z'
+                
+                # ------ Potentially drop large z
+                
+                df = df[df.z < zMax]
+                
+                
+                # ------ Add z errors
+                
+                if err_vals: #is not None:
+                    
+                    df.loc[:, 'z_lowerbound'] = df.z - 3*df.z_err
+                    df.loc[df.z_lowerbound < 0, 'z_lowerbound'] = 0
+                    df.loc[:, 'z_lower'] = df.z - df.z_err
+                    df.loc[df.z_lower < 0.5*df.z, 'z_lower'] = 0.5*df.z
+                    df.loc[:, 'z_upper'] = df.z + df.z_err
+                    df.loc[:, 'z_upperbound'] = df.z + 3*df.z_err
+                
+                    # ------ Estimate galaxy posteriors with contant-in-comoving prior
+                    
+                    if computePosterior:
+                        
+                        self.include_vol_prior(df)
+    
+            # ------ End if not use precomputed table
+            #        Always be able to still chose the weighting and cut.
+            
+            if band=='B' or band_weight=='B':
+                add_B_lum=True
+                add_K_lum=False
+            elif band=='K' or band_weight=='K':
+                add_B_lum=False
+                add_K_lum=True
+            else:
+                add_B_lum=False
+                add_K_lum=False
+                
+                
+            # ------ Add B luminosity
+            
+            if add_B_lum:
+                if self.verbose:
+                    print('Computing total luminosity in B band...')
+                # add  a column for B-band luminosity
+                my_dist=cosmoGLADE.luminosity_distance(df.z.values).value
+                df.loc[:,"B_Abs_corr"]=df.B_Abs-5*np.log10(my_dist)+5*np.log10(df.dL.values)
+                BLum = df.B_Abs_corr.apply(lambda x: TotLum(x, MBSun))
+                df.loc[:,"B_Lum"] =BLum
+                df = df.drop(columns='B_Abs')
+                # df = df.drop(columns='B') don't assume it's here
+                #print('Done.')
+            
+            
+            # ------ Add K luminosity
+            
+            if add_K_lum:
+                if self.verbose:
+                    print('Computing total luminosity in K band...')
+                my_dist=cosmoGLADE.luminosity_distance(df.z.values).value
+                df.loc[:,"K_Abs"]=df.K-5*np.log10(my_dist)-25
+                KLum = df.K_Abs.apply(lambda x: TotLum(x, MKSun))
+                df.loc[:,"K_Lum"]=KLum
+                # df = df.drop(columns='K_Abs') don't assume it's here
+                #df = df.drop(columns='K')
+            
+            
+            # ------ Apply cut in luminosity
+            if band is not None:
+                col_name=band+'_Lum'
+                if band=='B':
+                    Lstar=LBstar07
+                elif band=='K':
+                    Lstar=LKstar07
+                
+                L_th = Lcut*Lstar
+                if self.verbose:
+                    print('Applying cut in luminosity in %s-band. Selecting galaxies with %s>%s x L_* = %s' %(band, col_name, Lcut, np.round(L_th,2)))
+                    print('L_* in %s band is L_*=%s' %(band, np.round(Lstar,5)))
+                or_dim = df.shape[0]
+                df = df[df[col_name]>L_th]
+                if self.verbose:
+                    print('Kept %s points'%df.shape[0]+ ' or ' +"{0:.0%}".format(df.shape[0]/or_dim)+' of total' )
+                if self.verbose:
+                    print('Using %s-band to compute completeness.')
+                band_vals = df.loc[:, col_name].values
+            else:
+                if self.verbose:
+                    print('No cut in luminosity applied ' )
+                if self.verbose:
+                    print('Using number counts to compute completeness.')
+                band_vals = np.ones(df.shape[0])
+            
+            
+            df.loc[:, 'completenessGoal'] = band_vals
+            
+            
+             
+            # ------ Add 'w' column for weights
+            if band_weight is not None:
+                w_name=band_weight+'_Lum'
+                w = df.loc[:, w_name].values
+                if self.verbose:
+                    print('Using %s for weighting' %col_name)
+            else:
+                w = np.ones(df.shape[0])
+                if self.verbose:
+                    print('Using weights =1 .')
+                
+            df.loc[:, 'w'] = w
+            
+            
+            # ------ Keep only some columns
+            
+            if colnames_final is not None:
+                if self.verbose:
+                    print('Keeping only columns: %s' %colnames_final)
+                df = df[colnames_final]
+           
+            # ------ Add pixel column. Note that not providing nest parameter to ang2pix defaults to nest=True, which has to be set in GW too!
+            df.loc[:,"pix"  + str(self._nside)]   = hp.ang2pix(self._nside, df.theta.to_numpy(), df.phi.to_numpy())
+        
+        # ------
+        if self.verbose:
+            print('GLADE+ loaded.')
+
+        if save_final:
+            try:
+                fout =  'GLADE+_%s-band-Lmin-%s.csv'%(band, Lcut)
+                df.to_csv( os.path.join(self._path, fout)) 
+                print('Saved to %s '%fout)
+            except:
+                print('Saving failed')
+        
+        
+        #self.data = self.data.append(df, ignore_index=True)
+        self.data = pd.concat([self.data, df], ignore_index=True)
+
+
+
+
+
+
+
